@@ -1,0 +1,3 @@
+[submodule "Import/tvision"]
+	path = Import/tvision
+	url = https://github.com/magiblot/tvision.git

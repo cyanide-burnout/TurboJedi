@@ -1,0 +1,76 @@
+#ifndef JOURNALTOOLS_H
+#define JOURNALTOOLS_H
+
+#include <stdint.h>
+
+#include <systemd/sd-journal.h>
+
+#include <map>
+#include <vector>
+#include <string>
+
+#define JOURNAL_FIELD_UNIT        0
+#define JOURNAL_FIELD_IDENTIFIER  1
+#define JOURNAL_FIELD_COMMAND     2
+#define JOURNAL_FIELD_TRANSPORT   3
+#define JOURNAL_FIELD_BOOT        4
+#define JOURNAL_FIELD_USER        5
+#define JOURNAL_FIELD_COUNT       6
+
+#define JOURNAL_VALUE_LENGTH      128
+
+#define JOURNAL_COLUMN_DATE        (1 << 0)
+#define JOURNAL_COLUMN_TIME        (1 << 1)
+#define JOURNAL_COLUMN_LEVEL       (1 << 2)
+#define JOURNAL_COLUMN_HOST        (1 << 3)
+#define JOURNAL_COLUMN_UNIT        (1 << 4)
+#define JOURNAL_COLUMN_IDENTIFIER  (1 << 5)
+#define JOURNAL_COLUMN_PID         (1 << 6)
+#define JOURNAL_COLUMN_UTC         (1 << 7)  // Options of the way columns look rather than columns
+#define JOURNAL_COLUMN_MILLISECOND (1 << 8)
+#define JOURNAL_COLUMN_WRAP        (1 << 9)
+#define JOURNAL_COLUMN_DEFAULT     (JOURNAL_COLUMN_DATE | JOURNAL_COLUMN_TIME | JOURNAL_COLUMN_LEVEL | JOURNAL_COLUMN_IDENTIFIER | JOURNAL_COLUMN_PID | JOURNAL_COLUMN_MILLISECOND)
+
+#define JOURNAL_TEXT_EXPRESSION    (1 << 0)  // Text is a regular expression
+#define JOURNAL_TEXT_EXCLUDE       (1 << 1)  // Entries that match are left out
+#define JOURNAL_TEXT_SENSITIVE     (1 << 2)  // Case matters
+
+// What a window asks the journal for, empty values and zero PID stand for any
+
+struct JournalFilter
+{
+  std::string values[JOURNAL_FIELD_COUNT];
+  std::vector<std::string> matches;  // Raw FIELD=VALUE from the command line
+  int pid;
+  uint16_t levels;                   // Bit N shows priority N
+  std::string text;                  // The only filter applied on this side, JOURNAL_TEXT_* tell how
+  uint16_t mode;
+  std::string since;                 // Times as given, relative ones count from each opening
+  std::string until;
+  uint16_t columns;                  // Shown in front of the message, not a filter but a new window takes it along too
+};
+
+extern const char* const JournalFieldNames[JOURNAL_FIELD_COUNT];
+
+int OpenJournal(sd_journal** journal, const std::string& directory);
+
+// Journal with the matches of a filter, everything but its text and times
+int OpenJournalQuery(sd_journal** journal, const std::string& directory, const JournalFilter& filter);
+
+// Every field of the entry at a cursor as FIELD=value lines, empty when the entry is gone
+std::vector<std::string> ReadJournalEntry(const std::string& directory, const std::string& cursor);
+bool GetJournalField(sd_journal* journal, const char* name, char* buffer, size_t size);
+
+// Labels with values to choose a source field from, JOURNAL_FIELD_COUNT stands for PID
+void ListJournalValues(const std::string& directory, int field, std::map<std::string, std::string>& values);
+
+// _UID value of a user name or number, empty when there is no such user
+std::string GetJournalUserIdentifier(const std::string& user);
+
+// FIELD=VALUE with a field name the journal takes: A-Z, 0-9 and _, not a digit first, up to 64 characters
+bool CheckJournalMatch(const std::string& match);
+
+// Microseconds of 2026-10-23 19:00[:00], 2026-10-23, 19:00[:00] (today), now, today, yesterday, tomorrow, -1h, +30m (s, m, h, d)
+bool ParseJournalTime(const std::string& text, uint64_t* stamp);
+
+#endif

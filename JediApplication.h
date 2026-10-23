@@ -1,0 +1,47 @@
+#ifndef JEDIAPPLICATION_H
+#define JEDIAPPLICATION_H
+
+#define Uses_TApplication
+#define Uses_TMenuBar
+#define Uses_TStatusLine
+#include <tvision/tv.h>
+
+#include <string>
+
+#include "JediClock.h"
+#include "JournalTools.h"
+
+class JediApplication : public TApplication
+{
+  public:
+
+    JediApplication(const std::string& directory, const JournalFilter& filter, int history, const std::string& layout);
+
+    void getEvent(TEvent& event) override;
+    void handleEvent(TEvent& event) override;
+    void idle() override;
+
+    bool save(const std::string& path);
+
+  private:
+
+    std::string directory;
+    JournalFilter filter;
+    int history;
+
+    JediClock* clock;
+    TView* focused;
+    short number;
+
+    void open();
+    bool load(const std::string& path, std::string& error);
+    void chooseOpen();
+    void chooseSave();
+    void showHelp();
+    void showAbout();
+
+    static TStatusLine* initStatusLine(TRect bounds);
+    static TMenuBar* initMenuBar(TRect bounds);
+};
+
+#endif

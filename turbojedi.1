@@ -1,0 +1,116 @@
+.TH TURBOJEDI 1 "October 2026" "TurboJedi" "User Commands"
+.SH NAME
+turbojedi \- Turbo Vision viewer of the systemd journal
+.SH SYNOPSIS
+.B turbojedi
+[\fIoptions\fR] [\fIFIELD\fB=\fIVALUE\fR ...]
+.SH DESCRIPTION
+.B turbojedi
+shows the systemd journal in windows and follows it.
+Every window is a journal client of its own: its filter goes to the journal as a query.
+Options set the filter of the first window, the dialogs of the Journal menu change the filter of the focused one.
+.PP
+\fIFIELD\fB=\fIVALUE\fR matches any journal field.
+Matches of the same field are joined by OR, of different fields by AND.
+.SH OPTIONS
+.TP
+\fB\-t\fR, \fB\-\-identifier\fR \fIID\fR
+Entries of SYSLOG_IDENTIFIER \fIID\fR. Repeatable.
+.TP
+\fB\-u\fR, \fB\-\-unit\fR \fIUNIT\fR
+Entries of systemd unit \fIUNIT\fR, \fB.service\fR is assumed without a suffix. Repeatable.
+.TP
+\fB\-U\fR, \fB\-\-user\fR \fIUSER\fR
+Entries of user \fIUSER\fR, by name or number. Repeatable.
+.TP
+\fB\-p\fR, \fB\-\-priority\fR \fILEVEL\fR
+Entries up to \fILEVEL\fR: emerg, alert, crit, err, warning, notice, info, debug or 0..7.
+.TP
+\fB\-k\fR, \fB\-\-kernel\fR
+Kernel messages only.
+.TP
+\fB\-S\fR, \fB\-\-since\fR \fITIME\fR
+Entries from \fITIME\fR on instead of the last ones.
+.TP
+\fB\-\-until\fR \fITIME\fR
+Entries up to \fITIME\fR, the window stops following then.
+.TP
+\fB\-b\fR, \fB\-\-boot\fR
+Entries of the current boot only.
+.TP
+\fB\-D\fR, \fB\-\-directory\fR \fIDIR\fR
+Journal files of \fIDIR\fR instead of the local journal.
+.TP
+\fB\-n\fR, \fB\-\-lines\fR \fIN\fR
+History to start with, 1000 by default.
+.TP
+\fB\-c\fR, \fB\-\-layout\fR \fIFILE\fR
+Windows of a layout saved by File, Save layout. Options are left for new windows then.
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Usage.
+.PP
+\fITIME\fR is \fB2026-10-23 19:00\fR[\fB:00\fR], \fB2026-10-23\fR, \fB19:00\fR (today), \fBnow\fR, \fBtoday\fR,
+\fByesterday\fR, \fBtomorrow\fR or relative \fB\-1h\fR, \fB+30m\fR (s, m, h, d).
+.SH KEYS
+.TP 18
+.B F1
+Keys.
+.TP
+.B F2
+New window with the filter of the focused one.
+.TP
+.B F3
+Levels.
+.TP
+.B F4
+Text filter: plain or regular expression, to show or to leave out the matching entries, case sensitive or not.
+.TP
+.B F7
+Source: unit, identifier, command, transport, boot, user, PID, with lists of the values in the journal.
+.TP
+.B Ctrl-T
+Time range.
+.TP
+.B Ctrl-K
+Columns: date, time, level, host, unit, identifier, PID; UTC, milliseconds, wrapped messages.
+.TP
+.B Ctrl-W
+Wrap long messages.
+.TP
+.B Ctrl-F
+Find and highlight. \fBCtrl-N\fR and \fBCtrl-P\fR go to the next and previous one.
+.TP
+.B Enter
+All fields of the entry, also by a double click.
+.TP
+.B Space
+Pause or follow the tail. Scrolling above the first line brings the older entries in.
+.TP
+.B Shift+arrows
+Select lines, also with the mouse. \fBEsc\fR drops the selection.
+.TP
+.B Ctrl-Ins
+Copy the selected lines or the screen to the clipboard.
+.TP
+.B Ctrl-E
+Export the selected lines or all of them to a file.
+.TP
+.B F8
+Clear the window.
+.TP
+.B Ctrl-O\fR, \fBCtrl-S
+Open, save the layout of all windows.
+.TP
+.B Alt-X
+Exit.
+.SH FILES
+.TP
+.I $XDG_CONFIG_HOME/turbojedi/last.jedi
+The layout kept on exit, \fI~/.config/turbojedi/last.jedi\fR without XDG_CONFIG_HOME.
+It is opened on the next start unless a layout or filter options are given.
+.SH NOTES
+Reading the whole journal needs root or the \fBsystemd-journal\fR group.
+.SH SEE ALSO
+.BR journalctl (1),
+.BR sd-journal (3)
