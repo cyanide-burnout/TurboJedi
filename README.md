@@ -1,6 +1,6 @@
 # TurboJedi
 
-A Turbo Vision viewer of the systemd journal. Every window is a journal client of its own:
+Turbo Journald Interface (J[e]DI) — a Turbo Vision viewer of the systemd journal. Every window is a journal client of its own:
 its filter goes to the journal as a query, so a window of one unit or of errors only reads just those
 entries, while other windows follow the whole system next to it.
 
