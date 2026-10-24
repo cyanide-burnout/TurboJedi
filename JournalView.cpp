@@ -39,6 +39,7 @@
 #define FIRST_LINE    (1ULL << 62)  // Number of the first line, history goes in front of it
 #define READ_STEP     5000          // Entries read at once, the rest comes with the next polls
 #define HISTORY_STEP  1000          // Entries brought in front when scrolling above the first line
+#define PLACE_DEPTH   16            // Jumps Back remembers
 
 #define HOST_WIDTH        24  // Limits of the columns as wide as their longest values
 #define UNIT_WIDTH        32
@@ -370,6 +371,14 @@ void JournalView::handleEvent(TEvent& event)
       return;
     }
 
+    if (event.keyDown.keyCode == kbAltBack)
+    {
+      // Terminals that keep Alt-Left for themselves
+      restore();
+      clearEvent(event);
+      return;
+    }
+
     if ((event.keyDown.keyCode == kbEsc) &&
         (anchor != NO_SELECTION))
     {
@@ -467,6 +476,7 @@ void JournalView::handleEvent(TEvent& event)
         case cmJournalFindPrevious:  find(-1);         break;
         case cmJournalGoTo:          chooseMoment();   break;
         case cmJournalSync:          synchronize();    break;
+        case cmJournalBack:          restore();        break;
         case cmJournalDetails:       details();        break;
         case cmJournalExport:        save();           break;
         case cmJournalPause:         pause();          break;
@@ -562,6 +572,9 @@ void JournalView::open()
   closed  = false;
   pending = false;
   older   = true;
+
+  // Lines of another query
+  places.clear();
 
   if ((filter.mode & JOURNAL_TEXT_EXPRESSION) &&
       (!CompileExpression(filter.text, filter.mode, expression)))
@@ -1233,6 +1246,7 @@ void JournalView::find(int direction)
 
     if (MatchText(lines[index].identifier + "[" + lines[index].pid + "]: " + lines[index].text, search, mode, finder))
     {
+      remember();
       select(index, false);
       return;
     }
@@ -1250,7 +1264,8 @@ void JournalView::seek(uint64_t realtime, bool nearest)
     return;
   }
 
-  // The tail must not take the screen while the history comes in
+  // Back goes here, before the history comes in and the tail lets the screen go
+  remember();
   follow = false;
 
   while ((lines.front().realtime > realtime) &&
@@ -1273,6 +1288,55 @@ void JournalView::seek(uint64_t realtime, bool nearest)
   }
 
   select(index, false);
+}
+
+void JournalView::remember()
+{
+  places.push_back({ first + ((total() > 0) ? lineOf(delta.y) : 0), anchor, cursor, follow });
+
+  if (places.size() > PLACE_DEPTH)
+  {
+    // The oldest jump is forgotten
+    places.erase(places.begin());
+  }
+}
+
+void JournalView::restore()
+{
+  JournalPlace place;
+
+  while (!places.empty())
+  {
+    place = places.back();
+    places.pop_back();
+
+    if ((place.top < first) ||
+        (place.top >= (first + lines.size())))
+    {
+      // Trimmed away meanwhile
+      continue;
+    }
+
+    if ((place.anchor != NO_SELECTION) &&
+        (std::min(place.anchor, place.cursor) < first))
+    {
+      // The selection has lost its beginning
+      place.anchor = NO_SELECTION;
+      place.cursor = NO_SELECTION;
+    }
+
+    anchor = place.anchor;
+    cursor = place.cursor;
+    follow = place.follow;
+    unseen = 0;
+    moving = true;
+    scrollTo(delta.x, rowOf(place.top - first));
+    moving = false;
+
+    // Following goes to the tail again
+    refresh();
+    return;
+  }
 }
 
 void JournalView::synchronize()

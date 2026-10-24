@@ -35,6 +35,14 @@ struct JournalLine
 
 class JournalView;
 
+struct JournalPlace
+{
+  uint64_t top;     // Absolute numbers of lines like the selection
+  uint64_t anchor;
+  uint64_t cursor;
+  bool follow;
+};
+
 struct JournalMoment
 {
   JournalView* source;  // Goes there already
@@ -103,6 +111,8 @@ class JournalView : public TScroller
     uint64_t anchor;
     uint64_t cursor;
 
+    std::vector<JournalPlace> places;  // Where the window has been before its jumps, the last one on top
+
     std::string status;
     std::string caption;
 
@@ -132,7 +142,9 @@ class JournalView : public TScroller
     void save();
     void details();
     void find(int direction);
-    void seek(uint64_t realtime, bool nearest);  // The first line at the moment or after it, or the closest one
+    void seek(uint64_t realtime, bool nearest);
+    void remember();
+    void restore();  // The first line at the moment or after it, or the closest one
     void synchronize();
     void chooseLevels();
     void chooseText();

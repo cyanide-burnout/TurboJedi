@@ -104,6 +104,7 @@ TMenuBar* JediApplication::initMenuBar(TRect bounds)
       newLine() +
       *new TMenuItem("~G~o to time...", cmJournalGoTo,         kbCtrlG,   hcNoContext, "Ctrl-G") +
       *new TMenuItem("S~y~nc windows",  cmJournalSync,         kbAltG,    hcNoContext, "Alt-G") +
+      *new TMenuItem("~B~ack",          cmJournalBack,         kbAltLeft, hcNoContext, "Alt-Left") +
       newLine() +
       *new TMenuItem("~P~ause",         cmJournalPause,        kbNoKey,   hcNoContext, "Space") +
       *new TMenuItem("C~o~py",          cmJournalCopy,         kbCtrlIns, hcNoContext, "Ctrl-Ins") +
@@ -362,6 +363,8 @@ void JediApplication::showHelp()
     "                  the search goes on into the older entries above the first line",
     "  Ctrl-G          Go to a time",
     "  Alt-G           Every other window goes to the time of the selected line",
+    "  Alt-Left        Back to where the window was before Ctrl-G, Alt-G or a find,",
+    "                  also Alt-Backspace",
     "  Ctrl-Ins        Copy the selected lines or the screen",
     "  Ctrl-E          Export the selected lines or all of them to a file",
     "  F8              Clear the window",

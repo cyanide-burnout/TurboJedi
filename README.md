@@ -79,6 +79,7 @@ Reading the whole journal needs root or the `systemd-journal` group, others see 
 | Ctrl-F, Ctrl-N, Ctrl-P | find, next, previous |
 | Ctrl-G | go to a time |
 | Alt-G | every other window goes to the time of the selected line |
+| Alt-Left, Alt-Backspace | back to where the window was before Ctrl-G, Alt-G or a find |
 | Enter, double click | details of the entry, Enter on a field there opens a window with it added to the filter |
 | Space | pause or follow |
 | Shift+arrows, mouse | select lines, Esc drops the selection |
