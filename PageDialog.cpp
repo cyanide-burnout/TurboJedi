@@ -1,3 +1,7 @@
+// TurboJedi, Turbo Journald Interface
+// https://github.com/cyanide-burnout/TurboJedi
+// Artem Prilutskiy, 2026
+
 #define Uses_TButton
 #define Uses_TEvent
 #define Uses_TKeys

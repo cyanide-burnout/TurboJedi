@@ -1,3 +1,7 @@
+// TurboJedi, Turbo Journald Interface
+// https://github.com/cyanide-burnout/TurboJedi
+// Artem Prilutskiy, 2026
+
 #include "JediApplication.h"
 #include "JournalLayout.h"
 #include "JournalTools.h"
@@ -77,6 +81,9 @@ static std::string GetLastLayout()
 
 static void PrintUsage(const char* name)
 {
+  printf("TurboJedi, Turbo Journald Interface\n");
+  printf("Artem Prilutskiy, 2026, https://github.com/cyanide-burnout/TurboJedi\n");
+  printf("\n");
   printf("Usage: %s [options] [FIELD=VALUE ...]\n", name);
   printf("Shows the system journal and follows it, every window asks the journal with a filter of its own\n");
   printf("\n");

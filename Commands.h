@@ -1,6 +1,10 @@
 #ifndef COMMANDS_H
 #define COMMANDS_H
 
+// TurboJedi, Turbo Journald Interface
+// https://github.com/cyanide-burnout/TurboJedi
+// Artem Prilutskiy, 2026
+
 enum
 {
   cmJournalNew = 1000,

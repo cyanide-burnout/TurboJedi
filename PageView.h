@@ -1,6 +1,10 @@
 #ifndef PAGEVIEW_H
 #define PAGEVIEW_H
 
+// TurboJedi, Turbo Journald Interface
+// https://github.com/cyanide-burnout/TurboJedi
+// Artem Prilutskiy, 2026
+
 #define Uses_TScroller
 #define Uses_TScrollBar
 #include <tvision/tv.h>

@@ -1,3 +1,7 @@
+// TurboJedi, Turbo Journald Interface
+// https://github.com/cyanide-burnout/TurboJedi
+// Artem Prilutskiy, 2026
+
 #define Uses_TLabel
 #define Uses_TButton
 #define Uses_TFilterValidator
@@ -86,11 +90,13 @@ void SourceDialog::pick(int field)
   const char* label;
   PickDialog* dialog;
   std::map<std::string, std::string> values;  // Label to value
+  std::set<std::string> running;              // Labels of processes alive now
   std::map<std::string, std::string>::iterator item;
 
-  ListJournalValues(directory, field, values);
+  ListJournalValues(directory, field, values, running);
 
-  dialog = new PickDialog(titles[field], values);
+  // Processes of a journal from elsewhere do not run here
+  dialog = new PickDialog(titles[field], values, (field == JOURNAL_FIELD_COUNT) ? &running : nullptr, directory.empty());
 
   if ((TProgram::deskTop->execView(dialog) == cmOK) &&
       ((label = dialog->selection()) != nullptr) &&

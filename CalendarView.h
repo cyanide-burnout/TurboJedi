@@ -1,6 +1,10 @@
 #ifndef CALENDARVIEW_H
 #define CALENDARVIEW_H
 
+// TurboJedi, Turbo Journald Interface
+// https://github.com/cyanide-burnout/TurboJedi
+// Artem Prilutskiy, 2026
+
 #define Uses_TView
 #include <tvision/tv.h>
 

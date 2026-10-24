@@ -1,6 +1,10 @@
 #ifndef PAGEDIALOG_H
 #define PAGEDIALOG_H
 
+// TurboJedi, Turbo Journald Interface
+// https://github.com/cyanide-burnout/TurboJedi
+// Artem Prilutskiy, 2026
+
 #define Uses_TDialog
 #include <tvision/tv.h>
 

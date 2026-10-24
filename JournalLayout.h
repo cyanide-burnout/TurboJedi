@@ -1,6 +1,10 @@
 #ifndef JOURNALLAYOUT_H
 #define JOURNALLAYOUT_H
 
+// TurboJedi, Turbo Journald Interface
+// https://github.com/cyanide-burnout/TurboJedi
+// Artem Prilutskiy, 2026
+
 #include <vector>
 #include <string>
 

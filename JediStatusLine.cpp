@@ -1,3 +1,7 @@
+// TurboJedi, Turbo Journald Interface
+// https://github.com/cyanide-burnout/TurboJedi
+// Artem Prilutskiy, 2026
+
 #define Uses_TProgram
 #define Uses_TDeskTop
 #include "JediStatusLine.h"

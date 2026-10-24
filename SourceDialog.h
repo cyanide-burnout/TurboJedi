@@ -1,6 +1,10 @@
 #ifndef SOURCEDIALOG_H
 #define SOURCEDIALOG_H
 
+// TurboJedi, Turbo Journald Interface
+// https://github.com/cyanide-burnout/TurboJedi
+// Artem Prilutskiy, 2026
+
 #define Uses_TDialog
 #define Uses_TInputLine
 #include <tvision/tv.h>

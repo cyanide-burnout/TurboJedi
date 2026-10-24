@@ -1,6 +1,10 @@
 #ifndef JEDIAPPLICATION_H
 #define JEDIAPPLICATION_H
 
+// TurboJedi, Turbo Journald Interface
+// https://github.com/cyanide-burnout/TurboJedi
+// Artem Prilutskiy, 2026
+
 #define Uses_TApplication
 #define Uses_TMenuBar
 #define Uses_TStatusLine

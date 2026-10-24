@@ -1,11 +1,16 @@
 #ifndef JOURNALTOOLS_H
 #define JOURNALTOOLS_H
 
+// TurboJedi, Turbo Journald Interface
+// https://github.com/cyanide-burnout/TurboJedi
+// Artem Prilutskiy, 2026
+
 #include <stdint.h>
 
 #include <systemd/sd-journal.h>
 
 #include <map>
+#include <set>
 #include <vector>
 #include <string>
 
@@ -61,8 +66,8 @@ int OpenJournalQuery(sd_journal** journal, const std::string& directory, const J
 std::vector<std::string> ReadJournalEntry(const std::string& directory, const std::string& cursor);
 bool GetJournalField(sd_journal* journal, const char* name, char* buffer, size_t size);
 
-// Labels with values to choose a source field from, JOURNAL_FIELD_COUNT stands for PID
-void ListJournalValues(const std::string& directory, int field, std::map<std::string, std::string>& values);
+// Labels with values to choose a source field from, JOURNAL_FIELD_COUNT stands for PID with the labels of running processes
+void ListJournalValues(const std::string& directory, int field, std::map<std::string, std::string>& values, std::set<std::string>& running);
 
 // _UID value of a user name or number, empty when there is no such user
 std::string GetJournalUserIdentifier(const std::string& user);

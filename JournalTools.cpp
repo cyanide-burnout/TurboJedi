@@ -1,7 +1,12 @@
+// TurboJedi, Turbo Journald Interface
+// https://github.com/cyanide-burnout/TurboJedi
+// Artem Prilutskiy, 2026
+
 #include "JournalTools.h"
 
 #include <pwd.h>
 #include <time.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -276,14 +281,73 @@ bool ParseJournalTime(const std::string& text, uint64_t* stamp)
   return false;
 }
 
-static void ListProcesses(sd_journal* journal, std::map<std::string, std::string>& values)
+static bool IsProcessRunning(int pid, uint64_t monotonic)
 {
+  int field;
+  char* token;
+  char* rest;
+  char* bracket;
+  char path[32];
+  char buffer[1024];
+  FILE* file;
+  size_t length;
+  unsigned long long start;
+
+  snprintf(path, sizeof(path), "/proc/%d/stat", pid);
+
+  if ((file = fopen(path, "r")) == nullptr)
+  {
+    // Gone
+    return false;
+  }
+
+  length = fread(buffer, 1, sizeof(buffer) - 1, file);
+  buffer[length] = '\0';
+  fclose(file);
+
+  if ((bracket = strrchr(buffer, ')')) == nullptr)
+  {
+    return false;
+  }
+
+  // The name may hold spaces and brackets, the fields after its last bracket start with the state, field 3
+  for (field = 3, token = strtok_r(bracket + 1, " ", &rest); (token != nullptr) && (field < 22); field ++)
+  {
+    token = strtok_r(nullptr, " ", &rest);
+  }
+
+  if ((token == nullptr) ||
+      (sscanf(token, "%llu", &start) != 1))
+  {
+    return false;
+  }
+
+  // Ticks since boot, a process started after the entry has only taken over its number
+  return (start * 1000000ULL / sysconf(_SC_CLK_TCK)) <= monotonic;
+}
+
+static void ListProcesses(sd_journal* journal, std::map<std::string, std::string>& values, std::set<std::string>& running)
+{
+  struct Process
+  {
+    std::string name;
+    bool current;        // Entry of the current boot
+    uint64_t monotonic;  // Since that boot
+  };
+
   int pid;
   int count;
+  sd_id128_t boot;
+  sd_id128_t entry;
+  uint64_t monotonic;
+  bool known;
   char label[JOURNAL_VALUE_LENGTH];
   char value[JOURNAL_VALUE_LENGTH];
   char name[JOURNAL_VALUE_LENGTH];
-  std::map<int, std::string> names;
+  std::map<int, Process> processes;
+
+  // A journal of another machine has no boot of this one
+  known = sd_id128_get_boot(&boot) >= 0;
 
   // Unique PIDs of the journal come without names, recent entries give both, the newest name wins
   sd_journal_seek_tail(journal);
@@ -292,24 +356,31 @@ static void ListProcesses(sd_journal* journal, std::map<std::string, std::string
   {
     if (GetJournalField(journal, "_PID", value, sizeof(value)) &&
         ((pid = atoi(value)) > 0) &&
-        (names.find(pid) == names.end()) &&
+        (processes.find(pid) == processes.end()) &&
         (GetJournalField(journal, "SYSLOG_IDENTIFIER", name, sizeof(name)) ||
          GetJournalField(journal, "_COMM", name, sizeof(name))))
     {
       // First seen from the tail is the newest
-      names.emplace(pid, name);
+      processes.emplace(pid, Process { name, known && (sd_journal_get_monotonic_usec(journal, &monotonic, &entry) >= 0) && sd_id128_equal(entry, boot), monotonic });
     }
   }
 
-  for (const std::pair<const int, std::string>& item : names)
+  for (const std::pair<const int, Process>& item : processes)
   {
     // Right-aligned number sorts the labels the way numbers sort
-    snprintf(label, sizeof(label), "%7d  %s", item.first, item.second.c_str());
+    snprintf(label, sizeof(label), "%7d  %s", item.first, item.second.name.c_str());
     values.emplace(label, std::to_string(item.first));
+
+    if (item.second.current &&
+        IsProcessRunning(item.first, item.second.monotonic))
+    {
+      // Still the same process
+      running.insert(label);
+    }
   }
 }
 
-void ListJournalValues(const std::string& directory, int field, std::map<std::string, std::string>& values)
+void ListJournalValues(const std::string& directory, int field, std::map<std::string, std::string>& values, std::set<std::string>& running)
 {
   size_t length;
   size_t prefix;
@@ -332,7 +403,7 @@ void ListJournalValues(const std::string& directory, int field, std::map<std::st
   if (field == JOURNAL_FIELD_COUNT)
   {
     // PID follows the source fields
-    ListProcesses(journal, values);
+    ListProcesses(journal, values, running);
     sd_journal_close(journal);
     return;
   }

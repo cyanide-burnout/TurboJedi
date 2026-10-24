@@ -1,6 +1,10 @@
 #ifndef JOURNALVIEW_H
 #define JOURNALVIEW_H
 
+// TurboJedi, Turbo Journald Interface
+// https://github.com/cyanide-burnout/TurboJedi
+// Artem Prilutskiy, 2026
+
 #define Uses_TScroller
 #define Uses_TScrollBar
 #define Uses_TWindow

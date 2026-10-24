@@ -1,3 +1,7 @@
+// TurboJedi, Turbo Journald Interface
+// https://github.com/cyanide-burnout/TurboJedi
+// Artem Prilutskiy, 2026
+
 #define Uses_TDeskTop
 #define Uses_TSubMenu
 #define Uses_TMenuItem
@@ -359,5 +363,5 @@ void JediApplication::showHelp()
 
 void JediApplication::showAbout()
 {
-  messageBox("\003TurboJedi\n\003Viewer of the system journal", mfInformation | mfOKButton);
+  messageBox("\003TurboJedi\n\003Turbo Journald Interface\n\003Artem Prilutskiy, 2026", mfInformation | mfOKButton);
 }
