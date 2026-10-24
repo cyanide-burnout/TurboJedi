@@ -1,0 +1,19 @@
+Source: turbojedi
+Section: admin
+Priority: optional
+Maintainer: Artem Prilutskiy <cyanide.burnout@gmail.com>
+Build-Depends:
+  debhelper (>= 10), cmake, pkg-config, libsystemd-dev, libncurses-dev, libpcre2-dev
+Standards-Version: 4.6.2
+Homepage: https://github.com/cyanide-burnout/TurboJedi
+
+Package: turbojedi
+Architecture: any
+Depends:
+  ${shlibs:Depends}, ${misc:Depends}
+Suggests:
+  grc
+Description: Turbo Vision viewer of the systemd journal
+ Turbo Journald Interface: windows with filters of their own asked of the
+ journal, following the tail, history, find, highlighting by built-in rules
+ or rule files of grc, synchronized time across windows and saved layouts.

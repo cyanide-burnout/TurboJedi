@@ -37,6 +37,17 @@ sudo make install
 `make` builds tvision in `Import/tvision/build` first. `make install` puts the executable to `/usr/local/bin`
 and the manual page to `/usr/local/share/man/man1`, `PREFIX` and `DESTDIR` move them.
 
+### Debian package
+
+```
+sudo apt install debhelper
+make package
+```
+
+`make package` builds `turbojedi_<version>_<arch>.deb` and its `-dbgsym` next to the directory of the project, with
+the files in `/usr`. The version comes from `git describe` the way the program shows it: `v0.1-3-gabcdef` becomes
+`0.1+3+gabcdef`.
+
 ## Usage
 
 ```

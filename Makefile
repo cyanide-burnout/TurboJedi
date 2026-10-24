@@ -6,6 +6,11 @@ PREFIX      := $(DESTDIR)/usr/local
 VERSION := $(if $(wildcard .git),$(shell git describe --tags --always --dirty 2>/dev/null))
 VERSION := $(or $(VERSION),$(shell grep -v '^\$$Format' VERSION 2>/dev/null),unknown)
 
+# Versions of Debian start with a digit and keep - for the revision: v0.1-3-gabcdef becomes 0.1+3+gabcdef
+PACKAGE := turbojedi
+RELEASE := $(shell echo '$(VERSION)' | sed -e 's/^v//' -e 's/-/+/g' -e 's/^unknown$$/0~unknown/')
+AUTHOR  := Artem Prilutskiy <cyanide.burnout@gmail.com>
+
 LIBRARIES := \
 	ncursesw
 
@@ -62,11 +67,17 @@ Version.h: FORCE
 TurboJedi.o JediApplication.o: Version.h
 
 build: $(OBJECTS)
-	$(CXX) $(OBJECTS) $(FLAGS) $(LIBS) -o $(EXECUTABLE)
+	$(CXX) $(OBJECTS) $(FLAGS) $(LDFLAGS) $(LIBS) -o $(EXECUTABLE)
 
 install:
 	install -D -m 755 $(EXECUTABLE) $(PREFIX)/bin/$(EXECUTABLE)
 	install -D -m 644 $(EXECUTABLE).1 $(PREFIX)/share/man/man1/$(EXECUTABLE).1
+
+# The package goes next to the directory of the project, as dpkg-buildpackage puts it
+package:
+	sh debian/changelog.sh '$(PACKAGE)' '$(RELEASE)' '$(AUTHOR)' > debian/changelog
+	dpkg-buildpackage -b -tc -us -uc -j4
+	rm -f debian/changelog
 
 clean:
 	rm -f $(wildcard $(filter %.o,$(OBJECTS))) $(wildcard $(filter %.d,$(OBJECTS:.o=.d))) $(EXECUTABLE) Version.h
@@ -74,4 +85,4 @@ clean:
 
 -include $(wildcard $(filter %.d,$(OBJECTS:.o=.d)))
 
-.PHONY: all build install clean FORCE
+.PHONY: all build install package clean FORCE

@@ -1,0 +1,16 @@
+#!/usr/bin/make -f
+
+export DH_VERBOSE=1
+export DEB_BUILD_MAINT_OPTIONS=hardening=+all
+
+%:
+	dh $@
+
+# Files go to /usr of the package, the Makefile takes /usr/local otherwise
+override_dh_auto_install:
+	$(MAKE) install PREFIX=$(CURDIR)/debian/turbojedi/usr
+
+# Under a name of its own: copyright and COPYRIGHT are one file where the case does not matter
+override_dh_installdocs:
+	dh_installdocs
+	install -m 644 Import/tvision/COPYRIGHT debian/turbojedi/usr/share/doc/turbojedi/tvision-COPYRIGHT
