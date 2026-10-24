@@ -26,7 +26,12 @@ enum
   cmJournalWrap,
   cmJournalHelp,
   cmJournalAbout,
+  cmJournalGoTo,
+  cmJournalSync,
+  cmJournalSyncTo,             // Broadcast with a JournalMoment
+  cmJournalOpenFilter,         // Broadcast with a JournalFilter for a new window
   cmPageCopy,
+  cmPageFilter,
   cmJournalPoll,
   cmJournalSourceClear,
   cmJournalSourceList,         // One per source field, then one for PID

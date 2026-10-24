@@ -14,8 +14,9 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision) and libsystemd.
   any `FIELD=VALUE`), time range, and text, plain or a regular expression, to show or to leave out
 - Follows the tail, Space pauses; scrolling above the first line brings the older entries in
 - Columns to choose: date, time, level, host, unit, identifier, PID; UTC, milliseconds, wrapped messages
-- Find with highlighting, next and previous
-- Details of an entry with all its fields
+- Find with highlighting, next and previous, on into the older entries above the first line
+- Go to a time, and every other window to the time of the selected line: what happened elsewhere at that moment
+- Details of an entry with all its fields, a field there opens a window narrowed to it
 - Selection with the keyboard or the mouse, copy to the clipboard (OSC 52 over SSH), export to a file
 - Layouts: all windows with their filters, columns and places, saved to and opened from INI files;
   the last one comes back on the next start
@@ -71,7 +72,9 @@ Reading the whole journal needs root or the `systemd-journal` group, others see 
 | Ctrl-K | columns |
 | Ctrl-W | wrap long messages |
 | Ctrl-F, Ctrl-N, Ctrl-P | find, next, previous |
-| Enter, double click | details of the entry |
+| Ctrl-G | go to a time |
+| Alt-G | every other window goes to the time of the selected line |
+| Enter, double click | details of the entry, Enter on a field there opens a window with it added to the filter |
 | Space | pause or follow |
 | Shift+arrows, mouse | select lines, Esc drops the selection |
 | Ctrl-Ins | copy the selected lines or the screen |

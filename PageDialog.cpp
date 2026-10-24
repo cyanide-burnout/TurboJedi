@@ -11,7 +11,7 @@
 
 // PageDialog
 
-PageDialog::PageDialog(const TRect& bounds, const char* title, const std::vector<std::string>& lines) :
+PageDialog::PageDialog(const TRect& bounds, const char* title, const std::vector<std::string>& lines, bool choosing) :
   TWindowInit(&TDialog::initFrame),
   TDialog(bounds, title)
 {
@@ -28,11 +28,23 @@ PageDialog::PageDialog(const TRect& bounds, const char* title, const std::vector
   extent = getExtent();
   extent.grow(-1, -1);
   extent.b.y -= 3;
-  page        = new PageView(extent, horizontal, vertical, lines);
+  page        = new PageView(extent, horizontal, vertical, lines, choosing);
 
   insert(page);
-  insert(new TButton(TRect(extent.b.x / 2 - 13, extent.b.y + 1, extent.b.x / 2 - 1, extent.b.y + 3), "~C~opy", cmPageCopy, bfNormal));
-  insert(new TButton(TRect(extent.b.x / 2 + 1, extent.b.y + 1, extent.b.x / 2 + 13, extent.b.y + 3), "C~l~ose", cmOK, bfDefault));
+
+  if (choosing)
+  {
+    // Enter opens a window of the field under the cursor
+    insert(new TButton(TRect(extent.b.x / 2 - 19, extent.b.y + 1, extent.b.x / 2 - 7, extent.b.y + 3), "~F~ilter", cmPageFilter, bfDefault));
+    insert(new TButton(TRect(extent.b.x / 2 - 6,  extent.b.y + 1, extent.b.x / 2 + 6, extent.b.y + 3), "~C~opy",   cmPageCopy,   bfNormal));
+    insert(new TButton(TRect(extent.b.x / 2 + 7,  extent.b.y + 1, extent.b.x / 2 + 19, extent.b.y + 3), "C~l~ose", cmOK,         bfNormal));
+  }
+  else
+  {
+    insert(new TButton(TRect(extent.b.x / 2 - 13, extent.b.y + 1, extent.b.x / 2 - 1, extent.b.y + 3), "~C~opy",   cmPageCopy, bfNormal));
+    insert(new TButton(TRect(extent.b.x / 2 + 1,  extent.b.y + 1, extent.b.x / 2 + 13, extent.b.y + 3), "C~l~ose", cmOK,       bfDefault));
+  }
+
   page->select();
 }
 
@@ -46,7 +58,21 @@ void PageDialog::handleEvent(TEvent& event)
     return;
   }
 
+  if ((event.what == evCommand) &&
+      (event.message.command == cmPageFilter))
+  {
+    // Filter button, Enter or a double click
+    endModal(cmPageFilter);
+    clearEvent(event);
+    return;
+  }
+
   TDialog::handleEvent(event);
+}
+
+int PageDialog::chosen()
+{
+  return (page->cursor >= 0) ? (int)page->origins[page->cursor] : -1;
 }
 
 void PageDialog::copy()

@@ -30,6 +30,14 @@ struct JournalLine
   std::string text;
 };
 
+class JournalView;
+
+struct JournalMoment
+{
+  JournalView* source;  // Goes there already
+  uint64_t realtime;
+};
+
 class JournalView : public TScroller
 {
   public:
@@ -94,7 +102,7 @@ class JournalView : public TScroller
 
     void open();
     void read();
-    void back();
+    size_t back();
     bool parse(sd_journal* source, JournalLine& model, std::string& message);
     void split(const JournalLine& model, const std::string& message, std::vector<JournalLine>& parts);
     void push(JournalLine& line);
@@ -118,12 +126,15 @@ class JournalView : public TScroller
     void save();
     void details();
     void find(int direction);
+    void seek(uint64_t realtime, bool nearest);  // The first line at the moment or after it, or the closest one
+    void synchronize();
     void chooseLevels();
     void chooseText();
     void chooseSource();
     void chooseTime();
     void chooseColumns();
     void chooseFind();
+    void chooseMoment();
 };
 
 class JournalWindow : public TWindow

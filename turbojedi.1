@@ -79,10 +79,18 @@ Columns: date, time, level, host, unit, identifier, PID; UTC, milliseconds, wrap
 Wrap long messages.
 .TP
 .B Ctrl-F
-Find and highlight. \fBCtrl-N\fR and \fBCtrl-P\fR go to the next and previous one.
+Find and highlight. \fBCtrl-N\fR and \fBCtrl-P\fR go to the next and previous one,
+the search goes on into the older entries above the first line.
+.TP
+.B Ctrl-G
+Go to a time, given the way \fB\-\-since\fR takes it.
+.TP
+.B Alt-G
+Every other window goes to the time of the selected line, their filters stay as they are.
 .TP
 .B Enter
 All fields of the entry, also by a double click.
+\fBEnter\fR on a field there opens a window with the filter of this one and the field.
 .TP
 .B Space
 Pause or follow the tail. Scrolling above the first line brings the older entries in.

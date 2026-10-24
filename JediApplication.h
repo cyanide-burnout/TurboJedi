@@ -37,7 +37,7 @@ class JediApplication : public TApplication
     TView* focused;
     short number;
 
-    void open();
+    void open(const JournalFilter& filter);
     bool load(const std::string& path, std::string& error);
     void chooseOpen();
     void chooseSave();

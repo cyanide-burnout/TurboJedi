@@ -53,7 +53,7 @@ JediApplication::JediApplication(const std::string& directory, const JournalFilt
       (!load(layout, error)))
   {
     // No layout to start with, a window of the command line filter
-    open();
+    open(filter);
   }
 }
 
@@ -101,6 +101,9 @@ TMenuBar* JediApplication::initMenuBar(TRect bounds)
       *new TMenuItem("Find p~r~evious", cmJournalFindPrevious, kbCtrlP,   hcNoContext, "Ctrl-P") +
       *new TMenuItem("~D~etails...",    cmJournalDetails,      kbNoKey,   hcNoContext, "Enter") +
       newLine() +
+      *new TMenuItem("~G~o to time...", cmJournalGoTo,         kbCtrlG,   hcNoContext, "Ctrl-G") +
+      *new TMenuItem("S~y~nc windows",  cmJournalSync,         kbAltG,    hcNoContext, "Alt-G") +
+      newLine() +
       *new TMenuItem("~P~ause",         cmJournalPause,        kbNoKey,   hcNoContext, "Space") +
       *new TMenuItem("C~o~py",          cmJournalCopy,         kbCtrlIns, hcNoContext, "Ctrl-Ins") +
       *new TMenuItem("~C~lear",         cmJournalClear,        kbF8,      hcNoContext, "F8") +
@@ -134,18 +137,32 @@ void JediApplication::getEvent(TEvent& event)
 
 void JediApplication::handleEvent(TEvent& event)
 {
+  JournalWindow* current;
+
   TApplication::handleEvent(event);
+
+  if ((event.what == evBroadcast) &&
+      (event.message.command == cmJournalOpenFilter))
+  {
+    // A window asks for another one with a filter of its making
+    open(*static_cast<const JournalFilter*>(event.message.infoPtr));
+    clearEvent(event);
+    return;
+  }
 
   if (event.what == evCommand)
   {
+    // A new window starts with the filter of the focused one
+    current = dynamic_cast<JournalWindow*>(deskTop->current);
+
     switch (event.message.command)
     {
-      case cmJournalNew:    open();        break;
-      case cmJournalOpen:   chooseOpen();  break;
-      case cmJournalSave:   chooseSave();  break;
-      case cmJournalHelp:   showHelp();    break;
-      case cmJournalAbout:  showAbout();   break;
-      default:                             return;
+      case cmJournalNew:    open((current != nullptr) ? current->view->getFilter() : filter);  break;
+      case cmJournalOpen:   chooseOpen();                                                      break;
+      case cmJournalSave:   chooseSave();                                                      break;
+      case cmJournalHelp:   showHelp();                                                        break;
+      case cmJournalAbout:  showAbout();                                                       break;
+      default:                                                                                 return;
     }
 
     clearEvent(event);
@@ -168,16 +185,12 @@ void JediApplication::idle()
   }
 }
 
-void JediApplication::open()
+void JediApplication::open(const JournalFilter& filter)
 {
   JournalWindow* window;
-  JournalWindow* current;
 
-  // A new window starts with the filter of the focused one
-  current = dynamic_cast<JournalWindow*>(deskTop->current);
   number  = std::min<short>(number + 1, 10);
-  window  = new JournalWindow(deskTop->getExtent(), (number < 10) ? number : wnNoNumber, directory,
-    (current != nullptr) ? current->view->getFilter() : filter, history, DEFAULT_CAPACITY);
+  window  = new JournalWindow(deskTop->getExtent(), (number < 10) ? number : wnNoNumber, directory, filter, history, DEFAULT_CAPACITY);
 
   deskTop->insert(window);
   tile();
@@ -341,8 +354,12 @@ void JediApplication::showHelp()
     "  Up, PgUp, Home  Above the first line the older entries come in",
     "  Shift+arrows    Select lines, also with the mouse",
     "  Esc             Drop the selection",
-    "  Enter           All fields of the entry, also double click",
-    "  Ctrl-F          Find and highlight, Ctrl-N and Ctrl-P go to the next and previous one",
+    "  Enter           All fields of the entry, also double click, Enter on a field there",
+    "                  opens a window with the filter of this one and the field",
+    "  Ctrl-F          Find and highlight, Ctrl-N and Ctrl-P go to the next and previous one,",
+    "                  the search goes on into the older entries above the first line",
+    "  Ctrl-G          Go to a time",
+    "  Alt-G           Every other window goes to the time of the selected line",
     "  Ctrl-Ins        Copy the selected lines or the screen",
     "  Ctrl-E          Export the selected lines or all of them to a file",
     "  F8              Clear the window",

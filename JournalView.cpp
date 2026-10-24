@@ -454,6 +454,8 @@ void JournalView::handleEvent(TEvent& event)
         case cmJournalFind:          chooseFind();     break;
         case cmJournalFindNext:      find(1);          break;
         case cmJournalFindPrevious:  find(-1);         break;
+        case cmJournalGoTo:          chooseMoment();   break;
+        case cmJournalSync:          synchronize();    break;
         case cmJournalDetails:       details();        break;
         case cmJournalExport:        save();           break;
         case cmJournalPause:         pause();          break;
@@ -488,6 +490,13 @@ void JournalView::handleEvent(TEvent& event)
           // Something has passed the filter or more is to come
           refresh();
         }
+      }
+
+      if ((event.message.command == cmJournalSyncTo) &&
+          (static_cast<JournalMoment*>(event.message.infoPtr)->source != this))
+      {
+        // Never clear the moment either, every other window goes there
+        seek(static_cast<JournalMoment*>(event.message.infoPtr)->realtime, true);
       }
 
       if ((event.message.command == cmScrollBarChanged) &&
@@ -648,7 +657,7 @@ void JournalView::read()
   trim();
 }
 
-void JournalView::back()
+size_t JournalView::back()
 {
   int count;
   bool ended;
@@ -664,7 +673,7 @@ void JournalView::back()
       (lines.front().cursor.empty()) ||
       (OpenJournalQuery(&source, directory, filter) < 0))
   {
-    return;
+    return 0;
   }
 
   // A journal of its own, the one of the window keeps following the tail,
@@ -720,6 +729,8 @@ void JournalView::back()
     // The position may stay the same when everything fits on the screen
     refresh();
   }
+
+  return batch.size();
 }
 
 bool JournalView::parse(sd_journal* source, JournalLine& model, std::string& message)
@@ -1093,9 +1104,16 @@ void JournalView::save()
 
 void JournalView::details()
 {
+  int field;
+  int chosen;
+  ushort result;
   size_t index;
+  size_t equal;
   TRect bounds;
   PageDialog* dialog;
+  std::string name;
+  std::string value;
+  JournalFilter other;
   std::vector<std::string> fields;
 
   if ((index = focus()) >= lines.size())
@@ -1114,14 +1132,59 @@ void JournalView::details()
 
   bounds = TProgram::deskTop->getExtent();
   bounds.grow(-2, -1);
-  dialog = new PageDialog(bounds, "Entry", fields);
+  dialog = new PageDialog(bounds, "Entry", fields, true);
+  result = TProgram::deskTop->execView(dialog);
+  chosen = dialog->chosen();
 
-  TProgram::deskTop->execView(dialog);
   TObject::destroy(dialog);
+
+  if ((result != cmPageFilter) ||
+      (chosen < 0))
+  {
+    // Closed
+    return;
+  }
+
+  if ((fields[chosen].compare(0, 2, "__") == 0) ||
+      (!CheckJournalMatch(fields[chosen])))
+  {
+    // Addresses of the entry and values the details show in their own way
+    messageBox("A window cannot be filtered by this field", mfInformation | mfOKButton);
+    return;
+  }
+
+  equal = fields[chosen].find('=');
+  name  = fields[chosen].substr(0, equal);
+  value = fields[chosen].substr(equal + 1);
+  other = filter;
+
+  for (field = 0; field < JOURNAL_FIELD_COUNT; field ++)
+  {
+    if (name == JournalFieldNames[field])
+    {
+      // Source field shows in the Source dialog, a value of its own would be joined by OR, so it is replaced
+      other.values[field] = value;
+      break;
+    }
+  }
+
+  if (name == "_PID")
+  {
+    other.pid = atoi(value.c_str());
+  }
+  else if (field == JOURNAL_FIELD_COUNT)
+  {
+    // Any other field as a raw match
+    other.matches.push_back(fields[chosen]);
+  }
+
+  // The application makes the window, the filter of this one goes on unchanged
+  message(TProgram::application, evBroadcast, cmJournalOpenFilter, &other);
 }
 
 void JournalView::find(int direction)
 {
+  size_t added;
   int64_t index;
 
   if (search.empty())
@@ -1141,8 +1204,22 @@ void JournalView::find(int direction)
     (anchor != NO_SELECTION) ? (int64_t)((cursor > first) ? (cursor - first) : 0) :
     (direction > 0) ? ((int64_t)lineOf(delta.y) - 1) : (int64_t)lineOf(std::min<uint64_t>(delta.y + size.y, total()));
 
-  for (index += direction; (index >= 0) && (index < (int64_t)lines.size()); index += direction)
+  for (index += direction; index < (int64_t)lines.size(); index += direction)
   {
+    if (index < 0)
+    {
+      // Above the first line the history comes in by batches until the journal, the range or the capacity ends,
+      // the tail must not take the screen meanwhile
+      follow = false;
+
+      if ((added = back()) == 0)
+      {
+        break;
+      }
+
+      index += added;
+    }
+
     if (MatchText(lines[index].identifier + "[" + lines[index].pid + "]: " + lines[index].text, search, mode, finder))
     {
       select(index, false);
@@ -1151,6 +1228,60 @@ void JournalView::find(int direction)
   }
 
   messageBox("Nothing more is found", mfInformation | mfOKButton);
+}
+
+void JournalView::seek(uint64_t realtime, bool nearest)
+{
+  size_t index;
+
+  if (lines.empty())
+  {
+    return;
+  }
+
+  // The tail must not take the screen while the history comes in
+  follow = false;
+
+  while ((lines.front().realtime > realtime) &&
+         (back() > 0))
+  {
+    // History before the moment, up to the start of the journal or the range, or the capacity
+  }
+
+  for (index = 0; (index < lines.size() - 1) && (lines[index].realtime < realtime); index ++)
+  {
+    // The first line at the moment or after it, the last one when the moment is still to come
+  }
+
+  if (nearest &&
+      (index > 0) &&
+      ((realtime - lines[index - 1].realtime) < (lines[index].realtime - realtime)))
+  {
+    // The one just before is closer to the moment
+    index --;
+  }
+
+  select(index, false);
+}
+
+void JournalView::synchronize()
+{
+  size_t index;
+  JournalMoment moment;
+
+  if ((index = focus()) >= lines.size())
+  {
+    // Nothing to take the time from
+    return;
+  }
+
+  // The line the others go to stays marked here
+  select(index, false);
+
+  moment.source   = this;
+  moment.realtime = lines[index].realtime;
+
+  message(TProgram::deskTop, evBroadcast, cmJournalSyncTo, &moment);
 }
 
 const char* JournalView::describe()
@@ -1519,8 +1650,39 @@ void JournalView::chooseFind()
 
   if (!search.empty())
   {
-    // Next one from the selection or the top of the screen
-    find(1);
+    // The newest one from the selection or the bottom of the screen, then on into the history
+    find(-1);
+  }
+}
+
+void JournalView::chooseMoment()
+{
+  size_t index;
+  time_t second;
+  uint64_t stamp;
+  struct tm date;
+  char text[64];
+
+  text[0] = '\0';
+
+  if ((index = focus()) < lines.size())
+  {
+    // The time of the line at hand to start from
+    second = lines[index].realtime / 1000000;
+    localtime_r(&second, &date);
+    strftime(text, sizeof(text), "%F %T", &date);
+  }
+
+  while (inputBox("Go to time", "~T~ime", text, sizeof(text) - 1) == cmOK)
+  {
+    if (ParseJournalTime(text, &stamp))
+    {
+      seek(stamp, false);
+      return;
+    }
+
+    // Back to the box with what has been typed
+    messageBox("Unknown time format", mfError | mfOKButton);
   }
 }
 
