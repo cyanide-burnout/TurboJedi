@@ -2,8 +2,8 @@
 # https://github.com/cyanide-burnout/TurboJedi
 # Artem Prilutskiy, 2026
 
-# Packages for Debian, Ubuntu, Fedora and RHEL on amd64 and arm64, each built natively in a container of its distribution;
-# a tag v* puts them all to its release
+# Packages for Debian, Ubuntu, Fedora and RHEL on amd64 and arm64 and for Arch Linux on amd64, each built natively
+# in a container of its distribution; a tag v* puts them all to its release
 
 name: Packages
 
@@ -31,12 +31,17 @@ jobs:
           - { name: fedora-44,    image: 'fedora:44' }
           - { name: el9,          image: 'almalinux:9' }
           - { name: el10,         image: 'almalinux:10' }
+        include:
+          # Arch Linux is there for x86_64 only, Arch Linux ARM is a project of its own
+          - { arch: amd64, distro: { name: archlinux, image: 'archlinux:latest' } }
 
     steps:
       - name: Git
         # Without git in the container the checkout comes without history and submodules
         run: |
-          if command -v apt-get > /dev/null; then apt-get update -q && apt-get install -y -q --no-install-recommends git ca-certificates; else dnf install -y -q git; fi
+          if command -v apt-get > /dev/null; then apt-get update -q && apt-get install -y -q --no-install-recommends git ca-certificates;
+          elif command -v pacman > /dev/null; then pacman -Sy --noconfirm --needed git;
+          else dnf install -y -q git; fi
 
       - uses: actions/checkout@v4
         with:

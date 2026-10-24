@@ -1,0 +1,28 @@
+# TurboJedi, Turbo Journald Interface
+# https://github.com/cyanide-burnout/TurboJedi
+# Artem Prilutskiy, 2026
+
+# Built in the tree of the project by make arch, an archive of git would lack the submodule of tvision
+
+pkgname=turbojedi
+pkgver=${TURBOJEDI_VERSION:-0}
+pkgrel=1
+pkgdesc='Turbo Vision viewer of the systemd journal'
+arch=('x86_64' 'aarch64')
+url='https://github.com/cyanide-burnout/TurboJedi'
+license=('MIT')
+depends=('glibc' 'gcc-libs' 'systemd-libs' 'ncurses' 'pcre2')
+makedepends=('cmake' 'git' 'pkgconf')
+
+build() {
+  cd "${startdir}/.."
+  make build
+}
+
+package() {
+  cd "${startdir}/.."
+  make install PREFIX="${pkgdir}/usr"
+  install -D -m 644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install -D -m 644 Import/tvision/COPYRIGHT "${pkgdir}/usr/share/licenses/${pkgname}/tvision-COPYRIGHT"
+  install -D -m 644 README.md "${pkgdir}/usr/share/doc/${pkgname}/README.md"
+}

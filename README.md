@@ -67,10 +67,19 @@ make rpm
 `make rpm` builds `rpmbuild/RPMS/<arch>/turbojedi-<version>-1.<dist>.<arch>.rpm` for Fedora and RHEL, with the
 version the same way.
 
+### Arch Linux package
+
+```
+sudo pacman -S --needed base-devel cmake git pkgconf
+make arch
+```
+
+`make arch` builds `arch/turbojedi-<version>-1-<arch>.pkg.tar.zst` with `makepkg`, as a user other than root.
+
 ### Ready packages
 
 GitHub Actions builds packages for Debian 13, Ubuntu 24.04 and 26.04, Fedora 44, RHEL 9 and 10 on amd64 and arm64,
-each in a container of its distribution; a tag `v*` puts them to its release. Alpine has no systemd, so there is
+and for Arch Linux on amd64, each in a container of its distribution; a tag `v*` puts them to its release. Alpine has no systemd, so there is
 no journal to show.
 
 ## Usage

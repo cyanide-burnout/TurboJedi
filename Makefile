@@ -96,10 +96,14 @@ endif
 rpm:
 	rpmbuild -bb --define '_topdir $(CURDIR)/rpmbuild' --define 'source_date_epoch_from_changelog 0' --define 'turbojedi_tree $(CURDIR)' --define 'turbojedi_version $(RELEASE)' rpm/turbojedi.spec
 
+# Package of Arch Linux goes next to arch/PKGBUILD, makepkg does not run as root
+arch:
+	cd arch && TURBOJEDI_VERSION='$(RELEASE)' makepkg -f
+
 clean:
 	rm -f $(wildcard $(filter %.o,$(OBJECTS))) $(wildcard $(filter %.d,$(OBJECTS:.o=.d))) $(EXECUTABLE) Version.h
 	rm -rf $(TURBOVISION)/build
 
 -include $(wildcard $(filter %.d,$(OBJECTS:.o=.d)))
 
-.PHONY: all build install deb rpm clean FORCE
+.PHONY: all build install deb rpm arch clean FORCE

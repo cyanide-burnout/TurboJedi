@@ -11,3 +11,6 @@ debian/*.log
 debian/debhelper-build-stamp
 rpmbuild/
 dist/
+arch/src/
+arch/pkg/
+arch/*.pkg.tar.*

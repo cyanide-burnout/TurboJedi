@@ -16,6 +16,9 @@ then
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -q
   apt-get install -y -q --no-install-recommends build-essential debhelper cmake pkgconf git ca-certificates libsystemd-dev libncurses-dev libpcre2-dev
+elif command -v pacman > /dev/null
+then
+  pacman -Syu --noconfirm --needed base-devel cmake git pkgconf systemd-libs ncurses pcre2
 else
   dnf install -y -q gcc-c++ make cmake pkgconf-pkg-config git rpm-build systemd-devel ncurses-devel pcre2-devel
 fi
@@ -38,6 +41,15 @@ then
   done
 
   rm -f ../turbojedi_* ../turbojedi-dbgsym_*
+elif command -v makepkg > /dev/null
+then
+  # makepkg refuses root, a user of its own builds in the tree it is given
+  id builder > /dev/null 2>&1 || useradd -m builder
+  chown -R builder .
+  su builder -c "git config --global --add safe.directory '*' && make arch"
+
+  # Debug information stays out
+  find arch -maxdepth 1 -name 'turbojedi-[0-9]*.pkg.tar.*' -exec cp {} dist/ \;
 else
   make rpm
 
