@@ -161,7 +161,7 @@ Rules are those of [grc](https://github.com/garabik/grc): `regexp=` with `colour
 `count=once`, `more` or `stop`, entries apart by lines of `-` or `=`. Rule files come from `~/.grc`,
 `/usr/local/share/grc` and `/usr/share/grc`, or by a path. Colors go over the color of the level, light ones for
 the blue window; rules of several lines (`count=block`) and replacements are left out. The built-in rules are
-written the same way in `JournalHighlighter.cpp`.
+written the same way in `Source/JournalHighlighter.cpp`.
 
 ## Last layout
 

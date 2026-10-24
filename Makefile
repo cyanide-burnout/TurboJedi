@@ -1,4 +1,5 @@
 EXECUTABLE  := turbojedi
+SOURCE      := Source
 TURBOVISION := Import/tvision
 PREFIX      := $(DESTDIR)/usr/local
 
@@ -27,28 +28,28 @@ ifneq ($(DEB_HOST_GNU_TYPE), $(DEB_BUILD_GNU_TYPE))
 endif
 
 OBJECTS := \
-	TurboJedi.o \
-	JediApplication.o \
-	JediStatusLine.o \
-	JediClock.o \
-	JournalView.o \
-	JournalWindow.o \
-	JournalHeader.o \
-	JournalTools.o \
-	JournalLayout.o \
-	SourceDialog.o \
-	PickDialog.o \
-	TimeDialog.o \
-	TimePickDialog.o \
-	CalendarView.o \
-	PageView.o \
-	PageDialog.o \
-	JournalExpression.o \
-	JournalHighlighter.o \
-	JournalMatcher.o \
-	TextDialog.o \
-	LevelsDialog.o \
-	ColumnsDialog.o \
+	$(SOURCE)/TurboJedi.o \
+	$(SOURCE)/JediApplication.o \
+	$(SOURCE)/JediStatusLine.o \
+	$(SOURCE)/JediClock.o \
+	$(SOURCE)/JournalView.o \
+	$(SOURCE)/JournalWindow.o \
+	$(SOURCE)/JournalHeader.o \
+	$(SOURCE)/JournalTools.o \
+	$(SOURCE)/JournalLayout.o \
+	$(SOURCE)/SourceDialog.o \
+	$(SOURCE)/PickDialog.o \
+	$(SOURCE)/TimeDialog.o \
+	$(SOURCE)/TimePickDialog.o \
+	$(SOURCE)/CalendarView.o \
+	$(SOURCE)/PageView.o \
+	$(SOURCE)/PageDialog.o \
+	$(SOURCE)/JournalExpression.o \
+	$(SOURCE)/JournalHighlighter.o \
+	$(SOURCE)/JournalMatcher.o \
+	$(SOURCE)/TextDialog.o \
+	$(SOURCE)/LevelsDialog.o \
+	$(SOURCE)/ColumnsDialog.o \
 	$(TURBOVISION)/build/libtvision.a
 
 FLAGS += \
@@ -69,10 +70,10 @@ $(TURBOVISION)/build/libtvision.a:
 	+make -C $(TURBOVISION)/build tvision
 
 # Rewritten only when the version changes, so that only its users are built again
-Version.h: FORCE
+$(SOURCE)/Version.h: FORCE
 	@echo '#define VERSION "$(VERSION)"' | cmp -s - $@ || echo '#define VERSION "$(VERSION)"' > $@
 
-TurboJedi.o JediApplication.o: Version.h
+$(SOURCE)/TurboJedi.o $(SOURCE)/JediApplication.o: $(SOURCE)/Version.h
 
 build: $(OBJECTS)
 	$(CXX) $(OBJECTS) $(FLAGS) $(LDFLAGS) $(LIBS) -o $(EXECUTABLE)
@@ -101,7 +102,7 @@ arch:
 	cd arch && TURBOJEDI_VERSION='$(RELEASE)' makepkg -f
 
 clean:
-	rm -f $(wildcard $(filter %.o,$(OBJECTS))) $(wildcard $(filter %.d,$(OBJECTS:.o=.d))) $(EXECUTABLE) Version.h
+	rm -f $(wildcard $(filter %.o,$(OBJECTS))) $(wildcard $(filter %.d,$(OBJECTS:.o=.d))) $(EXECUTABLE) $(SOURCE)/Version.h
 	rm -rf $(TURBOVISION)/build
 
 -include $(wildcard $(filter %.d,$(OBJECTS:.o=.d)))
