@@ -48,6 +48,15 @@ make package
 the files in `/usr`. The version comes from `git describe` the way the program shows it: `v0.1-3-gabcdef` becomes
 `0.1+3+gabcdef`.
 
+`make package DISTRIBUTION=amd64` builds for another architecture, with the cross compilers and the libraries of
+that architecture in place:
+
+```
+sudo dpkg --add-architecture amd64
+sudo apt update
+sudo apt install crossbuild-essential-amd64 libsystemd-dev:amd64 libncurses-dev:amd64 libpcre2-dev:amd64
+```
+
 ## Usage
 
 ```

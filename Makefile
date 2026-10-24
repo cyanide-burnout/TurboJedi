@@ -18,6 +18,14 @@ DEPENDENCIES := \
 	libsystemd \
 	libpcre2-8
 
+# dpkg-buildpackage -a gives the cross compilers and pkg-config, tvision has to be built with them as well
+PKG_CONFIG ?= pkg-config
+CMAKEFLAGS := -D CMAKE_C_COMPILER=$(CC) -D CMAKE_CXX_COMPILER=$(CXX)
+
+ifneq ($(DEB_HOST_GNU_TYPE), $(DEB_BUILD_GNU_TYPE))
+	CMAKEFLAGS += -D CMAKE_SYSTEM_NAME=Linux -D CMAKE_SYSTEM_PROCESSOR=$(DEB_HOST_GNU_CPU) -D CMAKE_LIBRARY_ARCHITECTURE=$(DEB_HOST_MULTIARCH)
+endif
+
 OBJECTS := \
 	TurboJedi.o \
 	JediApplication.o \
@@ -46,18 +54,18 @@ OBJECTS := \
 FLAGS += \
 	-Wno-unused-result -O2 -MMD -gdwarf \
 	-I$(TURBOVISION)/include \
-	$(shell pkg-config --cflags $(DEPENDENCIES))
+	$(shell $(PKG_CONFIG) --cflags $(DEPENDENCIES))
 
 LIBS := \
 	$(foreach library, $(LIBRARIES), -l$(library)) \
-	$(shell pkg-config --libs $(DEPENDENCIES))
+	$(shell $(PKG_CONFIG) --libs $(DEPENDENCIES))
 
 CXXFLAGS += $(FLAGS) -std=gnu++2c
 
 all: build
 
 $(TURBOVISION)/build/libtvision.a:
-	cmake -S $(TURBOVISION) -B $(TURBOVISION)/build -D CMAKE_BUILD_TYPE=Release -D CMAKE_POSITION_INDEPENDENT_CODE=ON -D TV_BUILD_EXAMPLES=OFF -D TV_BUILD_USING_GPM=OFF
+	cmake -S $(TURBOVISION) -B $(TURBOVISION)/build $(CMAKEFLAGS) -D CMAKE_BUILD_TYPE=Release -D CMAKE_POSITION_INDEPENDENT_CODE=ON -D TV_BUILD_EXAMPLES=OFF -D TV_BUILD_USING_GPM=OFF
 	+make -C $(TURBOVISION)/build tvision
 
 # Rewritten only when the version changes, so that only its users are built again
@@ -73,10 +81,15 @@ install:
 	install -D -m 755 $(EXECUTABLE) $(PREFIX)/bin/$(EXECUTABLE)
 	install -D -m 644 $(EXECUTABLE).1 $(PREFIX)/share/man/man1/$(EXECUTABLE).1
 
-# The package goes next to the directory of the project, as dpkg-buildpackage puts it
+# The package goes next to the directory of the project, as dpkg-buildpackage puts it,
+# DISTRIBUTION names another architecture of Debian to build for, such as amd64
 package:
 	sh debian/changelog.sh '$(PACKAGE)' '$(RELEASE)' '$(AUTHOR)' > debian/changelog
+ifdef DISTRIBUTION
+	dpkg-buildpackage -b -a$(DISTRIBUTION) -tc -us -uc -j4
+else
 	dpkg-buildpackage -b -tc -us -uc -j4
+endif
 	rm -f debian/changelog
 
 clean:
