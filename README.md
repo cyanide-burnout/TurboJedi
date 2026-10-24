@@ -41,14 +41,14 @@ and the manual page to `/usr/local/share/man/man1`, `PREFIX` and `DESTDIR` move 
 
 ```
 sudo apt install debhelper
-make package
+make deb
 ```
 
-`make package` builds `turbojedi_<version>_<arch>.deb` and its `-dbgsym` next to the directory of the project, with
+`make deb` builds `turbojedi_<version>_<arch>.deb` and its `-dbgsym` next to the directory of the project, with
 the files in `/usr`. The version comes from `git describe` the way the program shows it: `v0.1-3-gabcdef` becomes
 `0.1+3+gabcdef`.
 
-`make package DISTRIBUTION=amd64` builds for another architecture, with the cross compilers and the libraries of
+`make deb DISTRIBUTION=amd64` builds for another architecture, with the cross compilers and the libraries of
 that architecture in place:
 
 ```
@@ -56,6 +56,22 @@ sudo dpkg --add-architecture amd64
 sudo apt update
 sudo apt install crossbuild-essential-amd64 libsystemd-dev:amd64 libncurses-dev:amd64 libpcre2-dev:amd64
 ```
+
+### RPM package
+
+```
+sudo dnf install rpm-build gcc-c++ make cmake systemd-devel ncurses-devel pcre2-devel
+make rpm
+```
+
+`make rpm` builds `rpmbuild/RPMS/<arch>/turbojedi-<version>-1.<dist>.<arch>.rpm` for Fedora and RHEL, with the
+version the same way.
+
+### Ready packages
+
+GitHub Actions builds packages for Debian 13, Ubuntu 24.04 and 26.04, Fedora 44, RHEL 9 and 10 on amd64 and arm64,
+each in a container of its distribution; a tag `v*` puts them to its release. Alpine has no systemd, so there is
+no journal to show.
 
 ## Usage
 

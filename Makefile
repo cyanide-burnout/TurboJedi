@@ -60,7 +60,7 @@ LIBS := \
 	$(foreach library, $(LIBRARIES), -l$(library)) \
 	$(shell $(PKG_CONFIG) --libs $(DEPENDENCIES))
 
-CXXFLAGS += $(FLAGS) -std=gnu++2c
+CXXFLAGS += $(FLAGS) -std=gnu++17
 
 all: build
 
@@ -83,7 +83,7 @@ install:
 
 # The package goes next to the directory of the project, as dpkg-buildpackage puts it,
 # DISTRIBUTION names another architecture of Debian to build for, such as amd64
-package:
+deb:
 	sh debian/changelog.sh '$(PACKAGE)' '$(RELEASE)' '$(AUTHOR)' > debian/changelog
 ifdef DISTRIBUTION
 	dpkg-buildpackage -b -a$(DISTRIBUTION) -tc -us -uc -j4
@@ -92,10 +92,14 @@ else
 endif
 	rm -f debian/changelog
 
+# Packages of Fedora and RHEL go to rpmbuild/RPMS
+rpm:
+	rpmbuild -bb --define '_topdir $(CURDIR)/rpmbuild' --define 'source_date_epoch_from_changelog 0' --define 'turbojedi_tree $(CURDIR)' --define 'turbojedi_version $(RELEASE)' rpm/turbojedi.spec
+
 clean:
 	rm -f $(wildcard $(filter %.o,$(OBJECTS))) $(wildcard $(filter %.d,$(OBJECTS:.o=.d))) $(EXECUTABLE) Version.h
 	rm -rf $(TURBOVISION)/build
 
 -include $(wildcard $(filter %.d,$(OBJECTS:.o=.d)))
 
-.PHONY: all build install package clean FORCE
+.PHONY: all build install deb rpm clean FORCE
