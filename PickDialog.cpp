@@ -103,6 +103,13 @@ void PickDialog::handleEvent(TEvent& event)
   }
 }
 
+void PickDialog::shutDown()
+{
+  // A list box destroys the collection it is given only when it gets another one
+  box->newList(nullptr);
+  TDialog::shutDown();
+}
+
 const char* PickDialog::selection()
 {
   return (box->range > 0) ? static_cast<const char*>(box->list()->at(box->focused)) : nullptr;

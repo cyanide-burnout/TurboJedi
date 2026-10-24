@@ -24,6 +24,7 @@ class PickDialog : public TDialog
     PickDialog(const char* title, const std::map<std::string, std::string>& values, const std::set<std::string>* running = nullptr, bool checked = false);
 
     void handleEvent(TEvent& event) override;
+    void shutDown() override;
     const char* selection();
 
   private:
