@@ -11,12 +11,15 @@
 #include <tvision/tv.h>
 
 #include <deque>
-#include <regex>
 #include <vector>
 #include <string>
 
 #include "Commands.h"
 #include "JournalTools.h"
+#include "JournalExpression.h"
+#include "JournalHighlighter.h"
+
+#include <memory>
 
 struct JournalLine
 {
@@ -74,11 +77,14 @@ class JournalView : public TScroller
 
     int widths[4];   // Host, unit, identifier and PID columns, as wide as their longest values within limits
 
-    std::regex expression;  // Of the text filter when it is a regular expression
+    JournalExpression expression;  // Of the text filter when it is a regular expression
 
     std::string search;     // What Find looks for, highlighted in the lines
     uint16_t mode;          // JOURNAL_TEXT_* of the search
-    std::regex finder;
+    JournalExpression finder;
+
+    std::shared_ptr<JournalHighlighter> highlighter;  // Of the window, nullptr when off
+    std::vector<JournalStroke> strokes;
 
     uint64_t since;  // Microseconds, zero when the range is open
     uint64_t until;
@@ -135,6 +141,7 @@ class JournalView : public TScroller
     void chooseColumns();
     void chooseFind();
     void chooseMoment();
+    void chooseHighlight();
 };
 
 class JournalWindow : public TWindow

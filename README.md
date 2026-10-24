@@ -4,16 +4,18 @@ Turbo Journald Interface (J[e]DI) — a Turbo Vision viewer of the systemd journ
 its filter goes to the journal as a query, so a window of one unit or of errors only reads just those
 entries, while other windows follow the whole system next to it.
 
-Built on [magiblot/tvision](https://github.com/magiblot/tvision) and libsystemd.
+Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd and PCRE2.
 
 ![Two windows: the whole journal and its warnings and errors with found text highlighted](screenshot.png)
 
 ## Features
 
 - Windows with filters of their own: levels, source (unit, identifier, command, transport, boot, user, PID,
-  any `FIELD=VALUE`), time range, and text, plain or a regular expression, to show or to leave out
+  any `FIELD=VALUE`), time range, and text, plain or a regular expression of PCRE2, to show or to leave out
 - Follows the tail, Space pauses; scrolling above the first line brings the older entries in
 - Columns to choose: date, time, level, host, unit, identifier, PID; UTC, milliseconds, wrapped messages
+- Highlighting of messages by rules: built-in ones for times, addresses, identifiers, paths, quoted text, key=value
+  and the words that matter, or any rule file of [grc](https://github.com/garabik/grc)
 - Find with highlighting, next and previous, on into the older entries above the first line
 - Go to a time, and every other window to the time of the selected line: what happened elsewhere at that moment
 - Details of an entry with all its fields, a field there opens a window narrowed to it
@@ -23,7 +25,8 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision) and libsystemd.
 
 ## Building
 
-Debian packages: `build-essential cmake pkg-config libsystemd-dev libncurses-dev`
+Debian packages: `build-essential cmake pkg-config libsystemd-dev libncurses-dev libpcre2-dev`, and `grc` for its
+rule files if they are wanted
 
 ```
 git submodule update --init
@@ -52,6 +55,7 @@ turbojedi [options] [FIELD=VALUE ...]
 | `-b`, `--boot` | entries of the current boot |
 | `-D`, `--directory DIR` | journal files of `DIR` |
 | `-n`, `--lines N` | history to start with, 1000 by default |
+| `-H`, `--highlight NAME` | highlighting rules: `builtin` (default), `off`, a rule file of grc such as `conf.log`, or a path |
 | `-c`, `--layout FILE` | windows of a saved layout |
 
 `TIME` is `2026-10-23 19:00[:00]`, `2026-10-23`, `19:00`, `now`, `today`, `yesterday`, `tomorrow` or a relative
@@ -71,6 +75,7 @@ Reading the whole journal needs root or the `systemd-journal` group, others see 
 | Ctrl-T | time range |
 | Ctrl-K | columns |
 | Ctrl-W | wrap long messages |
+| Ctrl-L | highlighting rules |
 | Ctrl-F, Ctrl-N, Ctrl-P | find, next, previous |
 | Ctrl-G | go to a time |
 | Alt-G | every other window goes to the time of the selected line |
@@ -95,13 +100,24 @@ unit = nginx.service
 text = timeout
 regex = yes
 levels = EACRW---
+highlight = conf.log
 columns = date,time,level,identifier,pid,millisecond
 ```
 
 Keys: `bounds`, `unit`, `identifier`, `command`, `transport`, `boot`, `user`, `pid`, `match` (repeatable),
 `since`, `until`, `text`, `regex`, `exclude`, `case`, `levels` (letters `EACRWNID` of the levels shown, dashes
-for the hidden ones) and `columns` (`date`, `time`, `level`, `host`, `unit`, `identifier`, `pid`, `utc`,
+for the hidden ones), `highlight` and `columns` (`date`, `time`, `level`, `host`, `unit`, `identifier`, `pid`, `utc`,
 `millisecond`, `wrap`).
+
+## Highlighting
+
+Rules are those of [grc](https://github.com/garabik/grc): `regexp=` with `colours=` for the match and its groups,
+`count=once`, `more` or `stop`, entries apart by lines of `-` or `=`. Rule files come from `~/.grc`,
+`/usr/local/share/grc` and `/usr/share/grc`, or by a path. Colors go over the color of the level, light ones for
+the blue window; rules of several lines (`count=block`) and replacements are left out. The built-in rules are
+written the same way in `JournalHighlighter.cpp`.
+
+## Last layout
 
 On exit the layout is kept in `$XDG_CONFIG_HOME/turbojedi/last.jedi` (`~/.config/turbojedi/last.jedi`)
 and opened on the next start, unless a layout or filter options are given.

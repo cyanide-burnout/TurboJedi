@@ -30,6 +30,7 @@ enum
   cmJournalSync,
   cmJournalSyncTo,             // Broadcast with a JournalMoment
   cmJournalOpenFilter,         // Broadcast with a JournalFilter for a new window
+  cmJournalHighlight,
   cmPageCopy,
   cmPageFilter,
   cmJournalPoll,

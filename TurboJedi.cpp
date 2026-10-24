@@ -5,6 +5,7 @@
 #include "JediApplication.h"
 #include "JournalLayout.h"
 #include "JournalTools.h"
+#include "JournalHighlighter.h"
 
 #include <time.h>
 #include <stdio.h>
@@ -97,6 +98,8 @@ static void PrintUsage(const char* name)
   printf("  -b, --boot            entries of the current boot only\n");
   printf("  -D, --directory DIR   journal files of DIR instead of the local journal\n");
   printf("  -n, --lines N         history to start with (default %d)\n", DEFAULT_HISTORY);
+  printf("  -H, --highlight NAME  rules that paint messages: builtin (default), off, a rule file of grc\n");
+  printf("                        such as conf.log, or a path to one\n");
   printf("  -c, --layout FILE     windows of a layout saved by File, Save layout, options are left for new windows then\n");
   printf("\n");
   printf("The layout of all windows is kept on exit in $XDG_CONFIG_HOME/turbojedi/%s and comes back on the next start\n", LAST_LAYOUT);
@@ -140,18 +143,20 @@ int main(int count, char* const* arguments)
     { "directory",  required_argument, nullptr, 'D' },
     { "layout",     required_argument, nullptr, 'c' },
     { "lines",      required_argument, nullptr, 'n' },
+    { "highlight",  required_argument, nullptr, 'H' },
     { "help",       no_argument,       nullptr, 'h' },
     { nullptr,      0,                 nullptr, 0   }
   };
 
-  history        = DEFAULT_HISTORY;
-  custom         = false;
-  filter.pid     = 0;
-  filter.mode    = 0;
-  filter.levels  = 0xff;
-  filter.columns = JOURNAL_COLUMN_DEFAULT;
+  history          = DEFAULT_HISTORY;
+  custom           = false;
+  filter.pid       = 0;
+  filter.mode      = 0;
+  filter.levels    = 0xff;
+  filter.columns   = JOURNAL_COLUMN_DEFAULT;
+  filter.highlight = JOURNAL_HIGHLIGHT_BUILTIN;
 
-  while ((result = getopt_long(count, arguments, "t:u:U:p:kS:bD:c:n:h", options, nullptr)) > 0)
+  while ((result = getopt_long(count, arguments, "t:u:U:p:kS:bD:c:n:H:h", options, nullptr)) > 0)
   {
     // Only the history and the directory keep the last layout
     custom |= (result != 'n') && (result != 'D');
@@ -215,6 +220,16 @@ int main(int count, char* const* arguments)
 
       case 'n':
         history = atoi(optarg);
+        break;
+
+      case 'H':
+        if ((strcmp(optarg, JOURNAL_HIGHLIGHT_OFF) != 0) &&
+            (JournalHighlighter::get(optarg, &error) == nullptr))
+        {
+          fprintf(stderr, "Cannot read the rules, %s\n", error.c_str());
+          return EXIT_FAILURE;
+        }
+        filter.highlight = optarg;
         break;
 
       default:

@@ -53,6 +53,7 @@ struct JournalFilter
   std::string since;                 // Times as given, relative ones count from each opening
   std::string until;
   uint16_t columns;                  // Shown in front of the message, not a filter but a new window takes it along too
+  std::string highlight;             // Rules that paint the message, the same way
 };
 
 extern const char* const JournalFieldNames[JOURNAL_FIELD_COUNT];

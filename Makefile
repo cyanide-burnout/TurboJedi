@@ -6,7 +6,8 @@ LIBRARIES := \
 	ncursesw
 
 DEPENDENCIES := \
-	libsystemd
+	libsystemd \
+	libpcre2-8
 
 OBJECTS := \
 	TurboJedi.o \
@@ -24,6 +25,8 @@ OBJECTS := \
 	CalendarView.o \
 	PageView.o \
 	PageDialog.o \
+	JournalExpression.o \
+	JournalHighlighter.o \
 	$(TURBOVISION)/build/libtvision.a
 
 FLAGS += \

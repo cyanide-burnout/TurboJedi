@@ -44,6 +44,11 @@ Journal files of \fIDIR\fR instead of the local journal.
 \fB\-n\fR, \fB\-\-lines\fR \fIN\fR
 History to start with, 1000 by default.
 .TP
+\fB\-H\fR, \fB\-\-highlight\fR \fINAME\fR
+Rules that paint messages: \fBbuiltin\fR (default), \fBoff\fR, a rule file of
+.BR grc (1)
+such as \fBconf.log\fR from \fI~/.grc\fR, \fI/usr/local/share/grc\fR or \fI/usr/share/grc\fR, or a path to one.
+.TP
 \fB\-c\fR, \fB\-\-layout\fR \fIFILE\fR
 Windows of a layout saved by File, Save layout. Options are left for new windows then.
 .TP
@@ -77,6 +82,9 @@ Columns: date, time, level, host, unit, identifier, PID; UTC, milliseconds, wrap
 .TP
 .B Ctrl-W
 Wrap long messages.
+.TP
+.B Ctrl-L
+Highlighting rules of the window.
 .TP
 .B Ctrl-F
 Find and highlight. \fBCtrl-N\fR and \fBCtrl-P\fR go to the next and previous one,
@@ -123,4 +131,5 @@ Reading the whole journal needs root or the \fBsystemd-journal\fR group.
 Artem Prilutskiy, https://github.com/cyanide-burnout/TurboJedi
 .SH SEE ALSO
 .BR journalctl (1),
+.BR grc (1),
 .BR sd-journal (3)

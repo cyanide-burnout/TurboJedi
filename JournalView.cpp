@@ -23,6 +23,7 @@
 #include "SourceDialog.h"
 #include "TimeDialog.h"
 #include "PageDialog.h"
+#include "PickDialog.h"
 
 #include <time.h>
 #include <stdio.h>
@@ -88,46 +89,39 @@ static int GetSourceWidth(const int* widths, uint16_t columns)
     ((columns & JOURNAL_COLUMN_PID) ? (widths[3] + 2) : 0);
 }
 
-static bool CompileExpression(const std::string& pattern, uint16_t mode, std::regex& expression)
+static bool CompileExpression(const std::string& pattern, uint16_t mode, JournalExpression& expression)
 {
-  try
-  {
-    expression = std::regex(pattern, (mode & JOURNAL_TEXT_SENSITIVE) ? std::regex::ECMAScript : (std::regex::ECMAScript | std::regex::icase));
-    return true;
-  }
-  catch (const std::regex_error& error)
-  {
-    // Broken expression
-    return false;
-  }
+  return expression.compile(pattern, !(mode & JOURNAL_TEXT_SENSITIVE));
 }
 
-static bool MatchText(const std::string& text, const std::string& pattern, uint16_t mode, const std::regex& expression)
+static bool MatchText(const std::string& text, const std::string& pattern, uint16_t mode, JournalExpression& expression)
 {
   if (mode & JOURNAL_TEXT_EXPRESSION)
   {
     // Anywhere in the text
-    return std::regex_search(text, expression);
+    return expression.match(text);
   }
 
   return ((mode & JOURNAL_TEXT_SENSITIVE) ? strstr(text.c_str(), pattern.c_str()) : strcasestr(text.c_str(), pattern.c_str())) != nullptr;
 }
 
-static void LocateText(const std::string& text, const std::string& pattern, uint16_t mode, const std::regex& expression, std::vector<std::pair<size_t, size_t>>& ranges)
+static void LocateText(const std::string& text, const std::string& pattern, uint16_t mode, JournalExpression& expression, std::vector<std::pair<size_t, size_t>>& ranges)
 {
+  size_t offset;
   const char* start;
   const char* found;
+  std::vector<std::pair<size_t, size_t>> groups;
 
   ranges.clear();
 
   if (mode & JOURNAL_TEXT_EXPRESSION)
   {
-    for (std::sregex_iterator item(text.begin(), text.end(), expression), end; item != end; item ++)
+    for (offset = 0; (offset <= text.size()) && expression.search(text, offset, groups); offset = JournalExpression::advance(text, groups[0].first, groups[0].second))
     {
-      if (item->length() > 0)
+      if (groups[0].second > groups[0].first)
       {
         // Empty matches have nothing to show
-        ranges.emplace_back(item->position(), item->position() + item->length());
+        ranges.push_back(groups[0]);
       }
     }
 
@@ -141,6 +135,20 @@ static void LocateText(const std::string& text, const std::string& pattern, uint
   }
 }
 
+static void PaintText(TDrawBuffer& buffer, int x, const std::string& text, size_t start, size_t end, int skip, int room, TColorAttr color)
+{
+  int column;
+  int last;
+
+  // Bytes of the text to columns of the screen, scrolled or wrapped by skip
+  last = std::min(strwidth(TStringView(text.data(), end)) - skip, room);
+
+  for (column = std::max(strwidth(TStringView(text.data(), start)) - skip, 0); column < last; column ++)
+  {
+    buffer.putAttribute(x + column, color);
+  }
+}
+
 // JournalView
 
 JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar* vertical, const std::string& directory, const JournalFilter& filter, int history, size_t capacity) :
@@ -151,9 +159,10 @@ JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar
   this->history   = history;
   this->capacity  = capacity;
 
-  growMode = gfGrowHiX | gfGrowHiY;
-  options |= ofFirstClick;
-  journal  = nullptr;
+  growMode    = gfGrowHiX | gfGrowHiY;
+  options    |= ofFirstClick;
+  highlighter = JournalHighlighter::get(filter.highlight);
+  journal     = nullptr;
   header   = nullptr;
   mode     = 0;
   since    = 0;
@@ -201,8 +210,6 @@ void JournalView::draw()
   int y;
   int room;
   int skip;
-  int column;
-  int last;
   bool chosen;
   size_t index;
   uint64_t row;
@@ -312,23 +319,26 @@ void JournalView::draw()
       {
         buffer.moveStr(x, line->text, color, room, skip);
 
+        if ((!chosen) &&
+            (highlighter != nullptr))
+        {
+          // Rules paint over the color of the level, a selection stays plain
+          highlighter->apply(line->text, strokes);
+
+          for (const JournalStroke& stroke : strokes)
+          {
+            PaintText(buffer, x, line->text, stroke.start, stroke.end, skip, room, stroke.paint->apply(color));
+          }
+        }
+
         if (!search.empty())
         {
           LocateText(line->text, search, mode, finder, ranges);
 
           for (const std::pair<size_t, size_t>& range : ranges)
           {
-            last = strwidth(TStringView(line->text.data(), range.second)) - skip;
-
-            for (column = strwidth(TStringView(line->text.data(), range.first)) - skip; column < last; column ++)
-            {
-              if ((column >= 0) &&
-                  (column < room))
-              {
-                // Found text stands out
-                buffer.putAttribute(x + column, found);
-              }
-            }
+            // Found text stands out over everything
+            PaintText(buffer, x, line->text, range.first, range.second, skip, room, found);
           }
         }
       }
@@ -451,6 +461,7 @@ void JournalView::handleEvent(TEvent& event)
         case cmJournalSource:        chooseSource();   break;
         case cmJournalTime:          chooseTime();     break;
         case cmJournalColumns:       chooseColumns();  break;
+        case cmJournalHighlight:     chooseHighlight(); break;
         case cmJournalFind:          chooseFind();     break;
         case cmJournalFindNext:      find(1);          break;
         case cmJournalFindPrevious:  find(-1);         break;
@@ -1684,6 +1695,40 @@ void JournalView::chooseMoment()
     // Back to the box with what has been typed
     messageBox("Unknown time format", mfError | mfOKButton);
   }
+}
+
+void JournalView::chooseHighlight()
+{
+  std::string error;
+  const char* label;
+  PickDialog* dialog;
+  std::shared_ptr<JournalHighlighter> chosen;
+  std::map<std::string, std::string> values;  // Label to name
+  std::map<std::string, std::string>::iterator item;
+
+  JournalHighlighter::list(values);
+  dialog = new PickDialog("Highlight", values);
+
+  if ((TProgram::deskTop->execView(dialog) == cmOK) &&
+      ((label = dialog->selection()) != nullptr) &&
+      ((item = values.find(label)) != values.end()))
+  {
+    chosen = JournalHighlighter::get(item->second, &error);
+
+    if (!error.empty())
+    {
+      messageBox(mfError | mfOKButton, "Cannot read the rules, %s", error.c_str());
+    }
+    else
+    {
+      // Lines keep their text, nothing to read again
+      filter.highlight = item->second;
+      highlighter      = chosen;
+      drawView();
+    }
+  }
+
+  TObject::destroy(dialog);
 }
 
 void JournalView::chooseSource()

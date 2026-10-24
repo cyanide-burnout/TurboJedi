@@ -95,6 +95,7 @@ TMenuBar* JediApplication::initMenuBar(TRect bounds)
       *new TMenuItem("T~i~me...",       cmJournalTime,         kbCtrlT,   hcNoContext, "Ctrl-T") +
       *new TMenuItem("Col~u~mns...",    cmJournalColumns,      kbCtrlK,   hcNoContext, "Ctrl-K") +
       *new TMenuItem("~W~rap lines",    cmJournalWrap,         kbCtrlW,   hcNoContext, "Ctrl-W") +
+      *new TMenuItem("~H~ighlight...",  cmJournalHighlight,    kbCtrlL,   hcNoContext, "Ctrl-L") +
       newLine() +
       *new TMenuItem("~F~ind...",       cmJournalFind,         kbCtrlF,   hcNoContext, "Ctrl-F") +
       *new TMenuItem("Find ~n~ext",     cmJournalFindNext,     kbCtrlN,   hcNoContext, "Ctrl-N") +
@@ -350,6 +351,7 @@ void JediApplication::showHelp()
     "Lines",
     "  Ctrl-K          Columns, UTC and milliseconds",
     "  Ctrl-W          Wrap long messages",
+    "  Ctrl-L          Highlight rules: built-in, off or a rule file of grc",
     "  Space           Pause or follow the tail",
     "  Up, PgUp, Home  Above the first line the older entries come in",
     "  Shift+arrows    Select lines, also with the mouse",

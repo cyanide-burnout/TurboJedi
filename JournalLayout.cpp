@@ -3,6 +3,8 @@
 // Artem Prilutskiy, 2026
 
 #include "JournalLayout.h"
+#include "JournalExpression.h"
+#include "JournalHighlighter.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -10,7 +12,6 @@
 #include <string.h>
 #include <limits.h>
 
-#include <regex>
 #include <fstream>
 #include <algorithm>
 
@@ -128,6 +129,12 @@ static const char* SetValue(JournalLayout& window, const std::string& key, const
     return ParseJournalTime(value, &stamp) ? nullptr : "since and until take a time the way the command line does";
   }
 
+  if (key == "highlight")
+  {
+    window.filter.highlight = value;
+    return ((value == JOURNAL_HIGHLIGHT_OFF) || (JournalHighlighter::get(value) != nullptr)) ? nullptr : "highlight takes builtin, off or a rule file of grc";
+  }
+
   if (key == "levels")
   {
     // Letter of a shown level, dash of a hidden one, the way the window title shows them
@@ -174,16 +181,10 @@ static const char* SetValue(JournalLayout& window, const std::string& key, const
 
 static bool CheckExpression(const JournalFilter& filter)
 {
-  try
-  {
-    // The window would take a broken one as plain text
-    std::regex(filter.text, (filter.mode & JOURNAL_TEXT_SENSITIVE) ? std::regex::ECMAScript : (std::regex::ECMAScript | std::regex::icase));
-    return true;
-  }
-  catch (const std::regex_error& error)
-  {
-    return false;
-  }
+  JournalExpression expression;
+
+  // The window would take a broken one as plain text
+  return expression.compile(filter.text, !(filter.mode & JOURNAL_TEXT_SENSITIVE));
 }
 
 bool LoadJournalLayout(const std::string& path, std::vector<JournalLayout>& windows, std::string& error)
@@ -221,10 +222,11 @@ bool LoadJournalLayout(const std::string& path, std::vector<JournalLayout>& wind
       windows.emplace_back();
       sections.push_back(number);
       memset(windows.back().bounds, 0, sizeof(windows.back().bounds));
-      windows.back().filter.pid     = 0;
-      windows.back().filter.mode    = 0;
-      windows.back().filter.levels  = 0xff;
-      windows.back().filter.columns = JOURNAL_COLUMN_DEFAULT;
+      windows.back().filter.pid       = 0;
+      windows.back().filter.mode      = 0;
+      windows.back().filter.levels    = 0xff;
+      windows.back().filter.columns   = JOURNAL_COLUMN_DEFAULT;
+      windows.back().filter.highlight = JOURNAL_HIGHLIGHT_BUILTIN;
       continue;
     }
 
@@ -306,6 +308,7 @@ bool SaveJournalLayout(const std::string& path, const std::vector<JournalLayout>
       file << ((window.filter.levels & (1 << index)) ? letters[index] : '-');
     }
 
+    file << "\nhighlight = " << window.filter.highlight;
     file << "\ncolumns = ";
 
     for (index = 0, first = true; index < COLUMN_COUNT; index ++)
