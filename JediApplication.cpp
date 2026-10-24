@@ -17,7 +17,7 @@
 #include "PageDialog.h"
 #include "JediStatusLine.h"
 #include "JournalLayout.h"
-#include "JournalView.h"
+#include "JournalWindow.h"
 #include "Commands.h"
 
 #include <string.h>

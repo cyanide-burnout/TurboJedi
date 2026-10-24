@@ -15,6 +15,7 @@ OBJECTS := \
 	JediStatusLine.o \
 	JediClock.o \
 	JournalView.o \
+	JournalWindow.o \
 	JournalHeader.o \
 	JournalTools.o \
 	JournalLayout.o \
@@ -27,6 +28,10 @@ OBJECTS := \
 	PageDialog.o \
 	JournalExpression.o \
 	JournalHighlighter.o \
+	JournalMatcher.o \
+	TextDialog.o \
+	LevelsDialog.o \
+	ColumnsDialog.o \
 	$(TURBOVISION)/build/libtvision.a
 
 FLAGS += \

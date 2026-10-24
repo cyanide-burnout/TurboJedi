@@ -7,7 +7,6 @@
 
 #define Uses_TScroller
 #define Uses_TScrollBar
-#define Uses_TWindow
 #include <tvision/tv.h>
 
 #include <deque>
@@ -16,7 +15,7 @@
 
 #include "Commands.h"
 #include "JournalTools.h"
-#include "JournalExpression.h"
+#include "JournalMatcher.h"
 #include "JournalHighlighter.h"
 
 #include <memory>
@@ -85,11 +84,9 @@ class JournalView : public TScroller
 
     int widths[4];   // Host, unit, identifier and PID columns, as wide as their longest values within limits
 
-    JournalExpression expression;  // Of the text filter when it is a regular expression
+    JournalMatcher matcher;  // Text of the filter
 
-    std::string search;     // What Find looks for, highlighted in the lines
-    uint16_t mode;          // JOURNAL_TEXT_* of the search
-    JournalExpression finder;
+    JournalMatcher finder;   // What Find looks for, highlighted in the lines
 
     std::shared_ptr<JournalHighlighter> highlighter;  // Of the window, nullptr when off
     std::vector<JournalStroke> strokes;
@@ -154,21 +151,6 @@ class JournalView : public TScroller
     void chooseFind();
     void chooseMoment();
     void chooseHighlight();
-};
-
-class JournalWindow : public TWindow
-{
-  public:
-
-    JournalWindow(const TRect& bounds, short number, const std::string& directory, const JournalFilter& filter, int history, size_t capacity);
-
-    JournalView* view;
-
-    const char* getTitle(short size) override;
-
-  private:
-
-    std::string caption;
 };
 
 #endif

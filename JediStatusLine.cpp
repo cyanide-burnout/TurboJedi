@@ -5,7 +5,7 @@
 #define Uses_TProgram
 #define Uses_TDeskTop
 #include "JediStatusLine.h"
-#include "JournalView.h"
+#include "JournalWindow.h"
 
 #include <stdio.h>
 #include <syslog.h>

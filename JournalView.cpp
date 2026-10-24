@@ -3,12 +3,7 @@
 // Artem Prilutskiy, 2026
 
 #define Uses_TFrame
-#define Uses_TDialog
-#define Uses_TCheckBoxes
-#define Uses_TSItem
-#define Uses_TInputLine
-#define Uses_TLabel
-#define Uses_TButton
+#define Uses_TWindow
 #define Uses_TDrawBuffer
 #define Uses_TEvent
 #define Uses_TKeys
@@ -19,11 +14,13 @@
 #define Uses_TFileDialog
 #define Uses_MsgBox
 #include "JournalView.h"
-#include "JournalHeader.h"
 #include "SourceDialog.h"
 #include "TimeDialog.h"
 #include "PageDialog.h"
 #include "PickDialog.h"
+#include "TextDialog.h"
+#include "LevelsDialog.h"
+#include "ColumnsDialog.h"
 
 #include <time.h>
 #include <stdio.h>
@@ -34,7 +31,6 @@
 #include <fstream>
 #include <algorithm>
 
-#define TEXT_LENGTH   256
 #define NO_SELECTION  UINT64_MAX
 #define FIRST_LINE    (1ULL << 62)  // Number of the first line, history goes in front of it
 #define READ_STEP     5000          // Entries read at once, the rest comes with the next polls
@@ -45,18 +41,6 @@
 #define UNIT_WIDTH        32
 #define IDENTIFIER_WIDTH  24
 #define PID_WIDTH         8
-
-struct TextData
-{
-  char text[TEXT_LENGTH];
-  ushort options;
-};
-
-struct ColumnsData
-{
-  ushort columns;
-  ushort options;
-};
 
 static const char* const tags[] =
 {
@@ -90,52 +74,6 @@ static int GetSourceWidth(const int* widths, uint16_t columns)
     ((columns & JOURNAL_COLUMN_PID) ? (widths[3] + 2) : 0);
 }
 
-static bool CompileExpression(const std::string& pattern, uint16_t mode, JournalExpression& expression)
-{
-  return expression.compile(pattern, !(mode & JOURNAL_TEXT_SENSITIVE));
-}
-
-static bool MatchText(const std::string& text, const std::string& pattern, uint16_t mode, JournalExpression& expression)
-{
-  if (mode & JOURNAL_TEXT_EXPRESSION)
-  {
-    // Anywhere in the text
-    return expression.match(text);
-  }
-
-  return ((mode & JOURNAL_TEXT_SENSITIVE) ? strstr(text.c_str(), pattern.c_str()) : strcasestr(text.c_str(), pattern.c_str())) != nullptr;
-}
-
-static void LocateText(const std::string& text, const std::string& pattern, uint16_t mode, JournalExpression& expression, std::vector<std::pair<size_t, size_t>>& ranges)
-{
-  size_t offset;
-  const char* start;
-  const char* found;
-  std::vector<std::pair<size_t, size_t>> groups;
-
-  ranges.clear();
-
-  if (mode & JOURNAL_TEXT_EXPRESSION)
-  {
-    for (offset = 0; (offset <= text.size()) && expression.search(text, offset, groups); offset = JournalExpression::advance(text, groups[0].first, groups[0].second))
-    {
-      if (groups[0].second > groups[0].first)
-      {
-        // Empty matches have nothing to show
-        ranges.push_back(groups[0]);
-      }
-    }
-
-    return;
-  }
-
-  for (start = text.c_str(); (found = (mode & JOURNAL_TEXT_SENSITIVE) ? strstr(start, pattern.c_str()) : strcasestr(start, pattern.c_str())) != nullptr; start = found + pattern.size())
-  {
-    // Byte offsets of every occurrence
-    ranges.emplace_back(found - text.c_str(), found - text.c_str() + pattern.size());
-  }
-}
-
 static void PaintText(TDrawBuffer& buffer, int x, const std::string& text, size_t start, size_t end, int skip, int room, TColorAttr color)
 {
   int column;
@@ -165,7 +103,6 @@ JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar
   highlighter = JournalHighlighter::get(filter.highlight);
   journal     = nullptr;
   header   = nullptr;
-  mode     = 0;
   since    = 0;
   until    = 0;
   closed   = false;
@@ -332,9 +269,9 @@ void JournalView::draw()
           }
         }
 
-        if (!search.empty())
+        if (!finder.empty())
         {
-          LocateText(line->text, search, mode, finder, ranges);
+          finder.locate(line->text, ranges);
 
           for (const std::pair<size_t, size_t>& range : ranges)
           {
@@ -576,11 +513,11 @@ void JournalView::open()
   // Lines of another query
   places.clear();
 
-  if ((filter.mode & JOURNAL_TEXT_EXPRESSION) &&
-      (!CompileExpression(filter.text, filter.mode, expression)))
+  if (!matcher.set(filter.text, filter.mode))
   {
     // A layout file may bring a broken expression, it goes as plain text then
     filter.mode &= ~JOURNAL_TEXT_EXPRESSION;
+    matcher.set(filter.text, filter.mode);
   }
 
   if ((result = OpenJournalQuery(&journal, directory, filter)) < 0)
@@ -805,8 +742,8 @@ bool JournalView::parse(sd_journal* source, JournalLine& model, std::string& mes
 
   message.assign(data + 8, length - 8);
 
-  if ((!filter.text.empty()) &&
-      (MatchText(model.identifier + "[" + model.pid + "]: " + message, filter.text, filter.mode, expression) == ((filter.mode & JOURNAL_TEXT_EXCLUDE) != 0)))
+  if ((!matcher.empty()) &&
+      (matcher.match(model.identifier + "[" + model.pid + "]: " + message) == ((filter.mode & JOURNAL_TEXT_EXCLUDE) != 0)))
   {
     // The only filter the journal cannot apply, it looks at the syslog style source as well
     return false;
@@ -1211,7 +1148,7 @@ void JournalView::find(int direction)
   size_t added;
   int64_t index;
 
-  if (search.empty())
+  if (finder.empty())
   {
     // Nothing to look for yet
     chooseFind();
@@ -1244,7 +1181,7 @@ void JournalView::find(int direction)
       index += added;
     }
 
-    if (MatchText(lines[index].identifier + "[" + lines[index].pid + "]: " + lines[index].text, search, mode, finder))
+    if (finder.match(lines[index].identifier + "[" + lines[index].pid + "]: " + lines[index].text))
     {
       remember();
       select(index, false);
@@ -1550,31 +1487,10 @@ std::string JournalView::heading()
 void JournalView::chooseLevels()
 {
   ushort value;
-  TDialog* dialog;
-  TCheckBoxes* boxes;
 
-  dialog = new TDialog(TRect(0, 0, 32, 16), "Levels");
-  boxes  = new TCheckBoxes(TRect(3, 3, 29, 11),
-    new TSItem("~E~mergency",
-    new TSItem("~A~lert",
-    new TSItem("~C~ritical",
-    new TSItem("E~r~ror",
-    new TSItem("~W~arning",
-    new TSItem("~N~otice",
-    new TSItem("~I~nformational",
-    new TSItem("~D~ebug", nullptr)))))))));
-
-  dialog->options |= ofCentered;
-  dialog->insert(boxes);
-  dialog->insert(new TLabel(TRect(2, 2, 20, 3), "~S~how levels", boxes));
-  dialog->insert(new TButton(TRect(4, 12, 14, 14), "~O~K", cmOK, bfDefault));
-  dialog->insert(new TButton(TRect(17, 12, 28, 14), "Cancel", cmCancel, bfNormal));
-  dialog->selectNext(False);
-
-  // Bit N of the check box value is priority N
   value = filter.levels;
 
-  if (TProgram::application->executeDialog(dialog, &value) == cmOK)
+  if (TProgram::application->executeDialog(new LevelsDialog(), &value) == cmOK)
   {
     filter.levels = value;
     open();
@@ -1583,42 +1499,14 @@ void JournalView::chooseLevels()
 
 void JournalView::chooseColumns()
 {
-  ColumnsData data;
-  TDialog* dialog;
-  TCheckBoxes* columns;
-  TCheckBoxes* options;
+  ushort value;
 
-  dialog  = new TDialog(TRect(0, 0, 54, 15), "Columns");
-  columns = new TCheckBoxes(TRect(3, 3, 25, 10),
-    new TSItem("~D~ate",
-    new TSItem("~T~ime",
-    new TSItem("~L~evel",
-    new TSItem("~H~ost",
-    new TSItem("~U~nit",
-    new TSItem("~I~dentifier",
-    new TSItem("~P~ID", nullptr))))))));
-  options = new TCheckBoxes(TRect(28, 3, 51, 6),
-    new TSItem("UT~C~",
-    new TSItem("~M~illiseconds",
-    new TSItem("~W~rap lines", nullptr))));
+  value = filter.columns;
 
-  dialog->options |= ofCentered;
-  dialog->insert(columns);
-  dialog->insert(new TLabel(TRect(2, 2, 20, 3), "~S~how columns", columns));
-  dialog->insert(options);
-  dialog->insert(new TLabel(TRect(27, 2, 45, 3), "~O~ptions", options));
-  dialog->insert(new TButton(TRect(13, 11, 25, 13), "OK", cmOK, bfDefault));
-  dialog->insert(new TButton(TRect(28, 11, 40, 13), "Cancel", cmCancel, bfNormal));
-  dialog->selectNext(False);
-
-  // Bit N of the columns is column N, the options follow them in the same word, the message is always there
-  data.columns = filter.columns & 0x7f;
-  data.options = (filter.columns >> 7) & 0x07;
-
-  if (TProgram::application->executeDialog(dialog, &data) == cmOK)
+  if (TProgram::application->executeDialog(new ColumnsDialog(), &value) == cmOK)
   {
     // Lines keep every field, nothing to read again
-    filter.columns = data.columns | (data.options << 7);
+    filter.columns = value;
     layout         = 0;
     refresh();
   }
@@ -1626,107 +1514,39 @@ void JournalView::chooseColumns()
 
 void JournalView::chooseText()
 {
-  bool valid;
   TextData data;
-  TDialog* dialog;
-  TInputLine* line;
-  TCheckBoxes* boxes;
 
   memset(&data, 0, sizeof(data));
   strncpy(data.text, filter.text.c_str(), sizeof(data.text) - 1);
   data.options = filter.mode;
 
-  do
+  if (TProgram::application->executeDialog(new TextDialog("Text", "~T~ext of the entries to show", true), &data) == cmOK)
   {
-    dialog = new TDialog(TRect(0, 0, 52, 13), "Text");
-    line   = new TInputLine(TRect(3, 3, 49, 4), TEXT_LENGTH);
-    boxes  = new TCheckBoxes(TRect(3, 5, 49, 8),
-      new TSItem("~R~egular expression",
-      new TSItem("~E~xclude matching entries",
-      new TSItem("~C~ase sensitive", nullptr))));
-
-    dialog->options |= ofCentered;
-    dialog->insert(line);
-    dialog->insert(new TLabel(TRect(2, 2, 49, 3), "~T~ext of the entries to show", line));
-    dialog->insert(boxes);
-    dialog->insert(new TButton(TRect(13, 9, 25, 11), "~O~K", cmOK, bfDefault));
-    dialog->insert(new TButton(TRect(27, 9, 39, 11), "Cancel", cmCancel, bfNormal));
-    dialog->selectNext(False);
-
-    if (TProgram::application->executeDialog(dialog, &data) != cmOK)
-    {
-      // Nothing changes
-      return;
-    }
-
-    // Bit N of the check boxes is the JOURNAL_TEXT_* bit N
-    valid = (!(data.options & JOURNAL_TEXT_EXPRESSION)) || CompileExpression(data.text, data.options, expression);
-
-    if (!valid)
-    {
-      // Back to the dialog with what has been typed
-      messageBox("Broken regular expression", mfError | mfOKButton);
-    }
+    filter.text = data.text;
+    filter.mode = data.options;
+    open();
   }
-  while (!valid);
-
-  filter.text = data.text;
-  filter.mode = data.options;
-  open();
 }
 
 void JournalView::chooseFind()
 {
-  bool valid;
   TextData data;
-  TDialog* dialog;
-  TInputLine* line;
-  TCheckBoxes* boxes;
 
   memset(&data, 0, sizeof(data));
-  strncpy(data.text, search.c_str(), sizeof(data.text) - 1);
-  data.options = ((mode & JOURNAL_TEXT_EXPRESSION) ? 1 : 0) | ((mode & JOURNAL_TEXT_SENSITIVE) ? 2 : 0);
+  strncpy(data.text, finder.getText().c_str(), sizeof(data.text) - 1);
+  data.options = finder.getMode();
 
-  do
+  if (TProgram::application->executeDialog(new TextDialog("Find", "~F~ind", false), &data) == cmOK)
   {
-    dialog = new TDialog(TRect(0, 0, 52, 12), "Find");
-    line   = new TInputLine(TRect(3, 3, 49, 4), TEXT_LENGTH);
-    boxes  = new TCheckBoxes(TRect(3, 5, 49, 7),
-      new TSItem("~R~egular expression",
-      new TSItem("~C~ase sensitive", nullptr)));
+    // Checked by the dialog already
+    finder.set(data.text, data.options);
+    drawView();
 
-    dialog->options |= ofCentered;
-    dialog->insert(line);
-    dialog->insert(new TLabel(TRect(2, 2, 49, 3), "~F~ind", line));
-    dialog->insert(boxes);
-    dialog->insert(new TButton(TRect(13, 8, 25, 10), "~O~K", cmOK, bfDefault));
-    dialog->insert(new TButton(TRect(27, 8, 39, 10), "Cancel", cmCancel, bfNormal));
-    dialog->selectNext(False);
-
-    if (TProgram::application->executeDialog(dialog, &data) != cmOK)
+    if (!finder.empty())
     {
-      // Nothing changes
-      return;
+      // The newest one from the selection or the bottom of the screen, then on into the history
+      find(-1);
     }
-
-    mode  = ((data.options & 1) ? JOURNAL_TEXT_EXPRESSION : 0) | ((data.options & 2) ? JOURNAL_TEXT_SENSITIVE : 0);
-    valid = (!(mode & JOURNAL_TEXT_EXPRESSION)) || CompileExpression(data.text, mode, finder);
-
-    if (!valid)
-    {
-      // Back to the dialog with what has been typed
-      messageBox("Broken regular expression", mfError | mfOKButton);
-    }
-  }
-  while (!valid);
-
-  search = data.text;
-  drawView();
-
-  if (!search.empty())
-  {
-    // The newest one from the selection or the bottom of the screen, then on into the history
-    find(-1);
   }
 }
 
@@ -1866,50 +1686,4 @@ void JournalView::chooseTime()
   filter.since = data.since;
   filter.until = data.until;
   open();
-}
-
-// JournalWindow
-
-JournalWindow::JournalWindow(const TRect& bounds, short number, const std::string& directory, const JournalFilter& filter, int history, size_t capacity) :
-  TWindowInit(&TWindow::initFrame),
-  TWindow(bounds, "Journal", number)
-{
-  TRect extent;
-  TScrollBar* horizontal;
-  TScrollBar* vertical;
-
-  options  |= ofTileable;
-  growMode  = gfGrowAll | gfGrowRel;
-
-  horizontal = standardScrollBar(sbHorizontal | sbHandleKeyboard);
-  vertical   = standardScrollBar(sbVertical   | sbHandleKeyboard);
-
-  extent = getExtent();
-  extent.grow(-1, -1);
-  extent.a.y ++;
-  view = new JournalView(extent, horizontal, vertical, directory, filter, history, capacity);
-
-  // Heading takes the first row inside the frame
-  extent.b.y    = extent.a.y;
-  extent.a.y   -= 1;
-  view->header  = new JournalHeader(extent, view);
-
-  insert(view->header);
-  insert(view);
-}
-
-const char* JournalWindow::getTitle(short size)
-{
-  const char* name;
-
-  name    = view->name();
-  caption = title;
-
-  if (*name != '\0')
-  {
-    caption += ' ';
-    caption += name;
-  }
-
-  return caption.c_str();
 }
