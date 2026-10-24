@@ -2,6 +2,7 @@
 // https://github.com/cyanide-burnout/TurboJedi
 // Artem Prilutskiy, 2026
 
+#include "Version.h"
 #include "JediApplication.h"
 #include "JournalLayout.h"
 #include "JournalTools.h"
@@ -82,7 +83,7 @@ static std::string GetLastLayout()
 
 static void PrintUsage(const char* name)
 {
-  printf("TurboJedi, Turbo Journald Interface\n");
+  printf("TurboJedi %s, Turbo Journald Interface\n", VERSION);
   printf("Artem Prilutskiy, 2026, https://github.com/cyanide-burnout/TurboJedi\n");
   printf("\n");
   printf("Usage: %s [options] [FIELD=VALUE ...]\n", name);

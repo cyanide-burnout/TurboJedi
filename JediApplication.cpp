@@ -13,6 +13,7 @@
 #define Uses_TRect
 #define Uses_TFileDialog
 #define Uses_MsgBox
+#include "Version.h"
 #include "JediApplication.h"
 #include "PageDialog.h"
 #include "JediStatusLine.h"
@@ -385,5 +386,5 @@ void JediApplication::showHelp()
 
 void JediApplication::showAbout()
 {
-  messageBox("\003TurboJedi\n\003Turbo Journald Interface\n\003Artem Prilutskiy, 2026", mfInformation | mfOKButton);
+  messageBox("\003TurboJedi " VERSION "\n\003Turbo Journald Interface\n\003Artem Prilutskiy, 2026", mfInformation | mfOKButton);
 }

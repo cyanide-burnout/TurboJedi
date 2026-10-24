@@ -2,6 +2,10 @@ EXECUTABLE  := turbojedi
 TURBOVISION := Import/tvision
 PREFIX      := $(DESTDIR)/usr/local
 
+# A clone tells by git, an archive of git has VERSION filled in, anything else is unknown
+VERSION := $(if $(wildcard .git),$(shell git describe --tags --always --dirty 2>/dev/null))
+VERSION := $(or $(VERSION),$(shell grep -v '^\$$Format' VERSION 2>/dev/null),unknown)
+
 LIBRARIES := \
 	ncursesw
 
@@ -51,6 +55,12 @@ $(TURBOVISION)/build/libtvision.a:
 	cmake -S $(TURBOVISION) -B $(TURBOVISION)/build -D CMAKE_BUILD_TYPE=Release -D CMAKE_POSITION_INDEPENDENT_CODE=ON -D TV_BUILD_EXAMPLES=OFF -D TV_BUILD_USING_GPM=OFF
 	+make -C $(TURBOVISION)/build tvision
 
+# Rewritten only when the version changes, so that only its users are built again
+Version.h: FORCE
+	@echo '#define VERSION "$(VERSION)"' | cmp -s - $@ || echo '#define VERSION "$(VERSION)"' > $@
+
+TurboJedi.o JediApplication.o: Version.h
+
 build: $(OBJECTS)
 	$(CXX) $(OBJECTS) $(FLAGS) $(LIBS) -o $(EXECUTABLE)
 
@@ -59,9 +69,9 @@ install:
 	install -D -m 644 $(EXECUTABLE).1 $(PREFIX)/share/man/man1/$(EXECUTABLE).1
 
 clean:
-	rm -f $(wildcard $(filter %.o,$(OBJECTS))) $(wildcard $(filter %.d,$(OBJECTS:.o=.d))) $(EXECUTABLE)
+	rm -f $(wildcard $(filter %.o,$(OBJECTS))) $(wildcard $(filter %.d,$(OBJECTS:.o=.d))) $(EXECUTABLE) Version.h
 	rm -rf $(TURBOVISION)/build
 
 -include $(wildcard $(filter %.d,$(OBJECTS:.o=.d)))
 
-.PHONY: all build install clean
+.PHONY: all build install clean FORCE
