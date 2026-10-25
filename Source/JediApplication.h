@@ -14,6 +14,7 @@
 
 #include "JediClock.h"
 #include "JournalTools.h"
+#include "JournalWindow.h"
 
 class JediApplication : public TApplication
 {
@@ -42,6 +43,7 @@ class JediApplication : public TApplication
     void chooseSave();
     void showHelp();
     void showAbout();
+    void timeline(JournalWindow* current);
 
     static TStatusLine* initStatusLine(TRect bounds);
     static TMenuBar* initMenuBar(TRect bounds);

@@ -35,6 +35,8 @@ OBJECTS := \
 	$(SOURCE)/JournalView.o \
 	$(SOURCE)/JournalWindow.o \
 	$(SOURCE)/JournalHeader.o \
+	$(SOURCE)/TimelineView.o \
+	$(SOURCE)/TimelineWindow.o \
 	$(SOURCE)/JournalTools.o \
 	$(SOURCE)/JournalLayout.o \
 	$(SOURCE)/SourceDialog.o \

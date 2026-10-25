@@ -128,6 +128,7 @@ Reading the whole journal needs root or the `systemd-journal` group, others see 
 | Ctrl-G | go to a time |
 | Alt-G | every other window goes to the time of the selected line |
 | Alt-Left, Alt-Backspace | back to where the window was before Ctrl-G, Alt-G or a find |
+| Alt-T | timeline: entries of the filter of the window by intervals of time; Left and Right move, Enter takes every journal window to the interval, `+` and `-` change the step, `L` the scale |
 | Enter, double click | details of the entry, Enter on a field there opens a window with it added to the filter |
 | Space | pause or follow |
 | Shift+arrows, mouse | select lines, Esc drops the selection |

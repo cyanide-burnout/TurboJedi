@@ -19,6 +19,7 @@
 #include "JediStatusLine.h"
 #include "JournalLayout.h"
 #include "JournalWindow.h"
+#include "TimelineWindow.h"
 #include "Commands.h"
 
 #include <string.h>
@@ -105,6 +106,7 @@ TMenuBar* JediApplication::initMenuBar(TRect bounds)
       newLine() +
       *new TMenuItem("~G~o to time...", cmJournalGoTo,         kbCtrlG,   hcNoContext, "Ctrl-G") +
       *new TMenuItem("S~y~nc windows",  cmJournalSync,         kbAltG,    hcNoContext, "Alt-G") +
+      *new TMenuItem("Ti~m~eline",      cmJournalTimeline,     kbAltT,    hcNoContext, "Alt-T") +
       *new TMenuItem("~B~ack",          cmJournalBack,         kbAltLeft, hcNoContext, "Alt-Left") +
       newLine() +
       *new TMenuItem("~P~ause",         cmJournalPause,        kbNoKey,   hcNoContext, "Space") +
@@ -160,12 +162,13 @@ void JediApplication::handleEvent(TEvent& event)
 
     switch (event.message.command)
     {
-      case cmJournalNew:    open((current != nullptr) ? current->view->getFilter() : filter);  break;
-      case cmJournalOpen:   chooseOpen();                                                      break;
-      case cmJournalSave:   chooseSave();                                                      break;
-      case cmJournalHelp:   showHelp();                                                        break;
-      case cmJournalAbout:  showAbout();                                                       break;
-      default:                                                                                 return;
+      case cmJournalNew:       open((current != nullptr) ? current->view->getFilter() : filter);     break;
+      case cmJournalOpen:      chooseOpen();                                                         break;
+      case cmJournalSave:      chooseSave();                                                         break;
+      case cmJournalHelp:      showHelp();                                                           break;
+      case cmJournalTimeline:  timeline(current);                                                    break;
+      case cmJournalAbout:     showAbout();                                                          break;
+      default:                                                                                       return;
     }
 
     clearEvent(event);
@@ -194,6 +197,22 @@ void JediApplication::open(const JournalFilter& filter)
 
   number  = std::min<short>(number + 1, 10);
   window  = new JournalWindow(deskTop->getExtent(), (number < 10) ? number : wnNoNumber, filter, history, DEFAULT_CAPACITY);
+
+  deskTop->insert(window);
+  tile();
+}
+
+void JediApplication::timeline(JournalWindow* current)
+{
+  TimelineWindow* window;
+
+  if (current == nullptr)
+  {
+    // Counts belong to the filter of a journal window
+    return;
+  }
+
+  window = new TimelineWindow(deskTop->getExtent(), current->view->getFilter(), current->view->name());
 
   deskTop->insert(window);
   tile();
@@ -367,11 +386,20 @@ void JediApplication::showHelp()
     "  Alt-G           Every other window goes to the time of the selected line",
     "  Alt-Left        Back to where the window was before Ctrl-G, Alt-G or a find,",
     "                  also Alt-Backspace",
+    "  Alt-T           Timeline: entries of the filter of the window by intervals of time,",
+    "                  errors, warnings and the rest stacked in a column per interval",
     "  Ctrl-Ins        Copy the selected lines or the screen",
     "  Ctrl-E          Export the selected lines or all of them to a file",
     "  F8              Clear the window",
     "",
-    "  Alt-X           Exit, the layout is kept for the next start"
+    "  Alt-X           Exit, the layout is kept for the next start",
+    "",
+    "Timeline",
+    "  Left, Right     Interval under the cursor, also with the mouse, PgUp, PgDn, Home, End",
+    "  Enter           Every journal window goes to the first entry of the interval,",
+    "                  also double click",
+    "  +, -            Finer or coarser intervals",
+    "  L               Linear or logarithmic scale"
   };
 
   TRect bounds;
