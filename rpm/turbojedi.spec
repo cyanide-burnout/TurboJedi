@@ -24,6 +24,11 @@ Turbo Journald Interface: windows with filters of their own asked of the
 journal, following the tail, history, find, highlighting by built-in rules
 or rule files of grc, synchronized time across windows and saved layouts.
 
+%prep
+# What %%setup would unpack: %%license and %%doc take the names from the build directory
+cp -p "%{turbojedi_tree}/LICENSE" "%{turbojedi_tree}/README.md" .
+cp -p "%{turbojedi_tree}/Import/tvision/COPYRIGHT" tvision-COPYRIGHT
+
 %build
 # Newer rpm builds in a directory of its own, the tree is where make rpm has been called
 cd "%{turbojedi_tree}"
@@ -32,13 +37,9 @@ cd "%{turbojedi_tree}"
 %install
 cd "%{turbojedi_tree}"
 make install PREFIX=%{buildroot}%{_prefix}
-install -D -m 644 LICENSE %{buildroot}%{_licensedir}/%{name}/LICENSE
-install -D -m 644 Import/tvision/COPYRIGHT %{buildroot}%{_licensedir}/%{name}/tvision-COPYRIGHT
-install -D -m 644 README.md %{buildroot}%{_docdir}/%{name}/README.md
 
 %files
-%license %{_licensedir}/%{name}/LICENSE
-%license %{_licensedir}/%{name}/tvision-COPYRIGHT
-%doc %{_docdir}/%{name}/README.md
+%license LICENSE tvision-COPYRIGHT
+%doc README.md
 %{_bindir}/turbojedi
 %{_mandir}/man1/turbojedi.1*
