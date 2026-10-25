@@ -220,6 +220,14 @@ void TimelineView::draw()
 
       color.setForeground(TColorBIOS(colors[lower]));
 
+      if (part == 8)
+      {
+        // A full cell by its background, a full block leaves the gaps of a font with taller rows than its glyphs
+        color.setBackground(TColorBIOS(colors[lower]));
+        buffer.moveChar(x, ' ', color, 1);
+        continue;
+      }
+
       if (upper != GROUP_NONE)
       {
         // The next part goes on in the same cell
