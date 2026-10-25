@@ -347,7 +347,7 @@ void JediApplication::showHelp()
     "Filter of the window, the journal applies it when asked",
     "  F3              Levels",
     "  F4              Text: plain or regular expression, to show or to leave out",
-    "  F7              Source: unit, identifier, command, transport, boot, user, PID",
+    "  F7              Source: unit, identifier, command, transport, boot, user, machine, PID",
     "  Ctrl-T          Time range",
     "",
     "Lines",

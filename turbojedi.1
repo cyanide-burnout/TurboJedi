@@ -41,6 +41,12 @@ Entries of the current boot only.
 \fB\-D\fR, \fB\-\-directory\fR \fIDIR\fR
 Journal files of \fIDIR\fR instead of the local journal.
 .TP
+\fB\-m\fR, \fB\-\-merge\fR
+Journals of every machine there are, like \fBjournalctl \-\-merge\fR: other machine IDs in
+\fI/var/log/journal\fR and \fI/var/log/journal/remote\fR of
+.BR systemd-journal-remote (8),
+instead of this machine only.
+.TP
 \fB\-n\fR, \fB\-\-lines\fR \fIN\fR
 History to start with, 1000 by default.
 .TP
@@ -72,7 +78,7 @@ Levels.
 Text filter: plain or regular expression, to show or to leave out the matching entries, case sensitive or not.
 .TP
 .B F7
-Source: unit, identifier, command, transport, boot, user, PID, with lists of the values in the journal.
+Source: unit, identifier, command, transport, boot, user, machine, PID, with lists of the values in the journal.
 .TP
 .B Ctrl-T
 Time range.

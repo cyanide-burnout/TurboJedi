@@ -1319,7 +1319,7 @@ const char* JournalView::describe()
 const char* JournalView::name()
 {
   static const char letters[] = "EACRWNID";
-  static const char* const keys[] = { "unit", "id", "comm", "via", "boot", "user" };
+  static const char* const keys[] = { "unit", "id", "comm", "via", "boot", "user", "machine" };
 
   int field;
   int priority;
@@ -1341,11 +1341,11 @@ const char* JournalView::name()
   {
     if (!filter.values[field].empty())
     {
-      // Boot identifiers are long, their beginning tells them apart
+      // Boot and machine identifiers are long, their beginning tells them apart
       caption += caption.empty() ? "" : " ";
       caption += keys[field];
       caption += '=';
-      caption += (field == JOURNAL_FIELD_BOOT) ? filter.values[field].substr(0, 8) : filter.values[field];
+      caption += ((field == JOURNAL_FIELD_BOOT) || (field == JOURNAL_FIELD_MACHINE)) ? filter.values[field].substr(0, 8) : filter.values[field];
     }
   }
 

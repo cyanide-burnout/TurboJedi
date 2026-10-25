@@ -10,7 +10,7 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd and
 
 ## Features
 
-- Windows with filters of their own: levels, source (unit, identifier, command, transport, boot, user, PID,
+- Windows with filters of their own: levels, source (unit, identifier, command, transport, boot, user, machine, PID,
   any `FIELD=VALUE`), time range, and text, plain or a regular expression of PCRE2, to show or to leave out
 - Follows the tail, Space pauses; scrolling above the first line brings the older entries in
 - Columns to choose: date, time, level, host, unit, identifier, PID; UTC, milliseconds, wrapped messages
@@ -99,6 +99,7 @@ turbojedi [options] [FIELD=VALUE ...]
 | `--until TIME` | entries up to `TIME` |
 | `-b`, `--boot` | entries of the current boot |
 | `-D`, `--directory DIR` | journal files of `DIR` |
+| `-m`, `--merge` | journals of every machine there are, like `journalctl --merge`: other machine IDs in `/var/log/journal` and `/var/log/journal/remote` of `systemd-journal-remote` |
 | `-n`, `--lines N` | history to start with, 1000 by default |
 | `-H`, `--highlight NAME` | highlighting rules: `builtin` (default), `off`, a rule file of grc such as `conf.log`, or a path |
 | `-c`, `--layout FILE` | windows of a saved layout |
@@ -150,7 +151,7 @@ highlight = conf.log
 columns = date,time,level,identifier,pid,millisecond
 ```
 
-Keys: `bounds`, `unit`, `identifier`, `command`, `transport`, `boot`, `user`, `pid`, `match` (repeatable),
+Keys: `bounds`, `unit`, `identifier`, `command`, `transport`, `boot`, `user`, `machine`, `pid`, `match` (repeatable),
 `since`, `until`, `text`, `regex`, `exclude`, `case`, `levels` (letters `EACRWNID` of the levels shown, dashes
 for the hidden ones), `highlight` and `columns` (`date`, `time`, `level`, `host`, `unit`, `identifier`, `pid`, `utc`,
 `millisecond`, `wrap`).

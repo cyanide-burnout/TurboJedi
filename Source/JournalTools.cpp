@@ -23,13 +23,23 @@ const char* const JournalFieldNames[JOURNAL_FIELD_COUNT] =
   "_COMM",
   "_TRANSPORT",
   "_BOOT_ID",
-  "_UID"
+  "_UID",
+  "_MACHINE_ID"
 };
+
+// Flags of sd_journal_open() for the local journal, the same for every window
+static int scope = SD_JOURNAL_LOCAL_ONLY;
+
+void SetJournalMerge(bool merge)
+{
+  // Other machines are other directories of /var/log/journal and /var/log/journal/remote of systemd-journal-remote
+  scope = merge ? 0 : SD_JOURNAL_LOCAL_ONLY;
+}
 
 int OpenJournal(sd_journal** journal, const std::string& directory)
 {
   return directory.empty() ?
-    sd_journal_open(journal, SD_JOURNAL_LOCAL_ONLY) :
+    sd_journal_open(journal, scope) :
     sd_journal_open_directory(journal, directory.c_str(), 0);
 }
 
@@ -388,7 +398,8 @@ void ListJournalValues(const std::string& directory, int field, std::map<std::st
   const void* data;
   struct tm date;
   time_t second;
-  char label[JOURNAL_VALUE_LENGTH];
+  char host[JOURNAL_VALUE_LENGTH];
+  char label[JOURNAL_VALUE_LENGTH * 2];
   char match[JOURNAL_VALUE_LENGTH];
   sd_journal* journal;
   struct passwd* entry;
@@ -430,6 +441,22 @@ void ListJournalValues(const std::string& directory, int field, std::map<std::st
       entry = getpwuid(atoi(value.c_str()));
       snprintf(label, sizeof(label), "%7s  %s", value.c_str(), (entry != nullptr) ? entry->pw_name : "?");
       values.emplace(label, (entry != nullptr) ? entry->pw_name : value);
+      continue;
+    }
+
+    if (field == JOURNAL_FIELD_MACHINE)
+    {
+      // Machines are told by the host name of their last entry
+      snprintf(match, sizeof(match), "_MACHINE_ID=%s", value.c_str());
+      sd_journal_flush_matches(journal);
+      sd_journal_add_match(journal, match, 0);
+
+      snprintf(label, sizeof(label), "%-20s  %s",
+        ((sd_journal_seek_tail(journal) >= 0) &&
+         (sd_journal_previous(journal) > 0) &&
+         GetJournalField(journal, "_HOSTNAME", host, sizeof(host))) ? host : "?",
+        value.c_str());
+      values.emplace(label, value);
       continue;
     }
 

@@ -20,9 +20,9 @@
 
 SourceDialog::SourceDialog(const std::string& directory) :
   TWindowInit(&TDialog::initFrame),
-  TDialog(TRect(0, 0, 66, 21), "Source")
+  TDialog(TRect(0, 0, 66, 23), "Source")
 {
-  static const char* const labels[] = { "~U~nit", "~I~dentifier", "C~o~mmand", "~T~ransport", "~B~oot", "U~s~er" };
+  static const char* const labels[] = { "~U~nit", "~I~dentifier", "C~o~mmand", "~T~ransport", "~B~oot", "U~s~er", "~M~achine" };
 
   int y;
   int field;
@@ -40,14 +40,17 @@ SourceDialog::SourceDialog(const std::string& directory) :
     insert(new TButton(TRect(51, y, 63, y + 2), "List...", cmJournalSourceList + field, bfNormal));
   }
 
-  lines[JOURNAL_FIELD_COUNT] = new TInputLine(TRect(15, 14, 27, 15), PID_LENGTH, new TFilterValidator("0123456789"));
+  // PID follows the fields of the journal
+  y = 2 + JOURNAL_FIELD_COUNT * 2;
+  lines[JOURNAL_FIELD_COUNT] = new TInputLine(TRect(15, y, 27, y + 1), PID_LENGTH, new TFilterValidator("0123456789"));
   insert(lines[JOURNAL_FIELD_COUNT]);
-  insert(new TLabel(TRect(2, 14, 15, 15), "~P~ID", lines[JOURNAL_FIELD_COUNT]));
-  insert(new TButton(TRect(51, 14, 63, 16), "List...", cmJournalSourceList + JOURNAL_FIELD_COUNT, bfNormal));
+  insert(new TLabel(TRect(2, y, 15, y + 1), "~P~ID", lines[JOURNAL_FIELD_COUNT]));
+  insert(new TButton(TRect(51, y, 63, y + 2), "List...", cmJournalSourceList + JOURNAL_FIELD_COUNT, bfNormal));
 
-  insert(new TButton(TRect(9, 17, 21, 19), "~O~K", cmOK, bfDefault));
-  insert(new TButton(TRect(25, 17, 37, 19), "C~l~ear", cmJournalSourceClear, bfNormal));
-  insert(new TButton(TRect(41, 17, 53, 19), "Cancel", cmCancel, bfNormal));
+  y += 3;
+  insert(new TButton(TRect(9, y, 21, y + 2), "~O~K", cmOK, bfDefault));
+  insert(new TButton(TRect(25, y, 37, y + 2), "C~l~ear", cmJournalSourceClear, bfNormal));
+  insert(new TButton(TRect(41, y, 53, y + 2), "Cancel", cmCancel, bfNormal));
   selectNext(False);
 }
 
@@ -84,7 +87,7 @@ void SourceDialog::handleEvent(TEvent& event)
 
 void SourceDialog::pick(int field)
 {
-  static const char* const titles[] = { "Units", "Identifiers", "Commands", "Transports", "Boots", "Users", "Processes" };
+  static const char* const titles[] = { "Units", "Identifiers", "Commands", "Transports", "Boots", "Users", "Machines", "Processes" };
 
   char value[JOURNAL_VALUE_LENGTH];
   const char* label;

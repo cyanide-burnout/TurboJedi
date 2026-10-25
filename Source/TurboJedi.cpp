@@ -98,6 +98,7 @@ static void PrintUsage(const char* name)
   printf("      --until TIME      entries up to TIME, the window stops following then\n");
   printf("  -b, --boot            entries of the current boot only\n");
   printf("  -D, --directory DIR   journal files of DIR instead of the local journal\n");
+  printf("  -m, --merge           journals of every machine there are, like journalctl --merge, instead of this one\n");
   printf("  -n, --lines N         history to start with (default %d)\n", DEFAULT_HISTORY);
   printf("  -H, --highlight NAME  rules that paint messages: builtin (default), off, a rule file of grc\n");
   printf("                        such as conf.log, or a path to one\n");
@@ -144,6 +145,7 @@ int main(int count, char* const* arguments)
     { "directory",  required_argument, nullptr, 'D' },
     { "layout",     required_argument, nullptr, 'c' },
     { "lines",      required_argument, nullptr, 'n' },
+    { "merge",      no_argument,       nullptr, 'm' },
     { "highlight",  required_argument, nullptr, 'H' },
     { "help",       no_argument,       nullptr, 'h' },
     { nullptr,      0,                 nullptr, 0   }
@@ -157,10 +159,10 @@ int main(int count, char* const* arguments)
   filter.columns   = JOURNAL_COLUMN_DEFAULT;
   filter.highlight = JOURNAL_HIGHLIGHT_BUILTIN;
 
-  while ((result = getopt_long(count, arguments, "t:u:U:p:kS:bD:c:n:H:h", options, nullptr)) > 0)
+  while ((result = getopt_long(count, arguments, "t:u:U:p:kS:bD:c:n:mH:h", options, nullptr)) > 0)
   {
-    // Only the history and the directory keep the last layout
-    custom |= (result != 'n') && (result != 'D');
+    // Only the history and the journals to read keep the last layout
+    custom |= (result != 'n') && (result != 'D') && (result != 'm');
 
     switch (result)
     {
@@ -217,6 +219,10 @@ int main(int count, char* const* arguments)
 
       case 'c':
         layout = optarg;
+        break;
+
+      case 'm':
+        SetJournalMerge(true);
         break;
 
       case 'n':

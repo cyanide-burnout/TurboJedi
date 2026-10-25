@@ -20,7 +20,8 @@
 #define JOURNAL_FIELD_TRANSPORT   3
 #define JOURNAL_FIELD_BOOT        4
 #define JOURNAL_FIELD_USER        5
-#define JOURNAL_FIELD_COUNT       6
+#define JOURNAL_FIELD_MACHINE     6
+#define JOURNAL_FIELD_COUNT       7
 
 #define JOURNAL_VALUE_LENGTH      128
 
@@ -57,6 +58,9 @@ struct JournalFilter
 };
 
 extern const char* const JournalFieldNames[JOURNAL_FIELD_COUNT];
+
+// Journals of every machine there are, as journalctl --merge does, instead of the local machine only
+void SetJournalMerge(bool merge);
 
 int OpenJournal(sd_journal** journal, const std::string& directory);
 

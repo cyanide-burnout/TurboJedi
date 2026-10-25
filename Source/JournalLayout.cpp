@@ -16,7 +16,7 @@
 #include <algorithm>
 
 // Keys of the source fields in the order of JOURNAL_FIELD_*
-static const char* const fields[] = { "unit", "identifier", "command", "transport", "boot", "user" };
+static const char* const fields[] = { "unit", "identifier", "command", "transport", "boot", "user", "machine" };
 
 // Column names in the order of the JOURNAL_COLUMN_* bits
 static const char* const columns[] = { "date", "time", "level", "host", "unit", "identifier", "pid", "utc", "millisecond", "wrap" };
