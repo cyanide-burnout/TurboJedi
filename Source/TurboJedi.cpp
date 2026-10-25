@@ -10,6 +10,8 @@
 
 #include <time.h>
 #include <stdio.h>
+#include <locale.h>
+#include <langinfo.h>
 #include <stdlib.h>
 #include <string.h>
 #include <getopt.h>
@@ -60,6 +62,21 @@ static void SetFilterValue(JournalFilter& filter, int field, const char* name, c
 
   // Further ones of the same field are joined by OR as raw matches
   filter.matches.push_back(std::string(name) + "=" + value);
+}
+
+static void SetTextLocale()
+{
+  // Messages of the journal are UTF-8 whatever the locale, while Turbo Vision asks the C library for the width
+  // of a character and shows the ones it does not know as U+FFFD; sudo leaves the locale out, plain C knows ASCII only
+  if ((setlocale(LC_ALL, "") != nullptr) &&
+      (strcmp(nl_langinfo(CODESET), "UTF-8") == 0))
+  {
+    return;
+  }
+
+  // Turbo Vision sets the locale from the environment once more, the rest of it stays as given
+  setenv((getenv("LC_ALL") != nullptr) ? "LC_ALL" : "LC_CTYPE", "C.UTF-8", 1);
+  setlocale(LC_CTYPE, "C.UTF-8");
 }
 
 static std::string GetLastLayout()
@@ -274,6 +291,8 @@ int main(int count, char* const* arguments)
 
   last   = GetLastLayout();
   layout = (layout.empty() && !custom) ? last : layout;
+
+  SetTextLocale();
 
   application = new JediApplication(filter, history, layout);
   application->run();
