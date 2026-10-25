@@ -8,12 +8,16 @@
 #define Uses_TStaticText
 #define Uses_TStringCollection
 #define Uses_TEvent
+#define Uses_MsgBox
 #include "DirectoryDialog.h"
 
+#include <errno.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <dirent.h>
+
+#include <algorithm>
 #include <sys/stat.h>
 
 #define PATH_LENGTH  256
@@ -40,7 +44,13 @@ DirectoryDialog::DirectoryDialog(const std::string& path) :
   insert(new TButton(TRect(16, 19, 28, 21), "~O~K", cmOK, bfDefault));
   insert(new TButton(TRect(31, 19, 43, 21), "Cancel", cmCancel, bfNormal));
 
-  load(path);
+  if ((!load(path)) &&
+      (!load(failed.substr(0, std::max<size_t>(failed.find_last_of('/'), 1)))))
+  {
+    // Told why already: the one above the directory that could not be read, then the root
+    load("/");
+  }
+
   box->select();
 }
 
@@ -73,18 +83,41 @@ std::string DirectoryDialog::selection()
   return line->data;
 }
 
-void DirectoryDialog::load(const std::string& path)
+bool DirectoryDialog::load(const std::string& path)
 {
   DIR* handle;
+  size_t position;
   struct stat status;
   struct dirent* entry;
   char resolved[PATH_MAX];
+  std::string probe;
   TStringCollection* collection;
 
-  // A path that is not there yet opens the root
-  if (realpath(path.empty() ? "/" : path.c_str(), resolved) == nullptr)
+  probe = path.empty() ? "/" : path;
+
+  while ((realpath(probe.c_str(), resolved) == nullptr) ||
+         (stat(resolved, &status) != 0) ||
+         (!S_ISDIR(status.st_mode)))
   {
-    strcpy(resolved, "/");
+    if (probe == "/")
+    {
+      // Nothing left above, opendir() tells what is wrong with it
+      strcpy(resolved, "/");
+      break;
+    }
+
+    // A path with a typo or a file in it opens the nearest directory above, the way file managers do,
+    // a relative one goes through the current directory
+    position = probe.find_last_of('/');
+    probe    = (position == std::string::npos) ? ((probe == ".") ? "/" : ".") : ((position == 0) ? "/" : probe.substr(0, position));
+  }
+
+  if ((handle = opendir(resolved)) == nullptr)
+  {
+    // No right to read it, the dialog stays where it is
+    messageBox(mfError | mfOKButton, "Cannot open %s: %s", resolved, strerror(errno));
+    failed = resolved;
+    return false;
   }
 
   collection = new TStringCollection(16, 16);
@@ -95,21 +128,18 @@ void DirectoryDialog::load(const std::string& path)
     collection->insert(newStr(".."));
   }
 
-  if ((handle = opendir(resolved)) != nullptr)
+  while ((entry = readdir(handle)) != nullptr)
   {
-    while ((entry = readdir(handle)) != nullptr)
+    if ((entry->d_name[0] != '.') &&
+        (fstatat(dirfd(handle), entry->d_name, &status, 0) == 0) &&
+        S_ISDIR(status.st_mode))
     {
-      if ((entry->d_name[0] != '.') &&
-          (fstatat(dirfd(handle), entry->d_name, &status, 0) == 0) &&
-          S_ISDIR(status.st_mode))
-      {
-        // Hidden ones stay out, symbolic links to directories are followed
-        collection->insert(newStr(entry->d_name));
-      }
+      // Hidden ones stay out, symbolic links to directories are followed
+      collection->insert(newStr(entry->d_name));
     }
-
-    closedir(handle);
   }
+
+  closedir(handle);
 
   // The list destroys the previous collection
   box->newList(collection);
@@ -117,4 +147,6 @@ void DirectoryDialog::load(const std::string& path)
   line->data[PATH_LENGTH - 1] = '\0';
   line->selectAll(True);
   line->drawView();
+
+  return true;
 }

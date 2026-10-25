@@ -29,8 +29,9 @@ class DirectoryDialog : public TDialog
 
     TInputLine* line;
     TListBox* box;
+    std::string failed;  // The directory load() could not read
 
-    void load(const std::string& path);
+    bool load(const std::string& path);  // False when the directory cannot be read, told in a message
 };
 
 #endif
