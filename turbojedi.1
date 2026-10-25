@@ -39,7 +39,7 @@ Entries up to \fITIME\fR, the window stops following then.
 Entries of the current boot only.
 .TP
 \fB\-D\fR, \fB\-\-directory\fR \fIDIR\fR
-Journal files of \fIDIR\fR instead of the local journal.
+Journal files of \fIDIR\fR instead of the local journal, in the first window.
 .TP
 \fB\-m\fR, \fB\-\-merge\fR
 Journals of every machine there are, like \fBjournalctl \-\-merge\fR: other machine IDs in
@@ -79,6 +79,9 @@ Text filter: plain or regular expression, to show or to leave out the matching e
 .TP
 .B F7
 Source: unit, identifier, command, transport, boot, user, machine, PID, with lists of the values in the journal.
+.TP
+.B Shift-F7
+Journals of the window: of this machine, of every machine there is, like \fBjournalctl \-\-merge\fR, or of a directory.
 .TP
 .B Ctrl-T
 Time range.

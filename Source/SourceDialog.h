@@ -25,13 +25,13 @@ class SourceDialog : public TDialog
 {
   public:
 
-    SourceDialog(const std::string& directory);
+    SourceDialog(const JournalFilter& filter);
 
     void handleEvent(TEvent& event) override;
 
   private:
 
-    std::string directory;
+    JournalFilter journals;  // Where the lists come from
     TInputLine* lines[JOURNAL_FIELD_COUNT + 1];  // The last one is PID
 
     void pick(int field);

@@ -21,6 +21,7 @@
 #include "TextDialog.h"
 #include "LevelsDialog.h"
 #include "ColumnsDialog.h"
+#include "JournalsDialog.h"
 
 #include <time.h>
 #include <stdio.h>
@@ -90,10 +91,9 @@ static void PaintText(TDrawBuffer& buffer, int x, const std::string& text, size_
 
 // JournalView
 
-JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar* vertical, const std::string& directory, const JournalFilter& filter, int history, size_t capacity) :
+JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar* vertical, const JournalFilter& filter, int history, size_t capacity) :
   TScroller(bounds, horizontal, vertical)
 {
-  this->directory = directory;
   this->filter    = filter;
   this->history   = history;
   this->capacity  = capacity;
@@ -405,6 +405,7 @@ void JournalView::handleEvent(TEvent& event)
         case cmJournalLevels:        chooseLevels();   break;
         case cmJournalText:          chooseText();     break;
         case cmJournalSource:        chooseSource();   break;
+        case cmJournalJournals:      chooseJournals(); break;
         case cmJournalTime:          chooseTime();     break;
         case cmJournalColumns:       chooseColumns();  break;
         case cmJournalHighlight:     chooseHighlight(); break;
@@ -520,7 +521,7 @@ void JournalView::open()
     matcher.set(filter.text, filter.mode);
   }
 
-  if ((result = OpenJournalQuery(&journal, directory, filter)) < 0)
+  if ((result = OpenJournalQuery(&journal, filter)) < 0)
   {
     journal = nullptr;
     snprintf(message, sizeof(message), "Error opening the journal: %s", strerror(-result));
@@ -632,7 +633,7 @@ size_t JournalView::back()
   if ((!older) ||
       (lines.empty()) ||
       (lines.front().cursor.empty()) ||
-      (OpenJournalQuery(&source, directory, filter) < 0))
+      (OpenJournalQuery(&source, filter) < 0))
   {
     return 0;
   }
@@ -1084,7 +1085,7 @@ void JournalView::details()
   }
 
   if ((lines[index].cursor.empty()) ||
-      ((fields = ReadJournalEntry(directory, lines[index].cursor)).empty()))
+      ((fields = ReadJournalEntry(filter, lines[index].cursor)).empty()))
   {
     // Rotated away meanwhile
     messageBox("The entry is not in the journal anymore", mfInformation | mfOKButton);
@@ -1325,6 +1326,9 @@ const char* JournalView::name()
   int priority;
 
   caption.clear();
+
+  if (!filter.directory.empty()) caption = "journals=" + filter.directory;
+  else if (filter.merge)         caption = "journals=all";
 
   if (filter.levels != 0xff)
   {
@@ -1633,7 +1637,7 @@ void JournalView::chooseSource()
     snprintf(data.pid, sizeof(data.pid), "%d", filter.pid);
   }
 
-  if (TProgram::application->executeDialog(new SourceDialog(directory), &data) == cmOK)
+  if (TProgram::application->executeDialog(new SourceDialog(filter), &data) == cmOK)
   {
     for (field = 0; field < JOURNAL_FIELD_COUNT; field ++)
     {
@@ -1648,6 +1652,23 @@ void JournalView::chooseSource()
     }
 
     filter.pid = atoi(data.pid);
+    open();
+  }
+}
+
+void JournalView::chooseJournals()
+{
+  JournalsData data;
+
+  memset(&data, 0, sizeof(data));
+  strncpy(data.directory, filter.directory.c_str(), sizeof(data.directory) - 1);
+  data.scope = !filter.directory.empty() ? JOURNALS_DIRECTORY : (filter.merge ? JOURNALS_ALL : JOURNALS_THIS);
+
+  if (TProgram::application->executeDialog(new JournalsDialog(), &data) == cmOK)
+  {
+    // A directory is checked by the dialog already, the query starts over
+    filter.merge     = data.scope == JOURNALS_ALL;
+    filter.directory = (data.scope == JOURNALS_DIRECTORY) ? data.directory : "";
     open();
   }
 }

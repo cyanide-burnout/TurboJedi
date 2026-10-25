@@ -27,23 +27,15 @@ const char* const JournalFieldNames[JOURNAL_FIELD_COUNT] =
   "_MACHINE_ID"
 };
 
-// Flags of sd_journal_open() for the local journal, the same for every window
-static int scope = SD_JOURNAL_LOCAL_ONLY;
-
-void SetJournalMerge(bool merge)
+int OpenJournal(sd_journal** journal, const JournalFilter& filter)
 {
   // Other machines are other directories of /var/log/journal and /var/log/journal/remote of systemd-journal-remote
-  scope = merge ? 0 : SD_JOURNAL_LOCAL_ONLY;
+  return filter.directory.empty() ?
+    sd_journal_open(journal, filter.merge ? 0 : SD_JOURNAL_LOCAL_ONLY) :
+    sd_journal_open_directory(journal, filter.directory.c_str(), 0);
 }
 
-int OpenJournal(sd_journal** journal, const std::string& directory)
-{
-  return directory.empty() ?
-    sd_journal_open(journal, scope) :
-    sd_journal_open_directory(journal, directory.c_str(), 0);
-}
-
-int OpenJournalQuery(sd_journal** journal, const std::string& directory, const JournalFilter& filter)
+int OpenJournalQuery(sd_journal** journal, const JournalFilter& filter)
 {
   int field;
   int level;
@@ -51,7 +43,7 @@ int OpenJournalQuery(sd_journal** journal, const std::string& directory, const J
   char match[JOURNAL_VALUE_LENGTH + 32];
   std::string value;
 
-  if ((result = OpenJournal(journal, directory)) < 0)
+  if ((result = OpenJournal(journal, filter)) < 0)
   {
     return result;
   }
@@ -98,7 +90,7 @@ int OpenJournalQuery(sd_journal** journal, const std::string& directory, const J
   return result;
 }
 
-std::vector<std::string> ReadJournalEntry(const std::string& directory, const std::string& cursor)
+std::vector<std::string> ReadJournalEntry(const JournalFilter& filter, const std::string& cursor)
 {
   size_t top;
   size_t length;
@@ -112,7 +104,7 @@ std::vector<std::string> ReadJournalEntry(const std::string& directory, const st
   sd_journal* journal;
   std::vector<std::string> fields;
 
-  if (OpenJournal(&journal, directory) < 0)
+  if (OpenJournal(&journal, filter) < 0)
   {
     return fields;
   }
@@ -390,7 +382,7 @@ static void ListProcesses(sd_journal* journal, std::map<std::string, std::string
   }
 }
 
-void ListJournalValues(const std::string& directory, int field, std::map<std::string, std::string>& values, std::set<std::string>& running)
+void ListJournalValues(const JournalFilter& filter, int field, std::map<std::string, std::string>& values, std::set<std::string>& running)
 {
   size_t length;
   size_t prefix;
@@ -406,7 +398,7 @@ void ListJournalValues(const std::string& directory, int field, std::map<std::st
   std::vector<std::string> list;
 
   // A journal of its own, so the cursors of the windows stay where they are
-  if (OpenJournal(&journal, directory) < 0)
+  if (OpenJournal(&journal, filter) < 0)
   {
     return;
   }

@@ -19,7 +19,7 @@ class JediApplication : public TApplication
 {
   public:
 
-    JediApplication(const std::string& directory, const JournalFilter& filter, int history, const std::string& layout);
+    JediApplication(const JournalFilter& filter, int history, const std::string& layout);
 
     void getEvent(TEvent& event) override;
     void handleEvent(TEvent& event) override;
@@ -29,7 +29,6 @@ class JediApplication : public TApplication
 
   private:
 
-    std::string directory;
     JournalFilter filter;
     int history;
 

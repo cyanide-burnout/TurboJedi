@@ -122,7 +122,6 @@ int main(int count, char* const* arguments)
   bool custom;
   uint64_t stamp;
   std::string value;
-  std::string directory;
   std::string layout;
   std::string last;
   std::string error;
@@ -153,6 +152,7 @@ int main(int count, char* const* arguments)
 
   history          = DEFAULT_HISTORY;
   custom           = false;
+  filter.merge     = false;
   filter.pid       = 0;
   filter.mode      = 0;
   filter.levels    = 0xff;
@@ -214,7 +214,7 @@ int main(int count, char* const* arguments)
         break;
 
       case 'D':
-        directory = optarg;
+        filter.directory = optarg;
         break;
 
       case 'c':
@@ -222,7 +222,7 @@ int main(int count, char* const* arguments)
         break;
 
       case 'm':
-        SetJournalMerge(true);
+        filter.merge = true;
         break;
 
       case 'n':
@@ -275,7 +275,7 @@ int main(int count, char* const* arguments)
   last   = GetLastLayout();
   layout = (layout.empty() && !custom) ? last : layout;
 
-  application = new JediApplication(directory, filter, history, layout);
+  application = new JediApplication(filter, history, layout);
   application->run();
 
   if (!last.empty())

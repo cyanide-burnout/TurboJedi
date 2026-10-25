@@ -45,6 +45,8 @@
 
 struct JournalFilter
 {
+  std::string directory;             // Journal files of a directory, empty for the journals of this system
+  bool merge;                        // Of every machine there are instead of this one, like journalctl --merge
   std::string values[JOURNAL_FIELD_COUNT];
   std::vector<std::string> matches;  // Raw FIELD=VALUE from the command line
   int pid;
@@ -59,20 +61,18 @@ struct JournalFilter
 
 extern const char* const JournalFieldNames[JOURNAL_FIELD_COUNT];
 
-// Journals of every machine there are, as journalctl --merge does, instead of the local machine only
-void SetJournalMerge(bool merge);
-
-int OpenJournal(sd_journal** journal, const std::string& directory);
+// Journals the filter names: of this machine, of every machine or of a directory
+int OpenJournal(sd_journal** journal, const JournalFilter& filter);
 
 // Journal with the matches of a filter, everything but its text and times
-int OpenJournalQuery(sd_journal** journal, const std::string& directory, const JournalFilter& filter);
+int OpenJournalQuery(sd_journal** journal, const JournalFilter& filter);
 
 // Every field of the entry at a cursor as FIELD=value lines, empty when the entry is gone
-std::vector<std::string> ReadJournalEntry(const std::string& directory, const std::string& cursor);
+std::vector<std::string> ReadJournalEntry(const JournalFilter& filter, const std::string& cursor);
 bool GetJournalField(sd_journal* journal, const char* name, char* buffer, size_t size);
 
 // Labels with values to choose a source field from, JOURNAL_FIELD_COUNT stands for PID with the labels of running processes
-void ListJournalValues(const std::string& directory, int field, std::map<std::string, std::string>& values, std::set<std::string>& running);
+void ListJournalValues(const JournalFilter& filter, int field, std::map<std::string, std::string>& values, std::set<std::string>& running);
 
 // _UID value of a user name or number, empty when there is no such user
 std::string GetJournalUserIdentifier(const std::string& user);

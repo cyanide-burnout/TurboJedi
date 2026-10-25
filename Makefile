@@ -50,6 +50,7 @@ OBJECTS := \
 	$(SOURCE)/TextDialog.o \
 	$(SOURCE)/LevelsDialog.o \
 	$(SOURCE)/ColumnsDialog.o \
+	$(SOURCE)/JournalsDialog.o \
 	$(TURBOVISION)/build/libtvision.a
 
 FLAGS += \

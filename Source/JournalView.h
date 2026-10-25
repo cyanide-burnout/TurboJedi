@@ -52,7 +52,7 @@ class JournalView : public TScroller
 {
   public:
 
-    JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar* vertical, const std::string& directory, const JournalFilter& filter, int history, size_t capacity);
+    JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar* vertical, const JournalFilter& filter, int history, size_t capacity);
     ~JournalView();
 
     uint64_t counts[8];  // Entries per priority since the window has been opened or cleared
@@ -71,7 +71,6 @@ class JournalView : public TScroller
   private:
 
     sd_journal* journal;
-    std::string directory;
     JournalFilter filter;
     int history;
     size_t capacity;
@@ -146,6 +145,7 @@ class JournalView : public TScroller
     void chooseLevels();
     void chooseText();
     void chooseSource();
+    void chooseJournals();
     void chooseTime();
     void chooseColumns();
     void chooseFind();

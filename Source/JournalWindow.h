@@ -18,7 +18,7 @@ class JournalWindow : public TWindow
 {
   public:
 
-    JournalWindow(const TRect& bounds, short number, const std::string& directory, const JournalFilter& filter, int history, size_t capacity);
+    JournalWindow(const TRect& bounds, short number, const JournalFilter& filter, int history, size_t capacity);
 
     JournalView* view;
 

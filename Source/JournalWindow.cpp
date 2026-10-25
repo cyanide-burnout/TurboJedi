@@ -9,7 +9,7 @@
 
 // JournalWindow
 
-JournalWindow::JournalWindow(const TRect& bounds, short number, const std::string& directory, const JournalFilter& filter, int history, size_t capacity) :
+JournalWindow::JournalWindow(const TRect& bounds, short number, const JournalFilter& filter, int history, size_t capacity) :
   TWindowInit(&TWindow::initFrame),
   TWindow(bounds, "Journal", number)
 {
@@ -26,7 +26,7 @@ JournalWindow::JournalWindow(const TRect& bounds, short number, const std::strin
   extent = getExtent();
   extent.grow(-1, -1);
   extent.a.y ++;
-  view = new JournalView(extent, horizontal, vertical, directory, filter, history, capacity);
+  view = new JournalView(extent, horizontal, vertical, filter, history, capacity);
 
   // Heading takes the first row inside the frame
   extent.b.y    = extent.a.y;

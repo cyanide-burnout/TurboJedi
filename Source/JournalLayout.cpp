@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
+#include <sys/stat.h>
 
 #include <fstream>
 #include <algorithm>
@@ -62,6 +63,7 @@ static const char* SetValue(JournalLayout& window, const std::string& key, const
   size_t start;
   size_t end;
   uint64_t stamp;
+  struct stat status;
   std::string name;
 
   if (key == "bounds")
@@ -93,6 +95,18 @@ static const char* SetValue(JournalLayout& window, const std::string& key, const
       window.filter.values[index] = value;
       return nullptr;
     }
+  }
+
+  if (key == "directory")
+  {
+    window.filter.directory = value;
+    return ((stat(value.c_str(), &status) == 0) && S_ISDIR(status.st_mode)) ? nullptr : "directory takes a directory of journal files";
+  }
+
+  if (key == "merge")
+  {
+    window.filter.merge = (value == "yes");
+    return ((value == "yes") || (value == "no")) ? nullptr : "merge takes yes or no";
   }
 
   if (key == "pid")
@@ -222,6 +236,7 @@ bool LoadJournalLayout(const std::string& path, std::vector<JournalLayout>& wind
       windows.emplace_back();
       sections.push_back(number);
       memset(windows.back().bounds, 0, sizeof(windows.back().bounds));
+      windows.back().filter.merge     = false;
       windows.back().filter.pid       = 0;
       windows.back().filter.mode      = 0;
       windows.back().filter.levels    = 0xff;
@@ -277,6 +292,9 @@ bool SaveJournalLayout(const std::string& path, const std::vector<JournalLayout>
   {
     file << "[window]\n";
     file << "bounds = " << window.bounds[0] << ' ' << window.bounds[1] << ' ' << window.bounds[2] << ' ' << window.bounds[3] << '\n';
+
+    if (!window.filter.directory.empty())  file << "directory = " << window.filter.directory << '\n';
+    if (window.filter.merge)               file << "merge = yes\n";
 
     for (index = 0; index < JOURNAL_FIELD_COUNT; index ++)
     {

@@ -32,6 +32,7 @@ enum
   cmJournalOpenFilter,         // Broadcast with a JournalFilter for a new window
   cmJournalHighlight,
   cmJournalBack,
+  cmJournalJournals,
   cmPageCopy,
   cmPageFilter,
   cmJournalPoll,

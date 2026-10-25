@@ -10,7 +10,8 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd and
 
 ## Features
 
-- Windows with filters of their own: levels, source (unit, identifier, command, transport, boot, user, machine, PID,
+- Windows with journals and filters of their own: journals of this machine, of every machine or of a directory,
+  levels, source (unit, identifier, command, transport, boot, user, machine, PID,
   any `FIELD=VALUE`), time range, and text, plain or a regular expression of PCRE2, to show or to leave out
 - Follows the tail, Space pauses; scrolling above the first line brings the older entries in
 - Columns to choose: date, time, level, host, unit, identifier, PID; UTC, milliseconds, wrapped messages
@@ -98,8 +99,8 @@ turbojedi [options] [FIELD=VALUE ...]
 | `-S`, `--since TIME` | entries from `TIME` on |
 | `--until TIME` | entries up to `TIME` |
 | `-b`, `--boot` | entries of the current boot |
-| `-D`, `--directory DIR` | journal files of `DIR` |
-| `-m`, `--merge` | journals of every machine there are, like `journalctl --merge`: other machine IDs in `/var/log/journal` and `/var/log/journal/remote` of `systemd-journal-remote` |
+| `-D`, `--directory DIR` | journal files of `DIR` in the first window |
+| `-m`, `--merge` | journals of every machine there are in the first window, like `journalctl --merge`: other machine IDs in `/var/log/journal` and `/var/log/journal/remote` of `systemd-journal-remote` |
 | `-n`, `--lines N` | history to start with, 1000 by default |
 | `-H`, `--highlight NAME` | highlighting rules: `builtin` (default), `off`, a rule file of grc such as `conf.log`, or a path |
 | `-c`, `--layout FILE` | windows of a saved layout |
@@ -118,6 +119,7 @@ Reading the whole journal needs root or the `systemd-journal` group, others see 
 | F3 | levels |
 | F4 | text filter |
 | F7 | source |
+| Shift-F7 | journals: of this machine, of every machine or of a directory |
 | Ctrl-T | time range |
 | Ctrl-K | columns |
 | Ctrl-W | wrap long messages |
@@ -151,7 +153,7 @@ highlight = conf.log
 columns = date,time,level,identifier,pid,millisecond
 ```
 
-Keys: `bounds`, `unit`, `identifier`, `command`, `transport`, `boot`, `user`, `machine`, `pid`, `match` (repeatable),
+Keys: `bounds`, `directory`, `merge`, `unit`, `identifier`, `command`, `transport`, `boot`, `user`, `machine`, `pid`, `match` (repeatable),
 `since`, `until`, `text`, `regex`, `exclude`, `case`, `levels` (letters `EACRWNID` of the levels shown, dashes
 for the hidden ones), `highlight` and `columns` (`date`, `time`, `level`, `host`, `unit`, `identifier`, `pid`, `utc`,
 `millisecond`, `wrap`).

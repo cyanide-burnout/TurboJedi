@@ -29,13 +29,12 @@
 
 // JediApplication
 
-JediApplication::JediApplication(const std::string& directory, const JournalFilter& filter, int history, const std::string& layout) :
+JediApplication::JediApplication(const JournalFilter& filter, int history, const std::string& layout) :
   TProgInit(&JediApplication::initStatusLine, &JediApplication::initMenuBar, &TProgram::initDeskTop)
 {
   TRect bounds;
   std::string error;
 
-  this->directory = directory;
   this->filter    = filter;
   this->history   = history;
 
@@ -93,6 +92,7 @@ TMenuBar* JediApplication::initMenuBar(TRect bounds)
       *new TMenuItem("~L~evels...",     cmJournalLevels,       kbF3,      hcNoContext, "F3") +
       *new TMenuItem("~T~ext...",       cmJournalText,         kbF4,      hcNoContext, "F4") +
       *new TMenuItem("~S~ource...",     cmJournalSource,       kbF7,      hcNoContext, "F7") +
+      *new TMenuItem("~J~ournals...",   cmJournalJournals,     kbShiftF7, hcNoContext, "Shift-F7") +
       *new TMenuItem("T~i~me...",       cmJournalTime,         kbCtrlT,   hcNoContext, "Ctrl-T") +
       *new TMenuItem("Col~u~mns...",    cmJournalColumns,      kbCtrlK,   hcNoContext, "Ctrl-K") +
       *new TMenuItem("~W~rap lines",    cmJournalWrap,         kbCtrlW,   hcNoContext, "Ctrl-W") +
@@ -193,7 +193,7 @@ void JediApplication::open(const JournalFilter& filter)
   JournalWindow* window;
 
   number  = std::min<short>(number + 1, 10);
-  window  = new JournalWindow(deskTop->getExtent(), (number < 10) ? number : wnNoNumber, directory, filter, history, DEFAULT_CAPACITY);
+  window  = new JournalWindow(deskTop->getExtent(), (number < 10) ? number : wnNoNumber, filter, history, DEFAULT_CAPACITY);
 
   deskTop->insert(window);
   tile();
@@ -260,7 +260,7 @@ bool JediApplication::load(const std::string& path, std::string& error)
     bounds  = TRect(item.bounds[0], item.bounds[1], item.bounds[2], item.bounds[3]);
     fitting = fitting && (bounds.b.x > bounds.a.x) && (bounds.b.y > bounds.a.y) && extent.contains(bounds.a) && (bounds.b.x <= extent.b.x) && (bounds.b.y <= extent.b.y);
     number  = std::min<short>(number + 1, 10);
-    window  = new JournalWindow(fitting ? bounds : extent, (number < 10) ? number : wnNoNumber, directory, item.filter, history, DEFAULT_CAPACITY);
+    window  = new JournalWindow(fitting ? bounds : extent, (number < 10) ? number : wnNoNumber, item.filter, history, DEFAULT_CAPACITY);
 
     deskTop->insert(window);
   }
@@ -348,6 +348,7 @@ void JediApplication::showHelp()
     "  F3              Levels",
     "  F4              Text: plain or regular expression, to show or to leave out",
     "  F7              Source: unit, identifier, command, transport, boot, user, machine, PID",
+    "  Shift-F7        Journals: of this machine, of every machine or of a directory",
     "  Ctrl-T          Time range",
     "",
     "Lines",

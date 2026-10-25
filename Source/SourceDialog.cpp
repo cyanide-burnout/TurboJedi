@@ -18,7 +18,7 @@
 
 // SourceDialog
 
-SourceDialog::SourceDialog(const std::string& directory) :
+SourceDialog::SourceDialog(const JournalFilter& filter) :
   TWindowInit(&TDialog::initFrame),
   TDialog(TRect(0, 0, 66, 23), "Source")
 {
@@ -27,7 +27,7 @@ SourceDialog::SourceDialog(const std::string& directory) :
   int y;
   int field;
 
-  this->directory = directory;
+  journals = filter;
   options        |= ofCentered;
 
   for (field = 0; field < JOURNAL_FIELD_COUNT; field ++)
@@ -96,10 +96,10 @@ void SourceDialog::pick(int field)
   std::set<std::string> running;              // Labels of processes alive now
   std::map<std::string, std::string>::iterator item;
 
-  ListJournalValues(directory, field, values, running);
+  ListJournalValues(journals, field, values, running);
 
   // Processes of a journal from elsewhere do not run here
-  dialog = new PickDialog(titles[field], values, (field == JOURNAL_FIELD_COUNT) ? &running : nullptr, directory.empty());
+  dialog = new PickDialog(titles[field], values, (field == JOURNAL_FIELD_COUNT) ? &running : nullptr, journals.directory.empty() && !journals.merge);
 
   if ((TProgram::deskTop->execView(dialog) == cmOK) &&
       ((label = dialog->selection()) != nullptr) &&
