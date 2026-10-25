@@ -33,6 +33,7 @@ enum
   cmJournalHighlight,
   cmJournalBack,
   cmJournalJournals,
+  cmJournalBrowse,
   cmPageCopy,
   cmPageFilter,
   cmJournalPoll,

@@ -31,7 +31,15 @@ class JournalsDialog : public TDialog
 
     JournalsDialog();
 
+    void handleEvent(TEvent& event) override;
     Boolean valid(ushort command) override;
+
+  private:
+
+    TRadioButtons* buttons;
+    TInputLine* line;
+
+    void browse();
 };
 
 #endif
