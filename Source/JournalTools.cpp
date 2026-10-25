@@ -29,10 +29,20 @@ const char* const JournalFieldNames[JOURNAL_FIELD_COUNT] =
 
 int OpenJournal(sd_journal** journal, const JournalFilter& filter)
 {
+  int result;
+
   // Other machines are other directories of /var/log/journal and /var/log/journal/remote of systemd-journal-remote
-  return filter.directory.empty() ?
+  result = filter.directory.empty() ?
     sd_journal_open(journal, filter.merge ? 0 : SD_JOURNAL_LOCAL_ONLY) :
     sd_journal_open_directory(journal, filter.directory.c_str(), 0);
+
+  if (result >= 0)
+  {
+    // Fields over 64 KiB may come cut by default, the text filter, Find and the details must see the end of a message
+    sd_journal_set_data_threshold(*journal, 0);
+  }
+
+  return result;
 }
 
 int OpenJournalQuery(sd_journal** journal, const JournalFilter& filter)

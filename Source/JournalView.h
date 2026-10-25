@@ -76,6 +76,7 @@ class JournalView : public TScroller
     size_t capacity;
 
     std::deque<JournalLine> lines;
+    size_t bytes;    // Held by the lines, bounded like their count
     uint64_t first;  // Absolute number of lines.front(), far from zero so history can go in front
     int width;
 

@@ -35,6 +35,7 @@
 #define NO_SELECTION  UINT64_MAX
 #define FIRST_LINE    (1ULL << 62)  // Number of the first line, history goes in front of it
 #define READ_STEP     5000          // Entries read at once, the rest comes with the next polls
+#define BYTE_CAPACITY (64 << 20)    // Text a window keeps whatever the count of its lines, one huge message stays
 #define HISTORY_STEP  1000          // Entries brought in front when scrolling above the first line
 #define PLACE_DEPTH   16            // Jumps Back remembers
 
@@ -89,6 +90,12 @@ static void PaintText(TDrawBuffer& buffer, int x, const std::string& text, size_
   }
 }
 
+static size_t GetLineSize(const JournalLine& line)
+{
+  // Near enough to tell a few huge messages from many short ones
+  return sizeof(JournalLine) + line.host.size() + line.unit.size() + line.identifier.size() + line.pid.size() + line.cursor.size() + line.text.size();
+}
+
 // JournalView
 
 JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar* vertical, const JournalFilter& filter, int history, size_t capacity) :
@@ -97,6 +104,7 @@ JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar
   this->filter    = filter;
   this->history   = history;
   this->capacity  = capacity;
+  bytes           = 0;
 
   growMode    = gfGrowHiX | gfGrowHiY;
   options    |= ofFirstClick;
@@ -623,6 +631,7 @@ size_t JournalView::back()
 {
   int count;
   bool ended;
+  size_t size;
   uint64_t realtime;
   uint64_t before;
   sd_journal* source;
@@ -642,7 +651,7 @@ size_t JournalView::back()
   // seeking lands on the entry of the first line, the next steps go older
   ended = (sd_journal_seek_cursor(source, lines.front().cursor.c_str()) < 0) || (sd_journal_previous(source) <= 0);
 
-  for (count = 0; (!ended) && (count < HISTORY_STEP) && ((lines.size() + batch.size()) < capacity); count ++)
+  for (count = 0, size = bytes; (!ended) && (count < HISTORY_STEP) && ((lines.size() + batch.size()) < capacity) && (size < BYTE_CAPACITY); count ++)
   {
     if (sd_journal_previous(source) <= 0)
     {
@@ -664,6 +673,13 @@ size_t JournalView::back()
     {
       // Entries come newest first, their lines go in reverse so the batch can be put in front as it is
       split(model, buffer, parts);
+
+      for (const JournalLine& part : parts)
+      {
+        // Bounded the way trim() bounds the tail
+        size += GetLineSize(part);
+      }
+
       batch.insert(batch.end(), std::make_move_iterator(parts.rbegin()), std::make_move_iterator(parts.rend()));
     }
   }
@@ -675,6 +691,7 @@ size_t JournalView::back()
   for (JournalLine& line : batch)
   {
     lines.push_front(std::move(line));
+    bytes += GetLineSize(lines.front());
     measure(lines.front());
     first --;
   }
@@ -783,6 +800,7 @@ void JournalView::split(const JournalLine& model, const std::string& message, st
 void JournalView::push(JournalLine& line)
 {
   lines.push_back(std::move(line));
+  bytes += GetLineSize(lines.back());
   measure(lines.back());
   unseen += !follow;
 
@@ -903,15 +921,13 @@ void JournalView::format(uint64_t realtime, char* date, char* clock)
 
 void JournalView::trim()
 {
-  if (lines.size() > capacity)
+  while ((lines.size() > capacity) ||
+         ((bytes > BYTE_CAPACITY) && (lines.size() > 1)))
   {
-    // Rows are counted again
-    layout = 0;
-  }
-
-  while (lines.size() > capacity)
-  {
+    // The oldest go first, rows are counted again
+    bytes -= GetLineSize(lines.front());
     lines.pop_front();
+    layout = 0;
     first ++;
   }
 }
@@ -926,6 +942,7 @@ void JournalView::clear()
   cursor = NO_SELECTION;
 
   lines.clear();
+  bytes = 0;
   rows.clear();
   memset(counts, 0, sizeof(counts));
   memset(widths, 0, sizeof(widths));
