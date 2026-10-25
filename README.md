@@ -21,8 +21,24 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd and
 - Go to a time, and every other window to the time of the selected line: what happened elsewhere at that moment
 - Details of an entry with all its fields, a field there opens a window narrowed to it
 - Selection with the keyboard or the mouse, copy to the clipboard (OSC 52 over SSH), export to a file
+- Timeline: entries of the filter of a window by intervals of time, errors, warnings and the rest stacked
+  in a column per interval; a column takes every journal window to its time
 - Layouts: all windows with their filters, columns and places, saved to and opened from INI files;
   the last one comes back on the next start
+
+## Installation
+
+Ready packages of every release are on the [releases page](https://github.com/cyanide-burnout/TurboJedi/releases/latest):
+Debian 13, Ubuntu 24.04 and 26.04, Fedora 44, RHEL 9 and 10 (and their rebuilds) on amd64 and arm64, Arch Linux on
+amd64. GitHub Actions builds each of them in a container of its distribution.
+
+```
+sudo apt install ./turbojedi_<version>_<distribution>_<arch>.deb
+sudo dnf install ./turbojedi-<version>-1.<dist>.<arch>.rpm
+sudo pacman -U turbojedi-<version>-1-x86_64.pkg.tar.zst
+```
+
+Alpine has no systemd, so there is no journal to show. Elsewhere TurboJedi builds from the sources.
 
 ## Building
 
@@ -77,11 +93,9 @@ make arch
 
 `make arch` builds `arch/turbojedi-<version>-1-<arch>.pkg.tar.zst` with `makepkg`, as a user other than root.
 
-### Ready packages
+### Packages of a release
 
-GitHub Actions builds packages for Debian 13, Ubuntu 24.04 and 26.04, Fedora 44, RHEL 9 and 10 on amd64 and arm64,
-and for Arch Linux on amd64, each in a container of its distribution; a tag `v*` puts them to its release. Alpine has no systemd, so there is
-no journal to show.
+A tag `v*` makes GitHub Actions build all the packages and put them to its release.
 
 ## Usage
 
