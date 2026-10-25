@@ -243,10 +243,11 @@ bool LoadJournalLayout(const std::string& path, std::vector<JournalLayout>& wind
       continue;
     }
 
-    if ((line == "[window]") ||
+    if ((line == "[journal]") ||
+        (line == "[window]")  ||
         (line == "[timeline]"))
     {
-      // Defaults of a window that the file does not mention
+      // Defaults of a window that the file does not mention, [window] is what older layouts call a journal
       windows.emplace_back();
       sections.push_back(number);
       memset(windows.back().bounds, 0, sizeof(windows.back().bounds));
@@ -267,7 +268,7 @@ bool LoadJournalLayout(const std::string& path, std::vector<JournalLayout>& wind
     problem =
       (line[0] == '[')               ? "unknown section" :
       (equal == std::string::npos)   ? "neither a section nor key = value" :
-      windows.empty()                ? "key = value outside of a [window] or [timeline] section" :
+      windows.empty()                ? "key = value outside of a [journal] or [timeline] section" :
       SetValue(windows.back(), Trim(line.substr(0, equal)), Trim(line.substr(equal + 1)));
 
     if (problem != nullptr)
@@ -290,7 +291,7 @@ bool LoadJournalLayout(const std::string& path, std::vector<JournalLayout>& wind
     }
   }
 
-  error = windows.empty() ? "no [window] or [timeline] sections" : "";
+  error = windows.empty() ? "no [journal] or [timeline] sections" : "";
   return !windows.empty();
 }
 
@@ -307,7 +308,7 @@ bool SaveJournalLayout(const std::string& path, const std::vector<JournalLayout>
 
   for (const JournalLayout& window : windows)
   {
-    file << (window.timeline ? "[timeline]\n" : "[window]\n");
+    file << (window.timeline ? "[timeline]\n" : "[journal]\n");
     file << "bounds = " << window.bounds[0] << ' ' << window.bounds[1] << ' ' << window.bounds[2] << ' ' << window.bounds[3] << '\n';
 
     if (!window.filter.directory.empty())  file << "directory = " << window.filter.directory << '\n';

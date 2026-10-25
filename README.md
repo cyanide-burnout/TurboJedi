@@ -141,10 +141,10 @@ Reading the whole journal needs root or the `systemd-journal` group, others see 
 
 ## Layouts
 
-A layout is an INI file with a `[window]` section per window:
+A layout is an INI file with a `[journal]` section per window of the journal (`[window]` in older layouts):
 
 ```
-[window]
+[journal]
 bounds = 0 0 120 28
 unit = nginx.service
 text = timeout

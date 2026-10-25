@@ -10,7 +10,7 @@
 
 #include "JournalTools.h"
 
-// One window of a layout file: an INI section [window] with the bounds on the desktop, the filter and the columns,
+// One window of a layout file: an INI section [journal] with the bounds on the desktop, the filter and the columns,
 // or [timeline] with the bounds, the filter it counts, its step and scale
 
 struct JournalLayout

@@ -5,11 +5,22 @@
 #define Uses_TScrollBar
 #include "TimelineWindow.h"
 
+// Helpers
+
+static std::string GetTitle(const JournalFilter& filter)
+{
+  std::string name;
+
+  // The filter the counts are of, like the title of a journal window
+  name = GetJournalFilterName(filter);
+  return name.empty() ? "Timeline" : ("Timeline " + name);
+}
+
 // TimelineWindow
 
 TimelineWindow::TimelineWindow(const TRect& bounds, const JournalFilter& filter, int seconds, bool logarithmic) :
   TWindowInit(&TWindow::initFrame),
-  TWindow(bounds, ("Timeline " + GetJournalFilterName(filter)).c_str(), wnNoNumber)
+  TWindow(bounds, GetTitle(filter).c_str(), wnNoNumber)
 {
   TRect extent;
   TScrollBar* horizontal;
