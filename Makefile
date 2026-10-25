@@ -12,6 +12,9 @@ PACKAGE := turbojedi
 RELEASE := $(shell echo '$(VERSION)' | sed -e 's/^v//' -e 's/-/+/g' -e 's/^unknown$$/0~unknown/')
 AUTHOR  := Artem Prilutskiy <cyanide.burnout@gmail.com>
 
+# tvision has no releases, a snapshot is told by the date and the commit of the submodule the way Fedora writes it
+BUNDLED := $(or $(shell git -C $(TURBOVISION) log -1 --format='0^%cdgit%h' --date=format:%Y%m%d 2>/dev/null),0)
+
 LIBRARIES := \
 	ncursesw
 
@@ -99,7 +102,7 @@ endif
 
 # Packages of Fedora and RHEL go to rpmbuild/RPMS
 rpm:
-	rpmbuild -bb --define '_topdir $(CURDIR)/rpmbuild' --define 'source_date_epoch_from_changelog 0' --define 'turbojedi_tree $(CURDIR)' --define 'turbojedi_version $(RELEASE)' rpm/turbojedi.spec
+	rpmbuild -bb --define '_topdir $(CURDIR)/rpmbuild' --define 'source_date_epoch_from_changelog 0' --define 'turbojedi_tree $(CURDIR)' --define 'turbojedi_version $(RELEASE)' --define 'turbojedi_tvision $(BUNDLED)' rpm/turbojedi.spec
 
 # Package of Arch Linux goes next to arch/PKGBUILD, makepkg does not run as root
 arch:

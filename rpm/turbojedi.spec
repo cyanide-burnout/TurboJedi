@@ -11,6 +11,9 @@ Summary:        Turbo Vision viewer of the systemd journal
 License:        MIT
 URL:            https://github.com/cyanide-burnout/TurboJedi
 
+# Turbo Vision of magiblot is linked in statically from the submodule
+Provides:       bundled(tvision) = %{turbojedi_tvision}
+
 BuildRequires:  gcc-c++
 BuildRequires:  make
 BuildRequires:  cmake
