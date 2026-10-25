@@ -159,6 +159,18 @@ Keys: `bounds`, `directory`, `merge`, `unit`, `identifier`, `command`, `transpor
 for the hidden ones), `highlight` and `columns` (`date`, `time`, `level`, `host`, `unit`, `identifier`, `pid`, `utc`,
 `millisecond`, `wrap`).
 
+A timeline is a `[timeline]` section with `bounds`, the keys of the filter it counts, `step` (seconds of an interval,
+`0` lets the window choose one that fits) and `scale` (`linear` or `log`):
+
+```
+[timeline]
+bounds = 0 28 120 42
+unit = nginx.service
+levels = EACRWNID
+step = 3600
+scale = log
+```
+
 ## Highlighting
 
 Rules are those of [grc](https://github.com/garabik/grc): `regexp=` with `colours=` for the match and its groups,

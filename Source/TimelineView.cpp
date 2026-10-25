@@ -77,10 +77,11 @@ static std::string FormatStep(uint64_t step)
 
 // TimelineView
 
-TimelineView::TimelineView(const TRect& bounds, TScrollBar* horizontal, const JournalFilter& filter) :
+TimelineView::TimelineView(const TRect& bounds, TScrollBar* horizontal, const JournalFilter& filter, int seconds, bool logarithmic) :
   TScroller(bounds, horizontal, nullptr)
 {
-  this->filter = filter;
+  this->filter      = filter;
+  this->logarithmic = logarithmic;
 
   growMode    = gfGrowHiX | gfGrowHiY;
   options    |= ofFirstClick;
@@ -89,11 +90,11 @@ TimelineView::TimelineView(const TRect& bounds, TScrollBar* horizontal, const Jo
   until       = 0;
   start       = 0;
   step        = 0;
+  chosen      = seconds * 1000000ULL;
   end         = 0;
   done        = 0;
   closed      = false;
   pending     = false;
-  logarithmic = false;
   follow      = true;
   cursor      = 0;
 
@@ -351,6 +352,21 @@ void TimelineView::changeBounds(const TRect& bounds)
   refresh();
 }
 
+const JournalFilter& TimelineView::getFilter()
+{
+  return filter;
+}
+
+int TimelineView::getStep()
+{
+  return chosen / 1000000;
+}
+
+bool TimelineView::getLogarithmic()
+{
+  return logarithmic;
+}
+
 void TimelineView::open()
 {
   int result;
@@ -385,10 +401,10 @@ void TimelineView::open()
     ParseJournalTime(filter.since, &since);
   }
 
-  begin(0);
+  begin(chosen);
 }
 
-void TimelineView::begin(uint64_t chosen)
+void TimelineView::begin(uint64_t fixed)
 {
   size_t index;
   uint64_t first;
@@ -423,9 +439,9 @@ void TimelineView::begin(uint64_t chosen)
 
   // The finest step that fits the range into the window, a chosen one otherwise
   width = std::max(size.x, 16);
-  step  = chosen;
+  step  = fixed;
 
-  for (index = 0; (chosen == 0) && (index < std::size(steps)); index ++)
+  for (index = 0; (fixed == 0) && (index < std::size(steps)); index ++)
   {
     step = steps[index] * 1000000ULL;
 
@@ -595,7 +611,7 @@ void TimelineView::zoom(int direction)
 {
   int64_t index;
   uint64_t moment;
-  uint64_t chosen;
+  uint64_t next;
 
   if (journal == nullptr)
   {
@@ -608,10 +624,10 @@ void TimelineView::zoom(int direction)
   }
 
   index  = std::clamp<int64_t>(index + direction, 0, (int64_t)std::size(steps) - 1);
-  chosen = steps[index] * 1000000ULL;
+  next   = steps[index] * 1000000ULL;
 
-  if ((chosen == step) ||
-      (((end - start) / chosen) >= INTERVAL_LIMIT))
+  if ((next == step) ||
+      (((end - start) / next) >= INTERVAL_LIMIT))
   {
     // At an end of the table or too many columns
     return;
@@ -619,6 +635,7 @@ void TimelineView::zoom(int direction)
 
   // The cursor stays at its time unless it follows the tail
   moment = start + cursor * step;
+  chosen = next;
   begin(chosen);
 
   if (!follow)

@@ -212,7 +212,7 @@ void JediApplication::timeline(JournalWindow* current)
     return;
   }
 
-  window = new TimelineWindow(deskTop->getExtent(), current->view->getFilter(), current->view->name());
+  window = new TimelineWindow(deskTop->getExtent(), current->view->getFilter(), 0, false);
 
   deskTop->insert(window);
   tile();
@@ -222,16 +222,24 @@ static void CollectWindow(TView* view, void* argument)
 {
   TRect bounds;
   JournalWindow* window;
+  TimelineWindow* timeline;
   JournalLayout layout;
 
-  if ((window = dynamic_cast<JournalWindow*>(view)) != nullptr)
+  window   = dynamic_cast<JournalWindow*>(view);
+  timeline = dynamic_cast<TimelineWindow*>(view);
+
+  if ((window != nullptr) ||
+      (timeline != nullptr))
   {
-    bounds           = window->getBounds();
-    layout.bounds[0] = bounds.a.x;
-    layout.bounds[1] = bounds.a.y;
-    layout.bounds[2] = bounds.b.x;
-    layout.bounds[3] = bounds.b.y;
-    layout.filter    = window->view->getFilter();
+    bounds             = view->getBounds();
+    layout.bounds[0]   = bounds.a.x;
+    layout.bounds[1]   = bounds.a.y;
+    layout.bounds[2]   = bounds.b.x;
+    layout.bounds[3]   = bounds.b.y;
+    layout.filter      = (window != nullptr) ? window->view->getFilter() : timeline->view->getFilter();
+    layout.timeline    = (timeline != nullptr);
+    layout.step        = (timeline != nullptr) ? timeline->view->getStep() : 0;
+    layout.logarithmic = (timeline != nullptr) && timeline->view->getLogarithmic();
 
     // The desktop walks from the front, the file keeps the order windows are opened in
     static_cast<std::vector<JournalLayout>*>(argument)->insert(static_cast<std::vector<JournalLayout>*>(argument)->begin(), layout);
@@ -240,7 +248,8 @@ static void CollectWindow(TView* view, void* argument)
 
 static void CloseWindow(TView* view, void* argument)
 {
-  if (dynamic_cast<JournalWindow*>(view) != nullptr)
+  if ((dynamic_cast<JournalWindow*>(view) != nullptr) ||
+      (dynamic_cast<TimelineWindow*>(view) != nullptr))
   {
     // Closed after the walk, the desktop must not change under it
     static_cast<std::vector<TView*>*>(argument)->push_back(view);
@@ -252,7 +261,7 @@ bool JediApplication::load(const std::string& path, std::string& error)
   TRect bounds;
   TRect extent;
   bool fitting;
-  JournalWindow* window;
+  TWindow* window;
   std::vector<TView*> windows;
   std::vector<JournalLayout> layout;
 
@@ -278,6 +287,15 @@ bool JediApplication::load(const std::string& path, std::string& error)
   {
     bounds  = TRect(item.bounds[0], item.bounds[1], item.bounds[2], item.bounds[3]);
     fitting = fitting && (bounds.b.x > bounds.a.x) && (bounds.b.y > bounds.a.y) && extent.contains(bounds.a) && (bounds.b.x <= extent.b.x) && (bounds.b.y <= extent.b.y);
+
+    if (item.timeline)
+    {
+      // Timelines go without numbers
+      window = new TimelineWindow(fitting ? bounds : extent, item.filter, item.step, item.logarithmic);
+      deskTop->insert(window);
+      continue;
+    }
+
     number  = std::min<short>(number + 1, 10);
     window  = new JournalWindow(fitting ? bounds : extent, (number < 10) ? number : wnNoNumber, item.filter, history, DEFAULT_CAPACITY);
 

@@ -149,6 +149,19 @@ static const char* SetValue(JournalLayout& window, const std::string& key, const
     return ((value == JOURNAL_HIGHLIGHT_OFF) || (JournalHighlighter::get(value) != nullptr)) ? nullptr : "highlight takes builtin, off or a rule file of grc";
   }
 
+  if (window.timeline &&
+      (key == "step"))
+  {
+    return ParseNumber(value, 0, 604800, &number) ? (window.step = number, nullptr) : "step takes seconds of an interval, 0 for the window to choose";
+  }
+
+  if (window.timeline &&
+      (key == "scale"))
+  {
+    window.logarithmic = (value == "log");
+    return ((value == "log") || (value == "linear")) ? nullptr : "scale takes linear or log";
+  }
+
   if (key == "levels")
   {
     // Letter of a shown level, dash of a hidden one, the way the window title shows them
@@ -230,12 +243,16 @@ bool LoadJournalLayout(const std::string& path, std::vector<JournalLayout>& wind
       continue;
     }
 
-    if (line == "[window]")
+    if ((line == "[window]") ||
+        (line == "[timeline]"))
     {
       // Defaults of a window that the file does not mention
       windows.emplace_back();
       sections.push_back(number);
       memset(windows.back().bounds, 0, sizeof(windows.back().bounds));
+      windows.back().timeline         = (line == "[timeline]");
+      windows.back().step             = 0;
+      windows.back().logarithmic      = false;
       windows.back().filter.merge     = false;
       windows.back().filter.pid       = 0;
       windows.back().filter.mode      = 0;
@@ -250,7 +267,7 @@ bool LoadJournalLayout(const std::string& path, std::vector<JournalLayout>& wind
     problem =
       (line[0] == '[')               ? "unknown section" :
       (equal == std::string::npos)   ? "neither a section nor key = value" :
-      windows.empty()                ? "key = value outside of a [window] section" :
+      windows.empty()                ? "key = value outside of a [window] or [timeline] section" :
       SetValue(windows.back(), Trim(line.substr(0, equal)), Trim(line.substr(equal + 1)));
 
     if (problem != nullptr)
@@ -273,7 +290,7 @@ bool LoadJournalLayout(const std::string& path, std::vector<JournalLayout>& wind
     }
   }
 
-  error = windows.empty() ? "no [window] sections" : "";
+  error = windows.empty() ? "no [window] or [timeline] sections" : "";
   return !windows.empty();
 }
 
@@ -290,7 +307,7 @@ bool SaveJournalLayout(const std::string& path, const std::vector<JournalLayout>
 
   for (const JournalLayout& window : windows)
   {
-    file << "[window]\n";
+    file << (window.timeline ? "[timeline]\n" : "[window]\n");
     file << "bounds = " << window.bounds[0] << ' ' << window.bounds[1] << ' ' << window.bounds[2] << ' ' << window.bounds[3] << '\n';
 
     if (!window.filter.directory.empty())  file << "directory = " << window.filter.directory << '\n';
@@ -324,6 +341,15 @@ bool SaveJournalLayout(const std::string& path, const std::vector<JournalLayout>
     for (index = 0; index < 8; index ++)
     {
       file << ((window.filter.levels & (1 << index)) ? letters[index] : '-');
+    }
+
+    if (window.timeline)
+    {
+      // Neither colors nor columns of the lines
+      file << "\nstep = " << window.step;
+      file << "\nscale = " << (window.logarithmic ? "log" : "linear");
+      file << "\n\n";
+      continue;
     }
 
     file << "\nhighlight = " << window.filter.highlight;

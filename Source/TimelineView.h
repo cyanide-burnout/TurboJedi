@@ -26,12 +26,18 @@ class TimelineView : public TScroller
 {
   public:
 
-    TimelineView(const TRect& bounds, TScrollBar* horizontal, const JournalFilter& filter);
+    // Seconds of a step, zero chooses one that fits the range into the window
+    TimelineView(const TRect& bounds, TScrollBar* horizontal, const JournalFilter& filter, int seconds, bool logarithmic);
     ~TimelineView();
 
     void draw() override;
     void handleEvent(TEvent& event) override;
     void changeBounds(const TRect& bounds) override;
+
+    // What a layout keeps
+    const JournalFilter& getFilter();
+    int getStep();  // Seconds of the step chosen by + and -, zero when the window has chosen it
+    bool getLogarithmic();
 
   private:
 
@@ -50,6 +56,7 @@ class TimelineView : public TScroller
     uint64_t until;
     uint64_t start;    // Of the first interval, aligned to the step in local time
     uint64_t step;     // Microseconds of an interval
+    uint64_t chosen;   // Microseconds of the step chosen by + and -, zero lets the width of the window choose
     uint64_t end;      // Time of the newest entry the step has been chosen for
     uint64_t done;     // Time of the entry read last, for the progress
     bool closed;       // An entry after the range has been met, nothing is read anymore
@@ -61,7 +68,7 @@ class TimelineView : public TScroller
     size_t cursor;
 
     void open();
-    void begin(uint64_t step);
+    void begin(uint64_t fixed);
     void read();
     void refresh();
     bool add(uint64_t realtime, int priority);

@@ -488,3 +488,76 @@ void ListJournalValues(const JournalFilter& filter, int field, std::map<std::str
 
   sd_journal_close(journal);
 }
+
+std::string GetJournalFilterName(const JournalFilter& filter)
+{
+  static const char letters[] = "EACRWNID";
+  static const char* const keys[] = { "unit", "id", "comm", "via", "boot", "user", "machine" };
+
+  int field;
+  int priority;
+  std::string caption;
+
+  if (!filter.directory.empty()) caption = "journals=" + filter.directory;
+  else if (filter.merge)         caption = "journals=all";
+
+  if (filter.levels != 0xff)
+  {
+    caption += '[';
+    for (priority = 0; priority < 8; priority ++)
+    {
+      // Letter of a shown level, dash of a hidden one
+      caption += (filter.levels & (1 << priority)) ? letters[priority] : '-';
+    }
+    caption += ']';
+  }
+
+  for (field = 0; field < JOURNAL_FIELD_COUNT; field ++)
+  {
+    if (!filter.values[field].empty())
+    {
+      // Boot and machine identifiers are long, their beginning tells them apart
+      caption += caption.empty() ? "" : " ";
+      caption += keys[field];
+      caption += '=';
+      caption += ((field == JOURNAL_FIELD_BOOT) || (field == JOURNAL_FIELD_MACHINE)) ? filter.values[field].substr(0, 8) : filter.values[field];
+    }
+  }
+
+  if (filter.pid != 0)
+  {
+    caption += caption.empty() ? "pid=" : " pid=";
+    caption += std::to_string(filter.pid);
+  }
+
+  for (const std::string& value : filter.matches)
+  {
+    caption += caption.empty() ? "" : " ";
+    caption += value;
+  }
+
+  if (!filter.since.empty())
+  {
+    caption += caption.empty() ? "since=" : " since=";
+    caption += filter.since;
+  }
+
+  if (!filter.until.empty())
+  {
+    caption += caption.empty() ? "until=" : " until=";
+    caption += filter.until;
+  }
+
+  if (!filter.text.empty())
+  {
+    // Like sed: !/text/ leaves out, r is a regular expression, c cares about case
+    caption += caption.empty() ? "" : " ";
+    caption += (filter.mode & JOURNAL_TEXT_EXCLUDE) ? "!/" : "/";
+    caption += filter.text;
+    caption += '/';
+    caption += (filter.mode & JOURNAL_TEXT_EXPRESSION) ? "r" : "";
+    caption += (filter.mode & JOURNAL_TEXT_SENSITIVE)  ? "c" : "";
+  }
+
+  return caption;
+}

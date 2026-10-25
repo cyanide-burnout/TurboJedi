@@ -80,6 +80,9 @@ std::string GetJournalUserIdentifier(const std::string& user);
 // FIELD=VALUE with a field name the journal takes: A-Z, 0-9 and _, not a digit first, up to 64 characters
 bool CheckJournalMatch(const std::string& match);
 
+// Short form of a filter for window titles: [levels], source fields, matches, times and /text/ the way sed writes it
+std::string GetJournalFilterName(const JournalFilter& filter);
+
 // Microseconds of 2026-10-23 19:00[:00], 2026-10-23, 19:00[:00] (today), now, today, yesterday, tomorrow, -1h, +30m (s, m, h, d)
 bool ParseJournalTime(const std::string& text, uint64_t* stamp);
 

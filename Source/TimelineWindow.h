@@ -18,7 +18,8 @@ class TimelineWindow : public TWindow
 {
   public:
 
-    TimelineWindow(const TRect& bounds, const JournalFilter& filter, const std::string& name);
+    // Seconds of a step, zero chooses one that fits the range into the window
+    TimelineWindow(const TRect& bounds, const JournalFilter& filter, int seconds, bool logarithmic);
 
     TimelineView* view;
 };

@@ -7,9 +7,9 @@
 
 // TimelineWindow
 
-TimelineWindow::TimelineWindow(const TRect& bounds, const JournalFilter& filter, const std::string& name) :
+TimelineWindow::TimelineWindow(const TRect& bounds, const JournalFilter& filter, int seconds, bool logarithmic) :
   TWindowInit(&TWindow::initFrame),
-  TWindow(bounds, ("Timeline" + (name.empty() ? std::string() : (" " + name))).c_str(), wnNoNumber)
+  TWindow(bounds, ("Timeline " + GetJournalFilterName(filter)).c_str(), wnNoNumber)
 {
   TRect extent;
   TScrollBar* horizontal;
@@ -21,7 +21,7 @@ TimelineWindow::TimelineWindow(const TRect& bounds, const JournalFilter& filter,
 
   extent = getExtent();
   extent.grow(-1, -1);
-  view   = new TimelineView(extent, horizontal, filter);
+  view   = new TimelineView(extent, horizontal, filter, seconds, logarithmic);
 
   insert(view);
 }
