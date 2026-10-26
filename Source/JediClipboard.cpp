@@ -105,14 +105,28 @@ static bool RunCommand(const std::string& text)
       continue;
     }
 
-    if ((result <= 0) ||
-        (((length = write(handles[1], text.data() + offset, text.size() - offset)) < 0) && (errno != EAGAIN) && (errno != EINTR)))
+    if (result <= 0)
     {
-      // Timed out or the command does not read anymore
+      // Timed out or the poll has failed
       break;
     }
 
-    offset += std::max<ssize_t>(length, 0);
+    length = write(handles[1], text.data() + offset, text.size() - offset);
+
+    if ((length < 0) &&
+        ((errno == EAGAIN) || (errno == EINTR)))
+    {
+      // The pipe has filled up again since the poll, the next one waits for it
+      continue;
+    }
+
+    if (length < 0)
+    {
+      // The command does not read anymore
+      break;
+    }
+
+    offset += length;
   }
 
   sigaction(SIGPIPE, &previous, nullptr);
