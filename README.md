@@ -138,6 +138,16 @@ turbojedi
 When the command exits with an error or does not finish in 3 seconds, the clipboard of the terminal takes the
 lines as usual. Input lines of the dialogs keep the clipboard of Turbo Vision, pasting is up to the terminal.
 
+Under `sudo` the command runs as root, while the clipboard belongs to you: `remote-copy.sh` looks for the socket
+of `$USER`, and `sudo` leaves `TURBOJEDI_CLIPBOARD_COPY` and `SSH_TTY` out of the environment. Give the command
+by the option and let it go back to your user, `sudo -u` sets `USER` and `HOME` of that user:
+
+```
+sudo turbojedi --clipboard-copy "sudo -u $USER $HOME/remote-copy.sh"
+```
+
+Your shell puts in `$USER` and `$HOME` before `sudo` starts.
+
 ## Keys
 
 | Key | |

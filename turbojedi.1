@@ -149,6 +149,9 @@ Exit.
 .TP
 .B TURBOJEDI_CLIPBOARD_COPY
 Command that takes copied lines, like \fB\-\-clipboard\-copy\fR.
+.BR sudo (8)
+leaves it out of the environment and runs the command as root; give it by the option then, going back to
+your user, such as \fB\-\-clipboard\-copy "sudo \-u $USER $HOME/remote-copy.sh"\fR.
 .SH FILES
 .TP
 .I $XDG_CONFIG_HOME/turbojedi/last.jedi
