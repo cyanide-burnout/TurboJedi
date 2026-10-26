@@ -183,6 +183,29 @@ bool GetJournalField(sd_journal* journal, const char* name, char* buffer, size_t
   return true;
 }
 
+bool SeekJournalPlace(sd_journal* journal, sd_journal* source)
+{
+  char* position;
+
+  if (sd_journal_get_cursor(source, &position) < 0)
+  {
+    // No entry there yet
+    return false;
+  }
+
+  // Whether the entry has passed a text filter or not
+  if ((sd_journal_seek_cursor(journal, position) >= 0) &&
+      (sd_journal_next(journal) > 0) &&
+      (sd_journal_test_cursor(journal, position) <= 0))
+  {
+    // The entry has gone meanwhile, the one after it is still to read
+    sd_journal_previous(journal);
+  }
+
+  free(position);
+  return true;
+}
+
 std::string GetJournalUserIdentifier(const std::string& user)
 {
   struct passwd* entry;

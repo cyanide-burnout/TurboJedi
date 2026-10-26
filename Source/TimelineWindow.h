@@ -20,8 +20,13 @@ class TimelineWindow : public TWindow
 
     // Seconds of a step, zero chooses one that fits the range into the window
     TimelineWindow(const TRect& bounds, const JournalFilter& filter, int seconds, bool logarithmic);
+    TimelineWindow(const TRect& bounds, const TimelineView& source);  // Clone of the window of the source
 
     TimelineView* view;
+
+  private:
+
+    TRect prepare(TScrollBar*& horizontal);  // Scroll bar and the room for the graph
 };
 
 #endif

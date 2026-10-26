@@ -25,6 +25,29 @@ TimelineWindow::TimelineWindow(const TRect& bounds, const JournalFilter& filter,
   TRect extent;
   TScrollBar* horizontal;
 
+  extent = prepare(horizontal);
+  view   = new TimelineView(extent, horizontal, filter, seconds, logarithmic);
+
+  insert(view);
+}
+
+TimelineWindow::TimelineWindow(const TRect& bounds, const TimelineView& source) :
+  TWindowInit(&TWindow::initFrame),
+  TWindow(bounds, GetTitle(source.getFilter()).c_str(), wnNoNumber)
+{
+  TRect extent;
+  TScrollBar* horizontal;
+
+  extent = prepare(horizontal);
+  view   = new TimelineView(extent, horizontal, source);
+
+  insert(view);
+}
+
+TRect TimelineWindow::prepare(TScrollBar*& horizontal)
+{
+  TRect extent;
+
   options  |= ofTileable;
   growMode  = gfGrowAll | gfGrowRel;
 
@@ -32,7 +55,6 @@ TimelineWindow::TimelineWindow(const TRect& bounds, const JournalFilter& filter,
 
   extent = getExtent();
   extent.grow(-1, -1);
-  view   = new TimelineView(extent, horizontal, filter, seconds, logarithmic);
 
-  insert(view);
+  return extent;
 }

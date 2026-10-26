@@ -82,13 +82,14 @@ TMenuBar* JediApplication::initMenuBar(TRect bounds)
   // Window shortcuts live here, the menu bar handles them without a status line item
   return new TMenuBar(bounds,
     *new TSubMenu("~F~ile", kbAltF) +
-      *new TMenuItem("~N~ew window",     cmJournalNew,    kbF2,     hcNoContext, "F2") +
-      *new TMenuItem("~O~pen layout...", cmJournalOpen,   kbCtrlO,  hcNoContext, "Ctrl-O") +
-      *new TMenuItem("~S~ave layout...", cmJournalSave,   kbCtrlS,  hcNoContext, "Ctrl-S") +
+      *new TMenuItem("~N~ew window",     cmJournalNew,    kbF2,      hcNoContext, "F2") +
+      *new TMenuItem("~C~lone window",   cmJournalClone,  kbShiftF2, hcNoContext, "Shift-F2") +
+      *new TMenuItem("~O~pen layout...", cmJournalOpen,   kbCtrlO,   hcNoContext, "Ctrl-O") +
+      *new TMenuItem("~S~ave layout...", cmJournalSave,   kbCtrlS,   hcNoContext, "Ctrl-S") +
       newLine() +
       *new TMenuItem("~E~xport lines...", cmJournalExport, kbCtrlE, hcNoContext, "Ctrl-E") +
       newLine() +
-      *new TMenuItem("E~x~it",           cmQuit,          kbAltX,   hcNoContext, "Alt-X") +
+      *new TMenuItem("E~x~it",           cmQuit,          kbAltX,    hcNoContext, "Alt-X") +
     *new TSubMenu("~J~ournal", kbAltJ) +
       *new TMenuItem("~L~evels...",     cmJournalLevels,       kbF3,      hcNoContext, "F3") +
       *new TMenuItem("~T~ext...",       cmJournalText,         kbF4,      hcNoContext, "F4") +
@@ -163,6 +164,7 @@ void JediApplication::handleEvent(TEvent& event)
     switch (event.message.command)
     {
       case cmJournalNew:       open((current != nullptr) ? current->view->getFilter() : filter);     break;
+      case cmJournalClone:     clone();                                                              break;
       case cmJournalOpen:      chooseOpen();                                                         break;
       case cmJournalSave:      chooseSave();                                                         break;
       case cmJournalHelp:      showHelp();                                                           break;
@@ -197,6 +199,35 @@ void JediApplication::open(const JournalFilter& filter)
 
   number  = std::min<short>(number + 1, 10);
   window  = new JournalWindow(deskTop->getExtent(), (number < 10) ? number : wnNoNumber, filter, history, DEFAULT_CAPACITY);
+
+  deskTop->insert(window);
+  tile();
+}
+
+void JediApplication::clone()
+{
+  TWindow* window;
+  JournalWindow* journal;
+  TimelineWindow* timeline;
+
+  journal  = dynamic_cast<JournalWindow*>(deskTop->current);
+  timeline = dynamic_cast<TimelineWindow*>(deskTop->current);
+
+  if (timeline != nullptr)
+  {
+    // Timelines go without numbers
+    window = new TimelineWindow(timeline->getBounds(), *timeline->view);
+  }
+  else if (journal != nullptr)
+  {
+    number = std::min<short>(number + 1, 10);
+    window = new JournalWindow(journal->getBounds(), (number < 10) ? number : wnNoNumber, *journal->view);
+  }
+  else
+  {
+    // Nothing focused to copy
+    return;
+  }
 
   deskTop->insert(window);
   tile();
@@ -375,6 +406,9 @@ void JediApplication::showHelp()
   {
     "Windows",
     "  F2              New window with the filter of the focused one",
+    "  Shift-F2        Clone of the focused window: its lines, filter, find, selection",
+    "                  and place, or the counts, step, scale and cursor of a timeline;",
+    "                  the journal goes on in both of them on their own",
     "  F6, Shift-F6    Next, previous window",
     "  F5, Ctrl-F5     Zoom, size or move the window",
     "  F9              Tile the windows",

@@ -128,6 +128,71 @@ JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar
   open();
 }
 
+JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar* vertical, const JournalView& source) :
+  TScroller(bounds, horizontal, vertical)
+{
+  memcpy(counts, source.counts, sizeof(counts));
+  memcpy(widths, source.widths, sizeof(widths));
+
+  filter      = source.filter;
+  history     = source.history;
+  capacity    = source.capacity;
+  lines       = source.lines;
+  bytes       = source.bytes;
+  first       = source.first;
+  width       = source.width;
+  highlighter = source.highlighter;
+  since       = source.since;
+  until       = source.until;
+  closed      = source.closed;
+  pending     = source.pending;
+  older       = source.older;
+  unseen      = source.unseen;
+  follow      = source.follow;
+  anchor      = source.anchor;
+  cursor      = source.cursor;
+  places      = source.places;
+
+  growMode  = gfGrowHiX | gfGrowHiY;
+  options  |= ofFirstClick;
+  journal   = nullptr;
+  header    = nullptr;
+  layout    = 0;
+  moving    = false;
+
+  // Expressions are compiled again, they are not shared
+  matcher.set(filter.text, filter.mode);
+  finder.set(source.finder.getText(), source.finder.getMode());
+
+  if ((source.journal != nullptr) &&
+      (OpenJournalQuery(&journal, filter) < 0))
+  {
+    // Lines stay, nothing more comes
+    journal = nullptr;
+  }
+
+  if (journal != nullptr)
+  {
+    // Sets up change notification for sd_journal_process()
+    sd_journal_get_fd(journal);
+
+    if (!SeekJournalPlace(journal, source.journal))
+    {
+      // Nothing has been read there yet, the tail the way open() takes it without history
+      sd_journal_seek_tail(journal);
+      sd_journal_previous(journal);
+    }
+  }
+
+  // The same rows at the top, the screen of another size keeps the selection on it in changeBounds()
+  moving = true;
+  setLimit((filter.columns & JOURNAL_COLUMN_WRAP) ? 0 : (indent() + width), total());
+  scrollTo(source.delta.x, source.delta.y);
+  moving = false;
+
+  refresh();
+}
+
 JournalView::~JournalView()
 {
   if (journal != nullptr)
@@ -489,10 +554,18 @@ void JournalView::handleEvent(TEvent& event)
 void JournalView::changeBounds(const TRect& bounds)
 {
   TScroller::changeBounds(bounds);
+
+  if ((anchor != NO_SELECTION) &&
+      (cursor >= first))
+  {
+    // The selected line stays on the screen of another size, following takes the tail anyway
+    reveal(cursor - first);
+  }
+
   refresh();
 }
 
-const JournalFilter& JournalView::getFilter()
+const JournalFilter& JournalView::getFilter() const
 {
   return filter;
 }

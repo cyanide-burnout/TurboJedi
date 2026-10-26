@@ -18,6 +18,8 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd and
 - Highlighting of messages by rules: built-in ones for times, addresses, identifiers, paths, quoted text, key=value
   and the words that matter, or any rule file of [grc](https://github.com/garabik/grc)
 - Find with highlighting, next and previous, on into the older entries above the first line
+- Clone of a window with its lines, filter, selection and place: one stays where it is, the other goes elsewhere;
+  a timeline is cloned with its counts, step and scale
 - Go to a time, and every other window to the time of the selected line: what happened elsewhere at that moment
 - Details of an entry with all its fields, a field there opens a window narrowed to it
 - Selection with the keyboard or the mouse, copy to the clipboard (OSC 52 over SSH), export to a file
@@ -154,6 +156,7 @@ Your shell puts in `$USER` and `$HOME` before `sudo` starts.
 |---|---|
 | F1 | keys |
 | F2 | new window with the filter of the focused one |
+| Shift-F2 | clone of the focused window: its lines, filter, find, selection and place, or the counts, step, scale and cursor of a timeline; both go on with the journal on their own |
 | F3 | levels |
 | F4 | text filter |
 | F7 | source |

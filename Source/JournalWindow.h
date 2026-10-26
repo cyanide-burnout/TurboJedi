@@ -19,6 +19,7 @@ class JournalWindow : public TWindow
   public:
 
     JournalWindow(const TRect& bounds, short number, const JournalFilter& filter, int history, size_t capacity);
+    JournalWindow(const TRect& bounds, short number, const JournalView& source);  // Clone of the window of the source
 
     JournalView* view;
 
@@ -27,6 +28,9 @@ class JournalWindow : public TWindow
   private:
 
     std::string caption;
+
+    TRect prepare(TScrollBar*& horizontal, TScrollBar*& vertical);  // Scroll bars and the room for the lines
+    void attach(TRect extent);                                      // Heading above the view and both inserted
 };
 
 #endif

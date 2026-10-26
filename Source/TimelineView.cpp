@@ -101,6 +101,58 @@ TimelineView::TimelineView(const TRect& bounds, TScrollBar* horizontal, const Jo
   open();
 }
 
+TimelineView::TimelineView(const TRect& bounds, TScrollBar* horizontal, const TimelineView& source) :
+  TScroller(bounds, horizontal, nullptr)
+{
+  filter      = source.filter;
+  error       = source.error;
+  since       = source.since;
+  until       = source.until;
+  start       = source.start;
+  step        = source.step;
+  chosen      = source.chosen;
+  end         = source.end;
+  done        = source.done;
+  closed      = source.closed;
+  pending     = source.pending;
+  logarithmic = source.logarithmic;
+  follow      = source.follow;
+  intervals   = source.intervals;
+  cursor      = source.cursor;
+
+  growMode    = gfGrowHiX | gfGrowHiY;
+  options    |= ofFirstClick;
+  journal     = nullptr;
+
+  // The expression is compiled again, it is not shared
+  matcher.set(filter.text, filter.mode);
+
+  if ((source.journal != nullptr) &&
+      (OpenJournalQuery(&journal, filter) < 0))
+  {
+    // Counts stay, nothing more comes
+    journal = nullptr;
+  }
+
+  if (journal != nullptr)
+  {
+    // Sets up change notification for sd_journal_process()
+    sd_journal_get_fd(journal);
+
+    if (!SeekJournalPlace(journal, source.journal))
+    {
+      // Nothing has been counted there yet, the range starts the way begin() takes it
+      if (since != 0) sd_journal_seek_realtime_usec(journal, since);
+      else            sd_journal_seek_head(journal);
+    }
+  }
+
+  // The same columns, refresh() keeps the cursor on the screen of another size
+  setLimit(intervals.size(), size.y);
+  scrollTo(source.delta.x, 0);
+  refresh();
+}
+
 TimelineView::~TimelineView()
 {
   if (journal != nullptr)
@@ -360,7 +412,7 @@ void TimelineView::changeBounds(const TRect& bounds)
   refresh();
 }
 
-const JournalFilter& TimelineView::getFilter()
+const JournalFilter& TimelineView::getFilter() const
 {
   return filter;
 }

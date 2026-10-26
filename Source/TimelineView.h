@@ -28,6 +28,7 @@ class TimelineView : public TScroller
 
     // Seconds of a step, zero chooses one that fits the range into the window
     TimelineView(const TRect& bounds, TScrollBar* horizontal, const JournalFilter& filter, int seconds, bool logarithmic);
+    TimelineView(const TRect& bounds, TScrollBar* horizontal, const TimelineView& source);  // A clone goes on counting from where the source is
     ~TimelineView();
 
     void draw() override;
@@ -35,7 +36,7 @@ class TimelineView : public TScroller
     void changeBounds(const TRect& bounds) override;
 
     // What a layout keeps
-    const JournalFilter& getFilter();
+    const JournalFilter& getFilter() const;
     int getStep();  // Seconds of the step chosen by + and -, zero when the window has chosen it
     bool getLogarithmic();
 

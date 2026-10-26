@@ -53,6 +53,7 @@ class JournalView : public TScroller
   public:
 
     JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar* vertical, const JournalFilter& filter, int history, size_t capacity);
+    JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar* vertical, const JournalView& source);  // A clone goes on from where the source is
     ~JournalView();
 
     uint64_t counts[8];  // Entries per priority since the window has been opened or cleared
@@ -61,7 +62,7 @@ class JournalView : public TScroller
     void handleEvent(TEvent& event) override;
     void changeBounds(const TRect& bounds) override;
 
-    const JournalFilter& getFilter();
+    const JournalFilter& getFilter() const;
     const char* describe();
     const char* name();
     std::string heading();

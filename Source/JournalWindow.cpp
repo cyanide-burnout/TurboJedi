@@ -17,6 +17,30 @@ JournalWindow::JournalWindow(const TRect& bounds, short number, const JournalFil
   TScrollBar* horizontal;
   TScrollBar* vertical;
 
+  extent = prepare(horizontal, vertical);
+  view   = new JournalView(extent, horizontal, vertical, filter, history, capacity);
+
+  attach(extent);
+}
+
+JournalWindow::JournalWindow(const TRect& bounds, short number, const JournalView& source) :
+  TWindowInit(&TWindow::initFrame),
+  TWindow(bounds, "Journal", number)
+{
+  TRect extent;
+  TScrollBar* horizontal;
+  TScrollBar* vertical;
+
+  extent = prepare(horizontal, vertical);
+  view   = new JournalView(extent, horizontal, vertical, source);
+
+  attach(extent);
+}
+
+TRect JournalWindow::prepare(TScrollBar*& horizontal, TScrollBar*& vertical)
+{
+  TRect extent;
+
   options  |= ofTileable;
   growMode  = gfGrowAll | gfGrowRel;
 
@@ -26,8 +50,12 @@ JournalWindow::JournalWindow(const TRect& bounds, short number, const JournalFil
   extent = getExtent();
   extent.grow(-1, -1);
   extent.a.y ++;
-  view = new JournalView(extent, horizontal, vertical, filter, history, capacity);
 
+  return extent;
+}
+
+void JournalWindow::attach(TRect extent)
+{
   // Heading takes the first row inside the frame
   extent.b.y    = extent.a.y;
   extent.a.y   -= 1;

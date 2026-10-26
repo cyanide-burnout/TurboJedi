@@ -71,6 +71,9 @@ int OpenJournalQuery(sd_journal** journal, const JournalFilter& filter);
 std::vector<std::string> ReadJournalEntry(const JournalFilter& filter, const std::string& cursor);
 bool GetJournalField(sd_journal* journal, const char* name, char* buffer, size_t size);
 
+// Puts the journal on the entry another one has read last, so next() goes on after it; false when the other has read nothing
+bool SeekJournalPlace(sd_journal* journal, sd_journal* source);
+
 // Labels with values to choose a source field from, JOURNAL_FIELD_COUNT stands for PID with the labels of running processes
 void ListJournalValues(const JournalFilter& filter, int field, std::map<std::string, std::string>& values, std::set<std::string>& running);
 

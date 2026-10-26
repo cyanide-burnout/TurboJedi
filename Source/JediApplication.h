@@ -38,6 +38,7 @@ class JediApplication : public TApplication
     short number;
 
     void open(const JournalFilter& filter);
+    void clone();
     bool load(const std::string& path, std::string& error);
     void chooseOpen();
     void chooseSave();
