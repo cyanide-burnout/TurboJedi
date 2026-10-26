@@ -15,12 +15,15 @@ if command -v apt-get > /dev/null
 then
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -q
-  apt-get install -y -q --no-install-recommends build-essential debhelper cmake pkgconf git ca-certificates libsystemd-dev libncurses-dev libpcre2-dev
+  apt-get install -y -q --no-install-recommends build-essential debhelper cmake pkgconf git ca-certificates libsystemd-dev libncurses-dev libpcre2-dev libgpm-dev
 elif command -v pacman > /dev/null
 then
-  pacman -Syu --noconfirm --needed base-devel cmake git pkgconf systemd-libs ncurses pcre2
+  pacman -Syu --noconfirm --needed base-devel cmake git pkgconf systemd-libs ncurses pcre2 gpm
 else
   dnf install -y -q gcc-c++ make cmake pkgconf-pkg-config git rpm-build systemd-devel ncurses-devel pcre2-devel
+
+  # Mouse of the Linux console, EL10 has no GPM and builds without it
+  dnf install -y -q gpm-devel || true
 fi
 
 # The clone belongs to the user of the runner, git would not tell the version otherwise

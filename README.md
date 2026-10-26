@@ -42,8 +42,8 @@ Alpine has no systemd, so there is no journal to show. Elsewhere TurboJedi build
 
 ## Building
 
-Debian packages: `build-essential cmake pkg-config libsystemd-dev libncurses-dev libpcre2-dev`, and `grc` for its
-rule files if they are wanted
+Debian packages: `build-essential cmake pkg-config libsystemd-dev libncurses-dev libpcre2-dev`, `libgpm-dev` for
+the mouse in the Linux console, and `grc` for its rule files if they are wanted
 
 ```
 git submodule update --init
@@ -52,7 +52,8 @@ sudo make install
 ```
 
 `make` builds tvision in `Import/tvision/build` first. `make install` puts the executable to `/usr/local/bin`
-and the manual page to `/usr/local/share/man/man1`, `PREFIX` and `DESTDIR` move them.
+and the manual page to `/usr/local/share/man/man1`, `PREFIX` and `DESTDIR` move them. Without libgpm the build
+goes on, with the mouse in terminal emulators only; the mouse of the Linux console needs the `gpm` service running.
 
 ### Debian package
 
@@ -71,13 +72,13 @@ that architecture in place:
 ```
 sudo dpkg --add-architecture amd64
 sudo apt update
-sudo apt install crossbuild-essential-amd64 libsystemd-dev:amd64 libncurses-dev:amd64 libpcre2-dev:amd64
+sudo apt install crossbuild-essential-amd64 libsystemd-dev:amd64 libncurses-dev:amd64 libpcre2-dev:amd64 libgpm-dev:amd64
 ```
 
 ### RPM package
 
 ```
-sudo dnf install rpm-build gcc-c++ make cmake systemd-devel ncurses-devel pcre2-devel
+sudo dnf install rpm-build gcc-c++ make cmake systemd-devel ncurses-devel pcre2-devel gpm-devel
 make rpm
 ```
 
@@ -87,7 +88,7 @@ version the same way.
 ### Arch Linux package
 
 ```
-sudo pacman -S --needed base-devel cmake git pkgconf
+sudo pacman -S --needed base-devel cmake git pkgconf gpm
 make arch
 ```
 

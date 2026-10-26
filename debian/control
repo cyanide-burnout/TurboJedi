@@ -3,7 +3,7 @@ Section: admin
 Priority: optional
 Maintainer: Artem Prilutskiy <cyanide.burnout@gmail.com>
 Build-Depends:
-  debhelper (>= 10), cmake, pkg-config, libsystemd-dev, libncurses-dev, libpcre2-dev
+  debhelper (>= 10), cmake, pkg-config, libsystemd-dev, libncurses-dev, libpcre2-dev, libgpm-dev
 Standards-Version: 4.6.2
 Homepage: https://github.com/cyanide-burnout/TurboJedi
 

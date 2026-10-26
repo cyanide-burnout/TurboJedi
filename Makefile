@@ -70,10 +70,13 @@ LIBS := \
 
 CXXFLAGS += $(FLAGS) -std=gnu++17
 
+# Libraries tvision has found on its own, told once it is configured: libgpm for the mouse of the Linux console
+EXTRA = $(if $(shell grep -s '^GPM:FILEPATH=/' $(TURBOVISION)/build/CMakeCache.txt),-lgpm)
+
 all: build
 
 $(TURBOVISION)/build/libtvision.a:
-	cmake -S $(TURBOVISION) -B $(TURBOVISION)/build $(CMAKEFLAGS) -D CMAKE_BUILD_TYPE=Release -D CMAKE_POSITION_INDEPENDENT_CODE=ON -D TV_BUILD_EXAMPLES=OFF -D TV_BUILD_USING_GPM=OFF
+	cmake -S $(TURBOVISION) -B $(TURBOVISION)/build $(CMAKEFLAGS) -D CMAKE_BUILD_TYPE=Release -D CMAKE_POSITION_INDEPENDENT_CODE=ON -D TV_BUILD_EXAMPLES=OFF -D TV_BUILD_USING_GPM=ON
 	+make -C $(TURBOVISION)/build tvision
 
 # Rewritten only when the version changes, so that only its users are built again
@@ -83,7 +86,7 @@ $(SOURCE)/Version.h: FORCE
 $(SOURCE)/TurboJedi.o $(SOURCE)/JediApplication.o: $(SOURCE)/Version.h
 
 build: $(OBJECTS)
-	$(CXX) $(OBJECTS) $(FLAGS) $(LDFLAGS) $(LIBS) -o $(EXECUTABLE)
+	$(CXX) $(OBJECTS) $(FLAGS) $(LDFLAGS) $(LIBS) $(EXTRA) -o $(EXECUTABLE)
 
 install:
 	install -D -m 755 $(EXECUTABLE) $(PREFIX)/bin/$(EXECUTABLE)

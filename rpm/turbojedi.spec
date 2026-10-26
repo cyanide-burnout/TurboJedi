@@ -22,6 +22,11 @@ BuildRequires:  systemd-devel
 BuildRequires:  ncurses-devel
 BuildRequires:  pcre2-devel
 
+# Mouse of the Linux console, EL10 has no GPM
+%if 0%{?rhel} < 10
+BuildRequires:  gpm-devel
+%endif
+
 %description
 Turbo Journald Interface: windows with filters of their own asked of the
 journal, following the tail, history, find, highlighting by built-in rules
