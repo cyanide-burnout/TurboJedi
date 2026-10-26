@@ -119,11 +119,24 @@ turbojedi [options] [FIELD=VALUE ...]
 | `-n`, `--lines N` | history to start with, 1000 by default |
 | `-H`, `--highlight NAME` | highlighting rules: `builtin` (default), `off`, a rule file of grc such as `conf.log`, or a path |
 | `-c`, `--layout FILE` | windows of a saved layout |
+| `--clipboard-copy COMMAND` | command of `sh` that takes copied lines on its standard input, over `$TURBOJEDI_CLIPBOARD_COPY` |
 
 `TIME` is `2026-10-23 19:00[:00]`, `2026-10-23`, `19:00`, `now`, `today`, `yesterday`, `tomorrow` or a relative
 `-1h`, `+30m` (`s`, `m`, `h`, `d`).
 
 Reading the whole journal needs root or the `systemd-journal` group, others see their own entries only.
+
+Copy (Ctrl-Ins, and Copy in the details) goes to the clipboard of the terminal by OSC 52 or to a clipboard tool
+of the desktop. A command of your own takes the lines instead, such as `remote-copy.sh` of
+[RemoteClipboard](https://github.com/cyanide-burnout/RemoteClipboard) that brings them home over an SSH socket:
+
+```
+export TURBOJEDI_CLIPBOARD_COPY="$HOME/remote-copy.sh"
+turbojedi
+```
+
+When the command exits with an error or does not finish in 3 seconds, the clipboard of the terminal takes the
+lines as usual. Input lines of the dialogs keep the clipboard of Turbo Vision, pasting is up to the terminal.
 
 ## Keys
 

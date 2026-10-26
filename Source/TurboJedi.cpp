@@ -7,6 +7,7 @@
 #include "JournalLayout.h"
 #include "JournalTools.h"
 #include "JournalHighlighter.h"
+#include "JediClipboard.h"
 
 #include <time.h>
 #include <stdio.h>
@@ -120,6 +121,10 @@ static void PrintUsage(const char* name)
   printf("  -H, --highlight NAME  rules that paint messages: builtin (default), off, a rule file of grc\n");
   printf("                        such as conf.log, or a path to one\n");
   printf("  -c, --layout FILE     windows of a layout saved by File, Save layout, options are left for new windows then\n");
+  printf("      --clipboard-copy COMMAND\n");
+  printf("                        command of sh that takes copied lines on its standard input, such as remote-copy.sh\n");
+  printf("                        of RemoteClipboard, instead of $TURBOJEDI_CLIPBOARD_COPY; the clipboard of the terminal\n");
+  printf("                        takes them when the command fails or does not finish in 3 seconds\n");
   printf("\n");
   printf("The layout of all windows is kept on exit in $XDG_CONFIG_HOME/turbojedi/%s and comes back on the next start\n", LAST_LAYOUT);
   printf("without a layout and filter options\n");
@@ -140,6 +145,7 @@ int main(int count, char* const* arguments)
   uint64_t stamp;
   std::string value;
   std::string layout;
+  std::string clipboard;
   std::string last;
   std::string error;
   std::vector<JournalLayout> windows;
@@ -150,21 +156,22 @@ int main(int count, char* const* arguments)
 
   struct option options[] =
   {
-    { "identifier", required_argument, nullptr, 't' },
-    { "unit",       required_argument, nullptr, 'u' },
-    { "user",       required_argument, nullptr, 'U' },
-    { "priority",   required_argument, nullptr, 'p' },
-    { "kernel",     no_argument,       nullptr, 'k' },
-    { "since",      required_argument, nullptr, 'S' },
-    { "until",      required_argument, nullptr, 'T' },
-    { "boot",       no_argument,       nullptr, 'b' },
-    { "directory",  required_argument, nullptr, 'D' },
-    { "layout",     required_argument, nullptr, 'c' },
-    { "lines",      required_argument, nullptr, 'n' },
-    { "merge",      no_argument,       nullptr, 'm' },
-    { "highlight",  required_argument, nullptr, 'H' },
-    { "help",       no_argument,       nullptr, 'h' },
-    { nullptr,      0,                 nullptr, 0   }
+    { "identifier",     required_argument, nullptr, 't' },
+    { "unit",           required_argument, nullptr, 'u' },
+    { "user",           required_argument, nullptr, 'U' },
+    { "priority",       required_argument, nullptr, 'p' },
+    { "kernel",         no_argument,       nullptr, 'k' },
+    { "since",          required_argument, nullptr, 'S' },
+    { "until",          required_argument, nullptr, 'T' },
+    { "boot",           no_argument,       nullptr, 'b' },
+    { "directory",      required_argument, nullptr, 'D' },
+    { "layout",         required_argument, nullptr, 'c' },
+    { "lines",          required_argument, nullptr, 'n' },
+    { "merge",          no_argument,       nullptr, 'm' },
+    { "highlight",      required_argument, nullptr, 'H' },
+    { "clipboard-copy", required_argument, nullptr, 'C' },
+    { "help",           no_argument,       nullptr, 'h' },
+    { nullptr,          0,                 nullptr, 0   }
   };
 
   history          = DEFAULT_HISTORY;
@@ -176,10 +183,13 @@ int main(int count, char* const* arguments)
   filter.columns   = JOURNAL_COLUMN_DEFAULT;
   filter.highlight = JOURNAL_HIGHLIGHT_BUILTIN;
 
+  // The option goes over the environment, an empty one leaves the clipboard of Turbo Vision
+  clipboard = (getenv("TURBOJEDI_CLIPBOARD_COPY") != nullptr) ? getenv("TURBOJEDI_CLIPBOARD_COPY") : "";
+
   while ((result = getopt_long(count, arguments, "t:u:U:p:kS:bD:c:n:mH:h", options, nullptr)) > 0)
   {
-    // Only the history and the journals to read keep the last layout
-    custom |= (result != 'n') && (result != 'D') && (result != 'm');
+    // Only the history, the journals to read and the clipboard keep the last layout
+    custom |= (result != 'n') && (result != 'D') && (result != 'm') && (result != 'C');
 
     switch (result)
     {
@@ -246,6 +256,10 @@ int main(int count, char* const* arguments)
         history = atoi(optarg);
         break;
 
+      case 'C':
+        clipboard = optarg;
+        break;
+
       case 'H':
         if ((strcmp(optarg, JOURNAL_HIGHLIGHT_OFF) != 0) &&
             (JournalHighlighter::get(optarg, &error) == nullptr))
@@ -293,6 +307,8 @@ int main(int count, char* const* arguments)
   layout = (layout.empty() && !custom) ? last : layout;
 
   SetTextLocale();
+
+  SetClipboardCommand(clipboard);
 
   application = new JediApplication(filter, history, layout);
   application->run();

@@ -35,6 +35,7 @@ OBJECTS := \
 	$(SOURCE)/JediApplication.o \
 	$(SOURCE)/JediStatusLine.o \
 	$(SOURCE)/JediClock.o \
+	$(SOURCE)/JediClipboard.o \
 	$(SOURCE)/JournalView.o \
 	$(SOURCE)/JournalWindow.o \
 	$(SOURCE)/JournalHeader.o \

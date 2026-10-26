@@ -5,9 +5,9 @@
 #define Uses_TButton
 #define Uses_TEvent
 #define Uses_TKeys
-#define Uses_TClipboard
 #include "PageDialog.h"
 #include "Commands.h"
+#include "JediClipboard.h"
 
 // PageDialog
 
@@ -86,6 +86,6 @@ void PageDialog::copy()
     text += '\n';
   }
 
-  // May block on an external clipboard tool
-  TClipboard::setText(text);
+  // A command of the user or the clipboard of Turbo Vision, either may block for a while
+  CopyClipboardText(text);
 }

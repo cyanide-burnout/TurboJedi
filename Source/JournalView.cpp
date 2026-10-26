@@ -7,7 +7,6 @@
 #define Uses_TDrawBuffer
 #define Uses_TEvent
 #define Uses_TKeys
-#define Uses_TClipboard
 #define Uses_TProgram
 #define Uses_TDeskTop
 #define Uses_TStatusLine
@@ -22,6 +21,7 @@
 #include "LevelsDialog.h"
 #include "ColumnsDialog.h"
 #include "JournalsDialog.h"
+#include "JediClipboard.h"
 
 #include <time.h>
 #include <stdio.h>
@@ -1041,8 +1041,8 @@ void JournalView::copy()
 
   if (!text.empty())
   {
-    // May block on an external clipboard tool
-    TClipboard::setText(text);
+    // A command of the user or the clipboard of Turbo Vision, either may block for a while
+    CopyClipboardText(text);
   }
 }
 

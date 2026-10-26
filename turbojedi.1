@@ -58,6 +58,13 @@ such as \fBconf.log\fR from \fI~/.grc\fR, \fI/usr/local/share/grc\fR or \fI/usr/
 \fB\-c\fR, \fB\-\-layout\fR \fIFILE\fR
 Windows of a layout saved by File, Save layout. Options are left for new windows then.
 .TP
+\fB\-\-clipboard\-copy\fR \fICOMMAND\fR
+Command of
+.BR sh (1)
+that takes copied lines on its standard input instead of the clipboard of the terminal, such as
+\fBremote-copy.sh\fR of RemoteClipboard. It goes over \fBTURBOJEDI_CLIPBOARD_COPY\fR. When the command exits
+with an error or does not finish in 3 seconds, the clipboard of the terminal takes the lines.
+.TP
 \fB\-h\fR, \fB\-\-help\fR
 Usage.
 .PP
@@ -138,6 +145,10 @@ Open, save the layout of all windows.
 .TP
 .B Alt-X
 Exit.
+.SH ENVIRONMENT
+.TP
+.B TURBOJEDI_CLIPBOARD_COPY
+Command that takes copied lines, like \fB\-\-clipboard\-copy\fR.
 .SH FILES
 .TP
 .I $XDG_CONFIG_HOME/turbojedi/last.jedi
