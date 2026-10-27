@@ -9,7 +9,8 @@
 #   curl -fsSL https://raw.githubusercontent.com/cyanide-burnout/TurboJedi/master/install.sh | sh
 #
 # TURBOJEDI_VERSION=0.6 takes that release instead of the latest one. The package manager of the distribution
-# brings the dependencies, sudo or doas is asked for when this does not run as root.
+# brings the dependencies, sudo or doas is asked for when this does not run as root. Run again, it updates TurboJedi,
+# nothing is downloaded when that release is installed already.
 
 set -eu
 
@@ -105,6 +106,25 @@ GetTarget()
   fi
 }
 
+# Version of the installed package without the revision, nothing when there is none
+
+GetInstalled()
+{
+  case "$KIND" in
+    deb)
+      # Removed packages keep their configuration and the version along with it
+      dpkg-query -W -f '${db:Status-Status} ${Version}\n' turbojedi 2> /dev/null | sed -n 's/^installed //p' ;;
+    rpm|zypp)
+      # Prints that it is not installed on the standard output
+      if rpm -q turbojedi > /dev/null 2>&1
+      then
+        rpm -q --qf '%{VERSION}\n' turbojedi | head -n 1
+      fi ;;
+    pkg)
+      pacman -Q turbojedi 2> /dev/null | sed -e 's/^[^ ]* //' -e 's/-[^-]*$//' ;;
+  esac
+}
+
 Main()
 {
   TARGET=$(GetTarget)
@@ -141,6 +161,16 @@ Main()
   JSON=$(curl -fsSL "https://api.github.com/repos/$REPOSITORY/releases/$RELEASE") ||
     Fail "cannot read the release $RELEASE of $REPOSITORY"
 
+  # Versions of the packages are the tags without v
+  VERSION=$(echo "$JSON" | sed -n 's/.*"tag_name": *"v\{0,1\}\([^"]*\)".*/\1/p' | head -n 1)
+  INSTALLED=$(GetInstalled || true)
+
+  if [ -n "$INSTALLED" ] && [ "$INSTALLED" = "$VERSION" ]
+  then
+    echo "TurboJedi $VERSION is installed already"
+    exit 0
+  fi
+
   # Links of the files of the release, JSON of the API is read without jq
   LINKS=$(echo "$JSON" | sed -n 's/.*"browser_download_url": *"\([^"]*\)".*/\1/p')
 
@@ -171,6 +201,11 @@ Main()
     Fail "https://github.com/$REPOSITORY#building"
   fi
 
+  if [ -n "$INSTALLED" ]
+  then
+    echo "TurboJedi $INSTALLED goes to $VERSION"
+  fi
+
   SUDO=
 
   if [ "$(id -u)" -ne 0 ]
@@ -199,17 +234,17 @@ Main()
   chmod 755 "$DIRECTORY"
   chmod 644 "$FILE"
 
-  # Nothing asks, the standard input may be the rest of this script
+  # Nothing asks, the standard input may be the rest of this script; TURBOJEDI_VERSION may name an older release
   case "$KIND" in
     deb)
       # Lists may be missing, as in containers, or old enough for the dependencies to be gone from the mirrors
       $SUDO env DEBIAN_FRONTEND=noninteractive apt-get update -q < /dev/null
-      $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y -q "$FILE" < /dev/null ;;
+      $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y -q --allow-downgrades "$FILE" < /dev/null ;;
     rpm)
       $SUDO dnf install -y "$FILE" < /dev/null ;;
     zypp)
       # Packages of the releases are not signed
-      $SUDO zypper -n install --allow-unsigned-rpm "$FILE" < /dev/null ;;
+      $SUDO zypper -n install --allow-unsigned-rpm --oldpackage "$FILE" < /dev/null ;;
     pkg)
       # A refresh without the upgrade would be a partial one, Arch Linux does not support it
       $SUDO pacman -U --noconfirm --needed "$FILE" < /dev/null ||
