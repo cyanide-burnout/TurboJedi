@@ -31,8 +31,9 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd and
 ## Installation
 
 Ready packages of every release are on the [releases page](https://github.com/cyanide-burnout/TurboJedi/releases/latest):
-Debian 12 and 13, Ubuntu 24.04 and 26.04, Fedora 44, RHEL 9 and 10 (and their rebuilds) on amd64 and arm64, Arch Linux
-on amd64. GitHub Actions builds each of them in a container of its distribution. The script takes the one that fits:
+Debian 12 and 13, Ubuntu 22.04, 24.04 and 26.04, Fedora 44, RHEL 9 and 10 (and their rebuilds), Amazon Linux 2023,
+openSUSE Tumbleweed and Leap 16 on amd64 and arm64, Arch Linux on amd64. GitHub Actions builds each of them in a container
+of its distribution. The script takes the one that fits:
 
 ```
 curl -fsSL https://raw.githubusercontent.com/cyanide-burnout/TurboJedi/master/install.sh | sh
@@ -45,6 +46,7 @@ By hand:
 ```
 sudo apt install ./turbojedi_<version>_<distribution>_<arch>.deb
 sudo dnf install ./turbojedi-<version>-1.<dist>.<arch>.rpm
+sudo zypper install --allow-unsigned-rpm ./turbojedi-<version>-1.<tumbleweed|leap16>.<arch>.rpm
 sudo pacman -U turbojedi-<version>-1-x86_64.pkg.tar.zst
 ```
 
@@ -92,8 +94,9 @@ sudo dnf install rpm-build gcc-c++ make cmake systemd-devel ncurses-devel pcre2-
 make rpm
 ```
 
-`make rpm` builds `rpmbuild/RPMS/<arch>/turbojedi-<version>-1.<dist>.<arch>.rpm` for Fedora and RHEL, with the
-version the same way.
+`make rpm` builds `rpmbuild/RPMS/<arch>/turbojedi-<version>-1.<dist>.<arch>.rpm` for Fedora, RHEL and Amazon Linux,
+with the version the same way. openSUSE takes the same packages from `zypper`, gives no tag of its own and gets it by
+`make rpm DIST=tumbleweed` or `DIST=leap16`.
 
 ### Arch Linux package
 

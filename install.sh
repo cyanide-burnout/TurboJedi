@@ -29,7 +29,8 @@ Contains()
   return 1
 }
 
-# Name of the distribution in the names of the packages: debian-13, ubuntu-24.04, fc44, el9 or arch
+# Name of the distribution in the names of the packages: debian-13, ubuntu-24.04, fc44, el9, amzn2023, tumbleweed, leap16
+# or arch
 
 GetTarget()
 {
@@ -55,6 +56,16 @@ GetTarget()
     rhel|almalinux|rocky|centos|ol|eurolinux|circle|navy)
       echo "el${VERSION_ID%%.*}"
       return ;;
+    amzn)
+      echo "amzn$VERSION_ID"
+      return ;;
+    opensuse-tumbleweed)
+      echo "tumbleweed"
+      return ;;
+    opensuse-leap|sles|sled)
+      # Leap is made of the sources of SUSE Linux Enterprise of the same version
+      echo "leap${VERSION_ID%%.*}"
+      return ;;
     arch)
       echo "arch"
       return ;;
@@ -64,6 +75,7 @@ GetTarget()
   if Contains "$ID_LIKE" ubuntu
   then
     case "$UBUNTU_CODENAME" in
+      jammy)    echo "ubuntu-22.04" ;;
       noble)    echo "ubuntu-24.04" ;;
       resolute) echo "ubuntu-26.04" ;;
       *)        echo "ubuntu-$UBUNTU_CODENAME" ;;
@@ -73,6 +85,12 @@ GetTarget()
     # 13.1, or trixie/sid on testing
     VERSION_ID=$(cat /etc/debian_version 2> /dev/null || true)
     echo "debian-${VERSION_ID%%[./]*}"
+  elif Contains "$ID_LIKE" opensuse-tumbleweed
+  then
+    echo "tumbleweed"
+  elif Contains "$ID_LIKE" suse
+  then
+    echo "leap${VERSION_ID%%.*}"
   elif Contains "$ID_LIKE" rhel || Contains "$ID_LIKE" centos
   then
     echo "el${VERSION_ID%%.*}"
@@ -97,8 +115,12 @@ Main()
       KIND=deb
       ARCH=$(dpkg --print-architecture)
       SUFFIX="_${TARGET}_${ARCH}.deb" ;;
-    fc*|el*)
+    fc*|el*|amzn*)
       KIND=rpm
+      ARCH=$(rpm --eval '%{_arch}')
+      SUFFIX=".${TARGET}.${ARCH}.rpm" ;;
+    tumbleweed|leap*)
+      KIND=zypp
       ARCH=$(rpm --eval '%{_arch}')
       SUFFIX=".${TARGET}.${ARCH}.rpm" ;;
     arch)
@@ -185,6 +207,9 @@ Main()
       $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y -q "$FILE" < /dev/null ;;
     rpm)
       $SUDO dnf install -y "$FILE" < /dev/null ;;
+    zypp)
+      # Packages of the releases are not signed
+      $SUDO zypper -n install --allow-unsigned-rpm "$FILE" < /dev/null ;;
     pkg)
       # A refresh without the upgrade would be a partial one, Arch Linux does not support it
       $SUDO pacman -U --noconfirm --needed "$FILE" < /dev/null ||

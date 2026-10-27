@@ -19,6 +19,10 @@ then
 elif command -v pacman > /dev/null
 then
   pacman -Syu --noconfirm --needed base-devel cmake git pkgconf systemd-libs ncurses pcre2 gpm
+elif command -v zypper > /dev/null
+then
+  # Tumbleweed images carry tools of busybox in place of those rpm-build wants, they give way
+  zypper -n -q install --force-resolution gcc-c++ make cmake pkgconf git rpm-build systemd-devel ncurses-devel pcre2-devel gpm-devel
 else
   dnf install -y -q gcc-c++ make cmake pkgconf-pkg-config git rpm-build systemd-devel ncurses-devel pcre2-devel
 
@@ -54,7 +58,8 @@ then
   # Debug information stays out
   find arch -maxdepth 1 -name 'turbojedi-[0-9]*.pkg.tar.*' -exec cp {} dist/ \;
 else
-  make rpm
+  # openSUSE gives no tag of its distribution, the name of the build tells its packages apart
+  make rpm DIST=$(rpm --eval '%{?dist}' | grep -q . || echo "${DISTRO}")
 
   # The release tag of the distribution tells the packages apart, debug information stays out
   find rpmbuild/RPMS -name 'turbojedi-[0-9]*.rpm' -exec cp {} dist/ \;

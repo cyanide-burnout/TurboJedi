@@ -104,9 +104,9 @@ else
 endif
 	rm -f debian/changelog
 
-# Packages of Fedora and RHEL go to rpmbuild/RPMS
+# Packages of Fedora, RHEL and openSUSE go to rpmbuild/RPMS, DIST names a distribution that gives no tag of its own, such as leap16
 rpm:
-	rpmbuild -bb --define '_topdir $(CURDIR)/rpmbuild' --define 'source_date_epoch_from_changelog 0' --define 'turbojedi_tree $(CURDIR)' --define 'turbojedi_version $(RELEASE)' --define 'turbojedi_tvision $(BUNDLED)' rpm/turbojedi.spec
+	rpmbuild -bb --define '_topdir $(CURDIR)/rpmbuild' --define 'source_date_epoch_from_changelog 0' --define 'turbojedi_tree $(CURDIR)' --define 'turbojedi_version $(RELEASE)' --define 'turbojedi_tvision $(BUNDLED)' $(if $(DIST),--define 'dist .$(DIST)') rpm/turbojedi.spec
 
 # Package of Arch Linux goes next to arch/PKGBUILD, makepkg does not run as root
 arch:
