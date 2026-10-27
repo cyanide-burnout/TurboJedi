@@ -32,6 +32,12 @@ Turbo Journald Interface: windows with filters of their own asked of the
 journal, following the tail, history, find, highlighting by built-in rules
 or rule files of grc, synchronized time across windows and saved layouts.
 
+# Debug information goes to a package of its own and the executable is stripped, Fedora and RHEL do it by themselves,
+# openSUSE leaves it to its build service
+%if 0%{?suse_version}
+%debug_package
+%endif
+
 %prep
 # What %%setup would unpack: %%license and %%doc take the names from the build directory
 cp -p "%{turbojedi_tree}/LICENSE" "%{turbojedi_tree}/README.md" .
