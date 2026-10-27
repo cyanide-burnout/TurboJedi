@@ -96,15 +96,15 @@ Main()
     debian-*|ubuntu-*)
       KIND=deb
       ARCH=$(dpkg --print-architecture)
-      PATTERN="_${TARGET}_${ARCH}\.deb" ;;
+      SUFFIX="_${TARGET}_${ARCH}.deb" ;;
     fc*|el*)
       KIND=rpm
       ARCH=$(rpm --eval '%{_arch}')
-      PATTERN="\.${TARGET}\.${ARCH}\.rpm" ;;
+      SUFFIX=".${TARGET}.${ARCH}.rpm" ;;
     arch)
       KIND=pkg
       ARCH=$(uname -m)
-      PATTERN="-${ARCH}\.pkg\.tar\.zst" ;;
+      SUFFIX="-${ARCH}.pkg.tar.zst" ;;
     *)
       Fail "no packages for $TARGET, TurboJedi builds from the sources: https://github.com/$REPOSITORY#building" ;;
   esac
@@ -122,7 +122,17 @@ Main()
   # Links of the files of the release, JSON of the API is read without jq
   LINKS=$(echo "$JSON" | sed -n 's/.*"browser_download_url": *"\([^"]*\)".*/\1/p')
 
-  LINK=$(echo "$LINKS" | grep -e "${PATTERN}\$" | head -n 1 || true)
+  LINK=
+
+  for ITEM in $LINKS
+  do
+    case "$ITEM" in
+      *"$SUFFIX")
+        # Quoted, the end of the name is compared as it is, without patterns
+        LINK=$ITEM
+        break ;;
+    esac
+  done
 
   if [ -z "$LINK" ]
   then
@@ -170,12 +180,15 @@ Main()
   # Nothing asks, the standard input may be the rest of this script
   case "$KIND" in
     deb)
+      # Lists may be missing, as in containers, or old enough for the dependencies to be gone from the mirrors
       $SUDO env DEBIAN_FRONTEND=noninteractive apt-get update -q < /dev/null
       $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y -q "$FILE" < /dev/null ;;
     rpm)
       $SUDO dnf install -y "$FILE" < /dev/null ;;
     pkg)
-      $SUDO pacman -U --noconfirm --needed "$FILE" < /dev/null ;;
+      # A refresh without the upgrade would be a partial one, Arch Linux does not support it
+      $SUDO pacman -U --noconfirm --needed "$FILE" < /dev/null ||
+        Fail "pacman cannot install the package, the system may need to be up to date first: sudo pacman -Syu" ;;
   esac
 
   echo "TurboJedi is installed: $(command -v turbojedi)"
