@@ -95,8 +95,8 @@ make rpm
 ```
 
 `make rpm` builds `rpmbuild/RPMS/<arch>/turbojedi-<version>-1.<dist>.<arch>.rpm` for Fedora, RHEL and Amazon Linux,
-with the version the same way. openSUSE takes the same packages from `zypper`, gives no tag of its own and gets it by
-`make rpm DIST=tumbleweed` or `DIST=leap16`.
+with the version the same way. openSUSE takes the same packages from `zypper` and `gcc-PIE`, gives no tag of its own
+and gets it by `make rpm DIST=tumbleweed` or `DIST=leap16`.
 
 ### Arch Linux package
 

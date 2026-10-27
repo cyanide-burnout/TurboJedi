@@ -22,7 +22,7 @@ then
 elif command -v zypper > /dev/null
 then
   # Tumbleweed images carry tools of busybox in place of those rpm-build wants, they give way
-  zypper -n -q install --force-resolution gcc-c++ make cmake pkgconf git rpm-build systemd-devel ncurses-devel pcre2-devel gpm-devel
+  zypper -n -q install --force-resolution gcc-c++ make cmake pkgconf git rpm-build gcc-PIE systemd-devel ncurses-devel pcre2-devel gpm-devel
 else
   dnf install -y -q gcc-c++ make cmake pkgconf-pkg-config git rpm-build systemd-devel ncurses-devel pcre2-devel
 

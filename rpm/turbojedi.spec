@@ -27,6 +27,11 @@ BuildRequires:  pcre2-devel
 BuildRequires:  gpm-devel
 %endif
 
+# Position independent executable, the build service of openSUSE has it in every build
+%if 0%{?suse_version}
+BuildRequires:  gcc-PIE
+%endif
+
 %description
 Turbo Journald Interface: windows with filters of their own asked of the
 journal, following the tail, history, find, highlighting by built-in rules
@@ -46,6 +51,9 @@ cp -p "%{turbojedi_tree}/Import/tvision/COPYRIGHT" tvision-COPYRIGHT
 %build
 # Newer rpm builds in a directory of its own, the tree is where make rpm has been called
 cd "%{turbojedi_tree}"
+
+# Hardening flags of the distribution, rpm of EL9 and openSUSE does not set them by itself as Fedora does
+%{?set_build_flags}
 %make_build build
 
 %install
