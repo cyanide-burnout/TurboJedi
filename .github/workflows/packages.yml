@@ -25,6 +25,7 @@ jobs:
       matrix:
         arch: [amd64, arm64]
         distro:
+          - { name: debian-12,    image: 'debian:12' }
           - { name: debian-13,    image: 'debian:13' }
           - { name: ubuntu-24.04, image: 'ubuntu:24.04' }
           - { name: ubuntu-26.04, image: 'ubuntu:26.04' }

@@ -31,8 +31,16 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd and
 ## Installation
 
 Ready packages of every release are on the [releases page](https://github.com/cyanide-burnout/TurboJedi/releases/latest):
-Debian 13, Ubuntu 24.04 and 26.04, Fedora 44, RHEL 9 and 10 (and their rebuilds) on amd64 and arm64, Arch Linux on
-amd64. GitHub Actions builds each of them in a container of its distribution.
+Debian 12 and 13, Ubuntu 24.04 and 26.04, Fedora 44, RHEL 9 and 10 (and their rebuilds) on amd64 and arm64, Arch Linux
+on amd64. GitHub Actions builds each of them in a container of its distribution. The script takes the one that fits:
+
+```
+curl -fsSL https://raw.githubusercontent.com/cyanide-burnout/TurboJedi/master/install.sh | sh
+```
+
+It asks for sudo when not run as root, `TURBOJEDI_VERSION=0.6` before `sh` takes that release instead of the latest one.
+Raspberry Pi OS of 64 bits is Debian on arm64 and has packages; on 32 bits (armhf) TurboJedi builds from the sources.
+By hand:
 
 ```
 sudo apt install ./turbojedi_<version>_<distribution>_<arch>.deb
