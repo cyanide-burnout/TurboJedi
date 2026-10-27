@@ -45,6 +45,7 @@ OBJECTS := \
 	$(SOURCE)/JournalLayout.o \
 	$(SOURCE)/SourceDialog.o \
 	$(SOURCE)/PickDialog.o \
+	$(SOURCE)/WindowsDialog.o \
 	$(SOURCE)/TimeDialog.o \
 	$(SOURCE)/TimePickDialog.o \
 	$(SOURCE)/CalendarView.o \

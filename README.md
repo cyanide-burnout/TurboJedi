@@ -20,6 +20,7 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd and
 - Find with highlighting, next and previous, on into the older entries above the first line
 - Clone of a window with its lines, filter, selection and place: one stays where it is, the other goes elsewhere;
   a timeline is cloned with its counts, step and scale
+- List of the windows to go to, narrowed down by a filter
 - Go to a time, and every other window to the time of the selected line: what happened elsewhere at that moment
 - Details of an entry with all its fields, a field there opens a window narrowed to it
 - Selection with the keyboard or the mouse, copy to the clipboard (OSC 52 over SSH), export to a file
@@ -190,6 +191,7 @@ Your shell puts in `$USER` and `$HOME` before `sudo` starts.
 | F8 | clear the window |
 | Ctrl-O, Ctrl-S | open, save a layout |
 | F5, Ctrl-F5, F6, F9, Alt-F3 | zoom, size, next, tile, close |
+| Alt-0 | list of the windows to go to, the one used before is under the cursor |
 | Alt-X | exit |
 
 ## Layouts

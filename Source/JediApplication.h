@@ -39,6 +39,7 @@ class JediApplication : public TApplication
 
     void open(const JournalFilter& filter);
     void clone();
+    void chooseWindow();
     bool load(const std::string& path, std::string& error);
     void chooseOpen();
     void chooseSave();

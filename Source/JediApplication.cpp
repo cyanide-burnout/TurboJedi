@@ -16,6 +16,7 @@
 #include "Version.h"
 #include "JediApplication.h"
 #include "PageDialog.h"
+#include "WindowsDialog.h"
 #include "JediStatusLine.h"
 #include "JournalLayout.h"
 #include "JournalWindow.h"
@@ -114,13 +115,14 @@ TMenuBar* JediApplication::initMenuBar(TRect bounds)
       *new TMenuItem("C~o~py",          cmJournalCopy,         kbCtrlIns, hcNoContext, "Ctrl-Ins") +
       *new TMenuItem("~C~lear",         cmJournalClear,        kbF8,      hcNoContext, "F8") +
     *new TSubMenu("~W~indow", kbAltW) +
-      *new TMenuItem("~T~ile",        cmTile,          kbF9,      hcNoContext, "F9") +
-      *new TMenuItem("C~a~scade",     cmCascade,       kbNoKey) +
-      *new TMenuItem("~Z~oom",        cmZoom,          kbF5,      hcNoContext, "F5") +
-      *new TMenuItem("~S~ize/Move",   cmResize,        kbCtrlF5,  hcNoContext, "Ctrl-F5") +
-      *new TMenuItem("~N~ext",        cmNext,          kbF6,      hcNoContext, "F6") +
-      *new TMenuItem("~P~revious",    cmPrev,          kbShiftF6, hcNoContext, "Shift-F6") +
-      *new TMenuItem("~C~lose",       cmClose,         kbAltF3,   hcNoContext, "Alt-F3") +
+      *new TMenuItem("~T~ile",        cmTile,           kbF9,      hcNoContext, "F9") +
+      *new TMenuItem("C~a~scade",     cmCascade,        kbNoKey) +
+      *new TMenuItem("~Z~oom",        cmZoom,           kbF5,      hcNoContext, "F5") +
+      *new TMenuItem("~S~ize/Move",   cmResize,         kbCtrlF5,  hcNoContext, "Ctrl-F5") +
+      *new TMenuItem("~N~ext",        cmNext,           kbF6,      hcNoContext, "F6") +
+      *new TMenuItem("~P~revious",    cmPrev,           kbShiftF6, hcNoContext, "Shift-F6") +
+      *new TMenuItem("~L~ist...",     cmJournalWindows, kbAlt0,    hcNoContext, "Alt-0") +
+      *new TMenuItem("~C~lose",       cmClose,          kbAltF3,   hcNoContext, "Alt-F3") +
     *new TSubMenu("~H~elp", kbAltH) +
       *new TMenuItem("~K~eys",        cmJournalHelp,   kbF1,      hcNoContext, "F1") +
       *new TMenuItem("~A~bout",       cmJournalAbout,  kbNoKey));
@@ -165,6 +167,7 @@ void JediApplication::handleEvent(TEvent& event)
     {
       case cmJournalNew:       open((current != nullptr) ? current->view->getFilter() : filter);     break;
       case cmJournalClone:     clone();                                                              break;
+      case cmJournalWindows:   chooseWindow();                                                       break;
       case cmJournalOpen:      chooseOpen();                                                         break;
       case cmJournalSave:      chooseSave();                                                         break;
       case cmJournalHelp:      showHelp();                                                           break;
@@ -231,6 +234,37 @@ void JediApplication::clone()
 
   deskTop->insert(window);
   tile();
+}
+
+static void CollectTitle(TView* view, void* argument)
+{
+  TWindow* window;
+
+  if ((window = dynamic_cast<TWindow*>(view)) != nullptr)
+  {
+    // The desktop walks from the front, the focused window comes first
+    static_cast<std::vector<TWindow*>*>(argument)->push_back(window);
+  }
+}
+
+void JediApplication::chooseWindow()
+{
+  TWindow* window;
+  WindowsDialog* dialog;
+  std::vector<TWindow*> windows;
+
+  deskTop->forEach(CollectTitle, &windows);
+
+  dialog = new WindowsDialog(windows);
+
+  if ((deskTop->execView(dialog) != cmCancel) &&
+      ((window = dialog->selection()) != nullptr))
+  {
+    // Comes to the front along with the focus
+    window->select();
+  }
+
+  TObject::destroy(dialog);
 }
 
 void JediApplication::timeline(JournalWindow* current)
@@ -410,6 +444,8 @@ void JediApplication::showHelp()
     "                  and place, or the counts, step, scale and cursor of a timeline;",
     "                  the journal goes on in both of them on their own",
     "  F6, Shift-F6    Next, previous window",
+    "  Alt-0           List of the windows to go to, the filter narrows it down,",
+    "                  the window used before is under the cursor",
     "  F5, Ctrl-F5     Zoom, size or move the window",
     "  F9              Tile the windows",
     "  Alt-F3          Close the window",
