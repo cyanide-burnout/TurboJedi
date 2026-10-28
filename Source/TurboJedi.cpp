@@ -80,6 +80,21 @@ static void SetTextLocale()
   setlocale(LC_CTYPE, "C.UTF-8");
 }
 
+static void WriteTerminal(const char* sequence)
+{
+  ssize_t length;
+
+  // Straight to the terminal as Turbo Vision writes its own sequences, a title is not worth an error
+  length = write(STDOUT_FILENO, sequence, strlen(sequence));
+  (void)length;
+}
+
+static void RestoreTitle()
+{
+  // Turbo Vision turns its extensions off when its statics go, that is one more title for tmux, the kept one comes back over it
+  WriteTerminal("\x1b[23;2t");
+}
+
 static std::string GetLastLayout()
 {
   size_t position;
@@ -310,7 +325,15 @@ int main(int count, char* const* arguments)
 
   SetClipboardCommand(clipboard);
 
+  // The title of the terminal is kept to be given back after the statics of Turbo Vision made with the application
+  WriteTerminal("\x1b[22;2t");
+  atexit(RestoreTitle);
+
   application = new JediApplication(filter, history, layout);
+
+  // Turbo Vision has probed the terminal for far2l extensions, tmux takes the probe for a title, ours goes after it
+  WriteTerminal("\x1b]2;TurboJedi\x07");
+
   application->run();
 
   if (!last.empty())
