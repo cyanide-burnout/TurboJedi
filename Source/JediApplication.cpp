@@ -13,6 +13,7 @@
 #define Uses_TRect
 #define Uses_TFileDialog
 #define Uses_MsgBox
+#define Uses_THardwareInfo
 #include "Version.h"
 #include "JediApplication.h"
 #include "PageDialog.h"
@@ -30,7 +31,8 @@
 #include <algorithm>
 
 #define DEFAULT_CAPACITY  100000
-#define REPEAT_TIMEOUT    20      // Milliseconds to wait for events while a mouse button is held, Turbo Vision repeats it when the wait ends
+#define REPEAT_DELAY      495     // Milliseconds from a press of a mouse button to its first repeat, Turbo Vision waits for more than 8 ticks of 55
+#define REPEAT_INTERVAL   110     // Milliseconds between next repeats, more than 1 tick
 
 // JediApplication
 
@@ -45,7 +47,8 @@ JediApplication::JediApplication(const JournalFilter& filter, int history, const
 
   focused = nullptr;
   number  = 0;
-  pressed = false;
+  held    = { };
+  repeat  = 0;
 
   // Right corner of the menu bar, " HH:MM:SS "
   bounds     = getExtent();
@@ -134,10 +137,26 @@ TMenuBar* JediApplication::initMenuBar(TRect bounds)
 
 void JediApplication::getEvent(TEvent& event)
 {
-  TApplication::getEvent(event);
+  uint64_t ticks;
 
-  if (event.what & evMouseDown) pressed = true;
-  if (event.what & evMouseUp)   pressed = false;
+  TApplication::getEvent(event);
+  ticks = THardwareInfo::getTickCountMs();
+
+  if (event.what & (evMouseDown | evMouseMove | evMouseAuto)) held = event.mouse;
+  if (event.what & evMouseUp)                                 held.buttons = 0;
+  if (event.what & evMouseDown)                               repeat = ticks + REPEAT_DELAY;
+  if (event.what & evMouseAuto)                               repeat = ticks + REPEAT_INTERVAL;
+
+  if ((event.what   == evNothing) &&
+      (held.buttons != 0) &&
+      (ticks        >= repeat))
+  {
+    // Turbo Vision repeats a held button only along with input from the terminal, and the terminal tells nothing while the mouse stays still
+    held.eventFlags = 0;
+    event.what      = evMouseAuto;
+    event.mouse     = held;
+    repeat          = ticks + REPEAT_INTERVAL;
+  }
 
   if (event.what != evNothing)
   {
@@ -178,15 +197,15 @@ void JediApplication::handleEvent(TEvent& event)
 
     switch (event.message.command)
     {
-      case cmJournalNew:       open(filter);                                                         break;
-      case cmJournalClone:     clone();                                                              break;
-      case cmJournalWindows:   chooseWindow();                                                       break;
-      case cmJournalOpen:      chooseOpen();                                                         break;
-      case cmJournalSave:      chooseSave();                                                         break;
-      case cmJournalHelp:      showHelp();                                                           break;
-      case cmJournalTimeline:  timeline(current);                                                    break;
-      case cmJournalAbout:     showAbout();                                                          break;
-      default:                                                                                       return;
+      case cmJournalNew:       open(filter);       break;
+      case cmJournalClone:     clone();            break;
+      case cmJournalWindows:   chooseWindow();     break;
+      case cmJournalOpen:      chooseOpen();       break;
+      case cmJournalSave:      chooseSave();       break;
+      case cmJournalHelp:      showHelp();         break;
+      case cmJournalTimeline:  timeline(current);  break;
+      case cmJournalAbout:     showAbout();        break;
+      default:                                     return;
     }
 
     clearEvent(event);
@@ -197,6 +216,7 @@ void JediApplication::idle()
 {
   JournalPoll poll;
   struct timespec now;
+  uint64_t ticks;
 
   TApplication::idle();
   clock->update();
@@ -208,7 +228,14 @@ void JediApplication::idle()
   // Every window asks its own journal for appended entries, their changes end the wait as events do
   message(deskTop, evBroadcast, cmJournalPoll, &poll);
 
-  eventTimeoutMs = pressed ? std::min(poll.timeout, REPEAT_TIMEOUT) : poll.timeout;
+  if (held.buttons != 0)
+  {
+    // The held button repeats when the wait ends
+    ticks        = THardwareInfo::getTickCountMs();
+    poll.timeout = (repeat > ticks) ? std::min<int>(poll.timeout, repeat - ticks) : 0;
+  }
+
+  eventTimeoutMs = poll.timeout;
 
   if (focused != deskTop->current)
   {

@@ -10,6 +10,8 @@
 #define Uses_TStatusLine
 #include <tvision/tv.h>
 
+#include <stdint.h>
+
 #include <string>
 
 #include "JediClock.h"
@@ -36,7 +38,8 @@ class JediApplication : public TApplication
     JediClock* clock;
     TView* focused;
     short number;
-    bool pressed;  // A mouse button is held
+    MouseEventType held;  // The mouse with a button held, buttons are zero when none is
+    uint64_t repeat;      // Milliseconds of Turbo Vision when the held button repeats
 
     void open(const JournalFilter& filter);
     void clone();
