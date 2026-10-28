@@ -1412,12 +1412,18 @@ void JournalView::synchronize()
 
 const char* JournalView::describe()
 {
-  char buffer[64];
+  char buffer[96];
   int length;
   uint64_t lower;
   uint64_t upper;
 
   length = snprintf(buffer, sizeof(buffer), unseen ? "%s +%llu" : "%s", pending ? "LOADING" : (follow ? "FOLLOW" : "PAUSED"), (unsigned long long)unseen);
+
+  if (filter.columns & JOURNAL_COLUMN_WRAP)
+  {
+    // Nothing else on the screen tells wrapped lines from long ones cut at the edge
+    length += snprintf(buffer + length, sizeof(buffer) - length, " \xe2\x94\x82 WRAP");
+  }
 
   if (anchor != NO_SELECTION)
   {
