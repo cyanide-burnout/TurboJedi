@@ -110,6 +110,7 @@ JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar
   options    |= ofFirstClick;
   highlighter = JournalHighlighter::get(filter.highlight);
   journal     = nullptr;
+  notifier    = nullptr;
   header   = nullptr;
   since    = 0;
   until    = 0;
@@ -156,6 +157,7 @@ JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar
   growMode  = gfGrowHiX | gfGrowHiY;
   options  |= ofFirstClick;
   journal   = nullptr;
+  notifier  = nullptr;
   header    = nullptr;
   layout    = 0;
   moving    = false;
@@ -173,8 +175,8 @@ JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar
 
   if (journal != nullptr)
   {
-    // Sets up change notification for sd_journal_process()
-    sd_journal_get_fd(journal);
+    // Change notification for sd_journal_process(), the wait of the application ends on it as well
+    notifier = CreateJournalSource(sd_journal_get_fd(journal));
 
     if (!SeekJournalPlace(journal, source.journal))
     {
@@ -197,7 +199,8 @@ JournalView::~JournalView()
 {
   if (journal != nullptr)
   {
-    // Window has been closed
+    // Window has been closed, the copy of inotify goes first
+    ReleaseJournalSource(notifier);
     sd_journal_close(journal);
   }
 }
@@ -366,6 +369,7 @@ void JournalView::handleEvent(TEvent& event)
   int64_t index;
   uint64_t count;
   bool extend;
+  JournalPoll* poll;
 
   if (event.what == evKeyDown)
   {
@@ -526,6 +530,16 @@ void JournalView::handleEvent(TEvent& event)
         }
       }
 
+      if ((event.message.command == cmJournalPoll) &&
+          (journal != nullptr))
+      {
+        // The next batch is read at once, a journal inotify cannot tell everything about is asked again in time,
+        // without a source of its own the wait cannot end on a change
+        poll          = static_cast<JournalPoll*>(event.message.infoPtr);
+        poll->timeout = (notifier != nullptr) ? poll->timeout : std::min(poll->timeout, JOURNAL_POLL_TIMEOUT);
+        poll->timeout = pending ? 0 : GetJournalWait(journal, poll->timeout);
+      }
+
       if ((event.message.command == cmJournalSyncTo) &&
           (static_cast<JournalMoment*>(event.message.infoPtr)->source != this))
       {
@@ -582,8 +596,10 @@ void JournalView::open()
   if (journal != nullptr)
   {
     // Filter has changed, the query starts over
+    ReleaseJournalSource(notifier);
     sd_journal_close(journal);
-    journal = nullptr;
+    journal  = nullptr;
+    notifier = nullptr;
   }
 
   clear();
@@ -616,8 +632,8 @@ void JournalView::open()
     return;
   }
 
-  // Sets up change notification for sd_journal_process()
-  sd_journal_get_fd(journal);
+  // Change notification for sd_journal_process(), the wait of the application ends on it as well
+  notifier = CreateJournalSource(sd_journal_get_fd(journal));
 
   if (!filter.until.empty())
   {

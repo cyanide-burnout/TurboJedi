@@ -15,6 +15,7 @@
 
 #include "Commands.h"
 #include "JournalTools.h"
+#include "JournalSource.h"
 #include "JournalMatcher.h"
 #include "JournalHighlighter.h"
 
@@ -73,6 +74,7 @@ class JournalView : public TScroller
   private:
 
     sd_journal* journal;
+    JournalSource* notifier;  // Wakes the application when the journal changes
     JournalFilter filter;
     int history;
     size_t capacity;

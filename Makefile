@@ -37,6 +37,7 @@ OBJECTS := \
 	$(SOURCE)/JediClock.o \
 	$(SOURCE)/JediClipboard.o \
 	$(SOURCE)/JournalView.o \
+	$(SOURCE)/JournalSource.o \
 	$(SOURCE)/JournalWindow.o \
 	$(SOURCE)/JournalHeader.o \
 	$(SOURCE)/TimelineView.o \
@@ -86,6 +87,9 @@ $(SOURCE)/Version.h: FORCE
 	@echo '#define VERSION "$(VERSION)"' | cmp -s - $@ || echo '#define VERSION "$(VERSION)"' > $@
 
 $(SOURCE)/TurboJedi.o $(SOURCE)/JediApplication.o: $(SOURCE)/Version.h
+
+# Internal headers of Turbo Vision include each other from there, only the event source needs them
+$(SOURCE)/JournalSource.o: CXXFLAGS += -I$(TURBOVISION)/include/tvision
 
 build: $(OBJECTS)
 	$(CXX) $(OBJECTS) $(FLAGS) $(LDFLAGS) $(LIBS) $(EXTRA) -o $(EXECUTABLE)

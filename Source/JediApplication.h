@@ -36,6 +36,7 @@ class JediApplication : public TApplication
     JediClock* clock;
     TView* focused;
     short number;
+    bool pressed;  // A mouse button is held
 
     void open(const JournalFilter& filter);
     void clone();

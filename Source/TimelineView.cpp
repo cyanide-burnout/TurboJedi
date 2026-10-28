@@ -86,6 +86,7 @@ TimelineView::TimelineView(const TRect& bounds, TScrollBar* horizontal, const Jo
   growMode    = gfGrowHiX | gfGrowHiY;
   options    |= ofFirstClick;
   journal     = nullptr;
+  notifier    = nullptr;
   since       = 0;
   until       = 0;
   start       = 0;
@@ -123,6 +124,7 @@ TimelineView::TimelineView(const TRect& bounds, TScrollBar* horizontal, const Ti
   growMode    = gfGrowHiX | gfGrowHiY;
   options    |= ofFirstClick;
   journal     = nullptr;
+  notifier    = nullptr;
 
   // The expression is compiled again, it is not shared
   matcher.set(filter.text, filter.mode);
@@ -136,8 +138,8 @@ TimelineView::TimelineView(const TRect& bounds, TScrollBar* horizontal, const Ti
 
   if (journal != nullptr)
   {
-    // Sets up change notification for sd_journal_process()
-    sd_journal_get_fd(journal);
+    // Change notification for sd_journal_process(), the wait of the application ends on it as well
+    notifier = CreateJournalSource(sd_journal_get_fd(journal));
 
     if (!SeekJournalPlace(journal, source.journal))
     {
@@ -157,7 +159,8 @@ TimelineView::~TimelineView()
 {
   if (journal != nullptr)
   {
-    // Window has been closed
+    // Window has been closed, the copy of inotify goes first
+    ReleaseJournalSource(notifier);
     sd_journal_close(journal);
   }
 }
@@ -327,6 +330,8 @@ void TimelineView::draw()
 
 void TimelineView::handleEvent(TEvent& event)
 {
+  JournalPoll* poll;
+
   if (event.what == evKeyDown)
   {
     switch (event.keyDown.keyCode)
@@ -396,13 +401,21 @@ void TimelineView::handleEvent(TEvent& event)
 
   if ((event.what == evBroadcast) &&
       (event.message.command == cmJournalPoll) &&
-      (journal != nullptr) &&
-      (!closed) &&
-      (pending || (sd_journal_process(journal) != SD_JOURNAL_NOP)))
+      (journal != nullptr))
   {
-    // Never clear the poll, every window has to get it
-    read();
-    refresh();
+    // Never clear the poll, every window has to get it; inotify is cleared after the range as well, it would wake the application all along
+    if (((sd_journal_process(journal) != SD_JOURNAL_NOP) || pending) &&
+        (!closed))
+    {
+      read();
+      refresh();
+    }
+
+    // The next batch is counted at once, a journal inotify cannot tell everything about is asked again in time,
+    // without a source of its own the wait cannot end on a change
+    poll          = static_cast<JournalPoll*>(event.message.infoPtr);
+    poll->timeout = (notifier != nullptr) ? poll->timeout : std::min(poll->timeout, JOURNAL_POLL_TIMEOUT);
+    poll->timeout = pending ? 0 : GetJournalWait(journal, poll->timeout);
   }
 }
 
@@ -447,8 +460,8 @@ void TimelineView::open()
     return;
   }
 
-  // Sets up change notification for sd_journal_process()
-  sd_journal_get_fd(journal);
+  // Change notification for sd_journal_process(), the wait of the application ends on it as well
+  notifier = CreateJournalSource(sd_journal_get_fd(journal));
 
   if (!filter.until.empty())
   {

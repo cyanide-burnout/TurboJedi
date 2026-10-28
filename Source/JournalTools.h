@@ -67,6 +67,9 @@ int OpenJournal(sd_journal** journal, const JournalFilter& filter);
 // Journal with the matches of a filter, everything but its text and times
 int OpenJournalQuery(sd_journal** journal, const JournalFilter& filter);
 
+// Milliseconds up to the limit to wait for the journal, less when inotify cannot tell about every change
+int GetJournalWait(sd_journal* journal, int limit);
+
 // Every field of the entry at a cursor as FIELD=value lines, empty when the entry is gone
 std::vector<std::string> ReadJournalEntry(const JournalFilter& filter, const std::string& cursor);
 bool GetJournalField(sd_journal* journal, const char* name, char* buffer, size_t size);

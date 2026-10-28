@@ -183,6 +183,26 @@ bool GetJournalField(sd_journal* journal, const char* name, char* buffer, size_t
   return true;
 }
 
+int GetJournalWait(sd_journal* journal, int limit)
+{
+  uint64_t moment;
+  uint64_t timeout;
+  struct timespec now;
+
+  if ((sd_journal_get_timeout(journal, &timeout) < 0) ||
+      (timeout == UINT64_MAX))
+  {
+    // Every change comes by inotify
+    return limit;
+  }
+
+  // CLOCK_MONOTONIC, as the journal gives it
+  clock_gettime(CLOCK_MONOTONIC, &now);
+  moment = now.tv_sec * 1000000ULL + now.tv_nsec / 1000;
+
+  return (timeout > moment) ? (int)std::min<uint64_t>(limit, (timeout - moment + 999) / 1000) : 0;
+}
+
 bool SeekJournalPlace(sd_journal* journal, sd_journal* source)
 {
   char* position;

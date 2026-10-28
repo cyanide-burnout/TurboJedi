@@ -22,12 +22,15 @@
 #include "JournalWindow.h"
 #include "TimelineWindow.h"
 #include "Commands.h"
+#include "JournalSource.h"
 
+#include <time.h>
 #include <string.h>
 
 #include <algorithm>
 
 #define DEFAULT_CAPACITY  100000
+#define REPEAT_TIMEOUT    20      // Milliseconds to wait for events while a mouse button is held, Turbo Vision repeats it when the wait ends
 
 // JediApplication
 
@@ -42,6 +45,7 @@ JediApplication::JediApplication(const JournalFilter& filter, int history, const
 
   focused = nullptr;
   number  = 0;
+  pressed = false;
 
   // Right corner of the menu bar, " HH:MM:SS "
   bounds     = getExtent();
@@ -132,6 +136,15 @@ void JediApplication::getEvent(TEvent& event)
 {
   TApplication::getEvent(event);
 
+  if (event.what & evMouseDown) pressed = true;
+  if (event.what & evMouseUp)   pressed = false;
+
+  if (event.what != evNothing)
+  {
+    // Whatever the event has changed, idle() tells the status line and the windows about it at once
+    eventTimeoutMs = 0;
+  }
+
   if ((event.what == evCommand) &&
       (event.message.command == cmQuit) &&
       (TopView() != this))
@@ -182,11 +195,20 @@ void JediApplication::handleEvent(TEvent& event)
 
 void JediApplication::idle()
 {
+  JournalPoll poll;
+  struct timespec now;
+
   TApplication::idle();
   clock->update();
 
-  // Every window asks its own journal for appended entries
-  message(deskTop, evBroadcast, cmJournalPoll, nullptr);
+  // Nothing else happens on its own, the wait for events lasts until the clock turns to the next second
+  clock_gettime(CLOCK_REALTIME, &now);
+  poll.timeout = 1000 - now.tv_nsec / 1000000;
+
+  // Every window asks its own journal for appended entries, their changes end the wait as events do
+  message(deskTop, evBroadcast, cmJournalPoll, &poll);
+
+  eventTimeoutMs = pressed ? std::min(poll.timeout, REPEAT_TIMEOUT) : poll.timeout;
 
   if (focused != deskTop->current)
   {

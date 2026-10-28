@@ -17,6 +17,7 @@
 
 #include "Commands.h"
 #include "JournalTools.h"
+#include "JournalSource.h"
 #include "JournalMatcher.h"
 
 // Entries of a filter counted by intervals of time: errors, warnings above them and the rest on top,
@@ -49,6 +50,7 @@ class TimelineView : public TScroller
     };
 
     sd_journal* journal;
+    JournalSource* notifier;  // Wakes the application when the journal changes
     JournalFilter filter;
     JournalMatcher matcher;  // Text of the filter, applied the way a journal window applies it
     std::string error;       // Why there is nothing to show
