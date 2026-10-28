@@ -850,14 +850,18 @@ void JournalView::split(const JournalLine& model, const std::string& message, st
 {
   size_t start;
   size_t end;
+  size_t size;
 
   parts.clear();
   start = 0;
 
+  // Line breaks at the end would leave empty rows under the entry, a blank message stays one empty line
+  size = message.find_last_not_of(" \t\r\n") + 1;
+
   do
   {
     // Multi-line message (e.g. a trace) becomes one line per row with the same fields
-    end = std::min(message.find('\n', start), message.size());
+    end = std::min(message.find('\n', start), size);
     parts.push_back(model);
     parts.back().text.assign(message, start, end - start);
     parts.back().continued = (start != 0);
@@ -870,7 +874,7 @@ void JournalView::split(const JournalLine& model, const std::string& message, st
 
     start = end + 1;
   }
-  while (start < message.size());
+  while (start < size);
 }
 
 void JournalView::push(JournalLine& line)
