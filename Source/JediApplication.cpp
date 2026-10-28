@@ -44,8 +44,8 @@ JediApplication::JediApplication(const JournalFilter& filter, int history, const
   TRect bounds;
   std::string error;
 
-  this->filter    = filter;
-  this->history   = history;
+  this->filter  = filter;
+  this->history = history;
 
   focused = nullptr;
   number  = 0;
