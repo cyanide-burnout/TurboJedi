@@ -222,6 +222,7 @@ void JournalView::draw()
   int room;
   int skip;
   bool chosen;
+  bool head;
   size_t index;
   uint64_t row;
   uint64_t chunk;
@@ -276,11 +277,12 @@ void JournalView::draw()
         color = marked;
       }
 
-      x = 0;
+      x    = 0;
+      head = (chunk == 0) && (!line->continued);
 
-      if (chunk == 0)
+      if (head)
       {
-        // Columns go on the first row of a line only, wrapped rows go on under the message
+        // Columns go on the first row of an entry only, wrapped rows and the next lines of a message go on under it
         format(line->realtime, date, clock);
 
         if (filter.columns & JOURNAL_COLUMN_DATE)
@@ -299,25 +301,25 @@ void JournalView::draw()
 
       if (filter.columns & JOURNAL_COLUMN_LEVEL)
       {
-        buffer.moveStr(x, (chunk == 0) ? tags[line->priority] : "", color);
+        buffer.moveStr(x, head ? tags[line->priority] : "", color);
         x += 7;
       }
 
       if (filter.columns & JOURNAL_COLUMN_HOST)
       {
-        buffer.moveStr(x, (chunk == 0) ? line->host : std::string(), chosen ? marked : normal, widths[0]);
+        buffer.moveStr(x, head ? line->host : std::string(), chosen ? marked : normal, widths[0]);
         x += widths[0] + 1;
       }
 
       if (filter.columns & JOURNAL_COLUMN_UNIT)
       {
-        buffer.moveStr(x, (chunk == 0) ? line->unit : std::string(), chosen ? marked : normal, widths[1]);
+        buffer.moveStr(x, head ? line->unit : std::string(), chosen ? marked : normal, widths[1]);
         x += widths[1] + 1;
       }
 
       if (filter.columns & (JOURNAL_COLUMN_IDENTIFIER | JOURNAL_COLUMN_PID))
       {
-        source = (chunk == 0) ? GetSource(*line, filter.columns) : std::string();
+        source = head ? GetSource(*line, filter.columns) : std::string();
         buffer.moveStr(x, source, color, GetSourceWidth(widths, filter.columns));
         x += GetSourceWidth(widths, filter.columns) + 1;
       }
@@ -858,6 +860,7 @@ void JournalView::split(const JournalLine& model, const std::string& message, st
     end = std::min(message.find('\n', start), message.size());
     parts.push_back(model);
     parts.back().text.assign(message, start, end - start);
+    parts.back().continued = (start != 0);
 
     for (char& character : parts.back().text)
     {
@@ -1420,6 +1423,12 @@ std::string JournalView::compose(const JournalLine& line)
   char clock[16];
   char field[JOURNAL_VALUE_LENGTH * 2 + 8];
   std::string text;
+
+  if (line.continued)
+  {
+    // Under the message of the entry, as journalctl puts it
+    return std::string(indent(), ' ') + line.text;
+  }
 
   format(line.realtime, date, clock);
 

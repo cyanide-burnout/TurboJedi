@@ -30,6 +30,7 @@ struct JournalLine
   std::string pid;
   std::string cursor;  // Of the journal entry, its details are read by it
   std::string text;
+  bool continued = false;  // A line of a multi-line message after its first one, the columns are left out
 };
 
 class JournalView;
