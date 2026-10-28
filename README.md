@@ -189,7 +189,7 @@ Your shell puts in `$USER` and `$HOME` before `sudo` starts.
 | Ctrl-Ins | copy the selected lines or the screen |
 | Ctrl-E | export the selected lines or all of them |
 | F8 | clear the window |
-| Ctrl-O, Ctrl-S | open, save a layout |
+| Ctrl-O, Ctrl-S | open, save a layout; both start at the layout opened or saved last, Save offers its file again |
 | F5, Ctrl-F5, F6, F9, Alt-F3 | zoom, size, next, tile, close |
 | Alt-0 | list of the windows to go to, the one used before is under the cursor |
 | Alt-X | exit |

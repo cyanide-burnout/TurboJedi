@@ -8,6 +8,7 @@
 #define Uses_TApplication
 #define Uses_TMenuBar
 #define Uses_TStatusLine
+#define Uses_TFileDialog
 #include <tvision/tv.h>
 
 #include <stdint.h>
@@ -40,11 +41,13 @@ class JediApplication : public TApplication
     short number;
     MouseEventType held;  // The mouse with a button held, buttons are zero when none is
     uint64_t repeat;      // Milliseconds of Turbo Vision when the held button repeats
+    std::string place;    // Path of the layout opened or saved the last time, empty before
 
     void open(const JournalFilter& filter);
     void clone();
     void chooseWindow();
     bool load(const std::string& path, std::string& error);
+    void recall(TFileDialog* dialog, bool named);
     void chooseOpen();
     void chooseSave();
     void showHelp();

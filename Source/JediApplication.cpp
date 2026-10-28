@@ -12,6 +12,7 @@
 #define Uses_TKeys
 #define Uses_TRect
 #define Uses_TFileDialog
+#define Uses_TFileInputLine
 #define Uses_MsgBox
 #define Uses_THardwareInfo
 #include "Version.h"
@@ -26,6 +27,7 @@
 #include "JournalSource.h"
 
 #include <time.h>
+#include <stdio.h>
 #include <string.h>
 
 #include <algorithm>
@@ -434,6 +436,30 @@ bool JediApplication::save(const std::string& path)
   return SaveJournalLayout(path, layout);
 }
 
+void JediApplication::recall(TFileDialog* dialog, bool named)
+{
+  char path[MAXPATH];
+  const char* name;
+
+  if (place.empty())
+  {
+    // Nothing opened or saved yet, the dialog stays in the working directory
+    return;
+  }
+
+  // Files of the folder of the last layout, the dialog goes there for a wildcard with a path
+  name = strrchr(place.c_str(), '/');
+  snprintf(path, sizeof(path), "%.*s/*.jedi", (int)(name - place.c_str()), place.c_str());
+  dialog->setData(path);
+
+  if (named)
+  {
+    // Saved again to the same file unless another name is typed over it
+    snprintf(dialog->fileName->data, MAXPATH, "%s", place.c_str());
+    dialog->fileName->selectAll(True);
+  }
+}
+
 void JediApplication::chooseOpen()
 {
   char path[MAXPATH];
@@ -441,6 +467,7 @@ void JediApplication::chooseOpen()
   TFileDialog* dialog;
 
   dialog = new TFileDialog("*.jedi", "Open layout", "~N~ame", fdOpenButton, 1);
+  recall(dialog, false);
 
   if (deskTop->execView(dialog) != cmCancel)
   {
@@ -449,6 +476,11 @@ void JediApplication::chooseOpen()
     if (!load(path, error))
     {
       messageBox(mfError | mfOKButton, "Cannot read a layout from %s, %s", path, error.c_str());
+    }
+    else
+    {
+      // The next dialog starts here
+      place = path;
     }
   }
 
@@ -462,6 +494,7 @@ void JediApplication::chooseSave()
   TFileDialog* dialog;
 
   dialog = new TFileDialog("*.jedi", "Save layout", "~N~ame", fdOKButton, 1);
+  recall(dialog, true);
 
   if (deskTop->execView(dialog) != cmCancel)
   {
@@ -477,6 +510,11 @@ void JediApplication::chooseSave()
     if (!save(path))
     {
       messageBox(mfError | mfOKButton, "Cannot write the layout to %s", path);
+    }
+    else
+    {
+      // The next dialog starts here
+      place = path;
     }
   }
 
