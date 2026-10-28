@@ -160,12 +160,12 @@ void JediApplication::handleEvent(TEvent& event)
 
   if (event.what == evCommand)
   {
-    // A new window starts with the filter of the focused one
+    // A timeline counts the entries of the focused window
     current = dynamic_cast<JournalWindow*>(deskTop->current);
 
     switch (event.message.command)
     {
-      case cmJournalNew:       open((current != nullptr) ? current->view->getFilter() : filter);     break;
+      case cmJournalNew:       open(filter);                                                         break;
       case cmJournalClone:     clone();                                                              break;
       case cmJournalWindows:   chooseWindow();                                                       break;
       case cmJournalOpen:      chooseOpen();                                                         break;
@@ -439,7 +439,7 @@ void JediApplication::showHelp()
   static const char* const keys[] =
   {
     "Windows",
-    "  F2              New window with the filter of the focused one",
+    "  F2              New window with the filter of the command line, Shift-F2 copies one",
     "  Shift-F2        Clone of the focused window: its lines, filter, find, selection",
     "                  and place, or the counts, step, scale and cursor of a timeline;",
     "                  the journal goes on in both of them on their own",

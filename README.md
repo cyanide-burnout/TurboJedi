@@ -168,7 +168,7 @@ Your shell puts in `$USER` and `$HOME` before `sudo` starts.
 | Key | |
 |---|---|
 | F1 | keys |
-| F2 | new window with the filter of the focused one |
+| F2 | new window with the filter of the command line |
 | Shift-F2 | clone of the focused window: its lines, filter, find, selection and place, or the counts, step, scale and cursor of a timeline; both go on with the journal on their own |
 | F3 | levels |
 | F4 | text filter |
