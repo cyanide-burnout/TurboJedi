@@ -1017,6 +1017,12 @@ void JournalView::format(uint64_t realtime, char* date, char* clock)
 
 void JournalView::trim()
 {
+  uint64_t oldest;
+  uint64_t before;
+
+  oldest = first;
+  before = follow ? 0 : total();
+
   while ((lines.size() > capacity) ||
          ((bytes > BYTE_CAPACITY) && (lines.size() > 1)))
   {
@@ -1025,6 +1031,16 @@ void JournalView::trim()
     lines.pop_front();
     layout = 0;
     first ++;
+  }
+
+  if ((!follow) &&
+      (first != oldest))
+  {
+    // The rows on the screen stay where they are while paused, the ones gone themselves leave the oldest on top
+    moving = true;
+    setLimit(limit.x, total());
+    scrollTo(delta.x, std::max<int64_t>(0, (int64_t)delta.y - (int64_t)(before - total())));
+    moving = false;
   }
 }
 
