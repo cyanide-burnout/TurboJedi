@@ -125,7 +125,6 @@ static void ApplyEscape(const std::string& parameters, JournalPaint& paint)
   // ANSI order of the colors, bright foregrounds over the blue window as grc rules have them, backgrounds stay dark
   static const uint8_t colors[] = { 0x0, 0x4, 0x2, 0x6, 0x1, 0x5, 0x3, 0x7 };
 
-  int code;
   size_t index;
   std::vector<int> codes;
 
@@ -140,44 +139,39 @@ static void ApplyEscape(const std::string& parameters, JournalPaint& paint)
 
   for (index = 0; index < codes.size(); index ++)
   {
-    code = codes[index];
-
-    if (code == 0)                    { paint = JournalPaint {};               continue; }
-    if (code == 1)                    { paint.style |=  slBold;                continue; }
-    if (code == 3)                    { paint.style |=  slItalic;              continue; }
-    if (code == 4)                    { paint.style |=  slUnderline;           continue; }
-    if (code == 5)                    { paint.style |=  slBlink;               continue; }
-    if (code == 7)                    { paint.style |=  slReverse;             continue; }
-    if (code == 22)                   { paint.style &= ~slBold;                continue; }
-    if (code == 23)                   { paint.style &= ~slItalic;              continue; }
-    if (code == 24)                   { paint.style &= ~slUnderline;           continue; }
-    if (code == 25)                   { paint.style &= ~slBlink;               continue; }
-    if (code == 27)                   { paint.style &= ~slReverse;             continue; }
-    if (code == 39)                   { paint.foreground = false;              continue; }
-    if (code == 49)                   { paint.background = false;              continue; }
-    if (code == 38)                   { paint.foreground |= GetEscapeColor(codes, index, paint.fore); continue; }
-    if (code == 48)                   { paint.background |= GetEscapeColor(codes, index, paint.back); continue; }
-
-    if (((code >= 30) && (code <= 37)) ||
-        ((code >= 90) && (code <= 97)))
+    switch (codes[index])
     {
-      paint.foreground = true;
-      paint.fore       = TColorBIOS(colors[code % 10] | 0x8);
-      continue;
-    }
+      case 0:  paint = JournalPaint {};                                      break;
+      case 1:  paint.style |=  slBold;                                       break;
+      case 3:  paint.style |=  slItalic;                                     break;
+      case 4:  paint.style |=  slUnderline;                                  break;
+      case 5:  paint.style |=  slBlink;                                      break;
+      case 7:  paint.style |=  slReverse;                                    break;
+      case 22: paint.style &= ~slBold;                                       break;
+      case 23: paint.style &= ~slItalic;                                     break;
+      case 24: paint.style &= ~slUnderline;                                  break;
+      case 25: paint.style &= ~slBlink;                                      break;
+      case 27: paint.style &= ~slReverse;                                    break;
+      case 39: paint.foreground = false;                                     break;
+      case 49: paint.background = false;                                     break;
+      case 38: paint.foreground |= GetEscapeColor(codes, index, paint.fore); break;
+      case 48: paint.background |= GetEscapeColor(codes, index, paint.back); break;
 
-    if ((code >= 40) && (code <= 47))
-    {
-      paint.background = true;
-      paint.back       = TColorBIOS(colors[code % 10]);
-      continue;
-    }
+      case 30 ... 37:
+      case 90 ... 97:
+        paint.foreground = true;
+        paint.fore       = TColorBIOS(colors[codes[index] % 10] | 0x8);
+        break;
 
-    if ((code >= 100) && (code <= 107))
-    {
-      paint.background = true;
-      paint.back       = TColorBIOS(colors[code % 10] | 0x8);
-      continue;
+      case 40 ... 47:
+        paint.background = true;
+        paint.back       = TColorBIOS(colors[codes[index] % 10]);
+        break;
+
+      case 100 ... 107:
+        paint.background = true;
+        paint.back       = TColorBIOS(colors[codes[index] % 10] | 0x8);
+        break;
     }
   }
 }
