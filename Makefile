@@ -64,7 +64,7 @@ OBJECTS := \
 	$(TURBOVISION)/build/libtvision.a
 
 FLAGS += \
-	-Wno-unused-result -O2 -MMD -gdwarf \
+	-Wno-unused-result -O2 -flto=auto -MMD -gdwarf \
 	-I$(TURBOVISION)/include \
 	$(shell $(PKG_CONFIG) --cflags $(DEPENDENCIES))
 
