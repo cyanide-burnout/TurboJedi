@@ -18,15 +18,9 @@
 #include "JournalSource.h"
 #include "JournalMatcher.h"
 #include "JournalHighlighter.h"
+#include "JournalEscapes.h"
 
 #include <memory>
-
-struct JournalTint
-{
-  size_t start;  // Bytes of the text
-  size_t end;
-  JournalPaint paint;
-};
 
 struct JournalLine
 {
