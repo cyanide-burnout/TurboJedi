@@ -7,10 +7,10 @@
 #define Uses_TButton
 #include "ColumnsDialog.h"
 
-// Columns take bits 0 to 6, UTC, milliseconds and wrapping the next three
+// Columns take bits 0 to 6, UTC, milliseconds, wrapping and the hidden heading the next four
 #define COLUMN_MASK    0x7f
 #define SETTING_SHIFT  7
-#define SETTING_MASK   0x07
+#define SETTING_MASK   0x0f
 
 // ColumnsDialog
 
@@ -27,10 +27,11 @@ ColumnsDialog::ColumnsDialog() :
     new TSItem("~U~nit",
     new TSItem("~I~dentifier",
     new TSItem("~P~ID", nullptr))))))));
-  settings = new TCheckBoxes(TRect(28, 3, 51, 6),
+  settings = new TCheckBoxes(TRect(28, 3, 51, 7),
     new TSItem("UT~C~",
     new TSItem("~M~illiseconds",
-    new TSItem("~W~rap lines", nullptr))));
+    new TSItem("~W~rap lines",
+    new TSItem("Hide headin~g~", nullptr)))));
 
   insert(columns);
   insert(new TLabel(TRect(2, 2, 20, 3), "~S~how columns", columns));

@@ -76,6 +76,7 @@ class JournalView : public TScroller
     const char* describe();
     const char* name();
     std::string heading();
+    void arrange();  // Shows or hides the heading as the columns say, the lines take its row
 
     TView* header;  // Shows the heading above, redrawn along with the lines
 

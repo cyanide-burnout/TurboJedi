@@ -35,6 +35,7 @@
 #define JOURNAL_COLUMN_UTC         (1 << 7)  // Options of the way columns look rather than columns
 #define JOURNAL_COLUMN_MILLISECOND (1 << 8)
 #define JOURNAL_COLUMN_WRAP        (1 << 9)
+#define JOURNAL_COLUMN_HEADLESS    (1 << 10)  // The heading of the columns is hidden
 #define JOURNAL_COLUMN_DEFAULT     (JOURNAL_COLUMN_DATE | JOURNAL_COLUMN_TIME | JOURNAL_COLUMN_LEVEL | JOURNAL_COLUMN_IDENTIFIER | JOURNAL_COLUMN_PID | JOURNAL_COLUMN_MILLISECOND)
 
 #define JOURNAL_TEXT_EXPRESSION    (1 << 0)  // Text is a regular expression

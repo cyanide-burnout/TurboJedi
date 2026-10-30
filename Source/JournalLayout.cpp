@@ -20,9 +20,9 @@
 static const char* const fields[] = { "unit", "identifier", "command", "transport", "boot", "user", "machine" };
 
 // Column names in the order of the JOURNAL_COLUMN_* bits
-static const char* const columns[] = { "date", "time", "level", "host", "unit", "identifier", "pid", "utc", "millisecond", "wrap" };
+static const char* const columns[] = { "date", "time", "level", "host", "unit", "identifier", "pid", "utc", "millisecond", "wrap", "headless" };
 
-#define COLUMN_COUNT  10
+#define COLUMN_COUNT  11
 
 static const char letters[] = "EACRWNID";
 
@@ -194,7 +194,7 @@ static const char* SetValue(JournalLayout& window, const std::string& key, const
 
       if (found == COLUMN_COUNT)
       {
-        return "columns takes date, time, level, host, unit, identifier, pid, utc, millisecond and wrap";
+        return "columns takes date, time, level, host, unit, identifier, pid, utc, millisecond, wrap and headless";
       }
 
       window.filter.columns |= 1 << found;

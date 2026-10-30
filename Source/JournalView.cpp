@@ -1784,8 +1784,34 @@ void JournalView::chooseColumns()
     // Lines keep every field, nothing to read again
     filter.columns = value;
     layout         = 0;
+    arrange();
     refresh();
   }
+}
+
+void JournalView::arrange()
+{
+  TRect bounds;
+
+  if (header == nullptr)
+  {
+    // Not in a window yet
+    return;
+  }
+
+  bounds     = getBounds();
+  bounds.a.y = header->origin.y + ((filter.columns & JOURNAL_COLUMN_HEADLESS) ? 0 : 1);
+
+  if (filter.columns & JOURNAL_COLUMN_HEADLESS)
+  {
+    header->hide();
+  }
+  else
+  {
+    header->show();
+  }
+
+  locate(bounds);
 }
 
 void JournalView::chooseText()

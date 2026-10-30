@@ -14,7 +14,7 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd and
   levels, source (unit, identifier, command, transport, boot, user, machine, PID,
   any `FIELD=VALUE`), time range, and text, plain or a regular expression of PCRE2, to show or to leave out
 - Follows the tail, Space pauses; scrolling above the first line brings the older entries in
-- Columns to choose: date, time, level, host, unit, identifier, PID; UTC, milliseconds, wrapped messages
+- Columns to choose: date, time, level, host, unit, identifier, PID; UTC, milliseconds, wrapped messages, hidden heading
 - Highlighting of messages by rules: built-in ones for times, addresses, identifiers, paths, quoted text, key=value
   and the words that matter, or any rule file of [grc](https://github.com/garabik/grc); colors of the escape sequences
   a message comes with are shown under the rules, the rest of the sequences are taken out
@@ -213,7 +213,7 @@ columns = date,time,level,identifier,pid,millisecond
 Keys: `bounds`, `directory`, `merge`, `unit`, `identifier`, `command`, `transport`, `boot`, `user`, `machine`, `pid`, `match` (repeatable),
 `since`, `until`, `text`, `regex`, `exclude`, `case`, `levels` (letters `EACRWNID` of the levels shown, dashes
 for the hidden ones), `highlight` and `columns` (`date`, `time`, `level`, `host`, `unit`, `identifier`, `pid`, `utc`,
-`millisecond`, `wrap`).
+`millisecond`, `wrap`, `headless`).
 
 A timeline is a `[timeline]` section with `bounds`, the keys of the filter it counts, `step` (seconds of an interval,
 `0` lets the window choose one that fits) and `scale` (`linear` or `log`):

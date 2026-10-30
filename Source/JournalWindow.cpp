@@ -63,6 +63,8 @@ void JournalWindow::attach(TRect extent)
 
   insert(view->header);
   insert(view);
+
+  view->arrange();
 }
 
 const char* JournalWindow::getTitle(short size)
