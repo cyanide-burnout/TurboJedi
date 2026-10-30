@@ -23,6 +23,7 @@ PageView::PageView(const TRect& bounds, TScrollBar* horizontal, TScrollBar* vert
   size_t index;
   size_t start;
   size_t end;
+  size_t size;
   int width;
 
   growMode = gfGrowHiX | gfGrowHiY;
@@ -32,10 +33,13 @@ PageView::PageView(const TRect& bounds, TScrollBar* horizontal, TScrollBar* vert
 
   for (index = 0; index < lines.size(); index ++)
   {
-    for (start = 0; start <= lines[index].size(); start = end + 1)
+    // Line breaks at the end (an AppArmor label has one) would leave empty rows
+    size = lines[index].find_last_not_of('\n') + 1;
+
+    for (start = 0; start <= size; start = end + 1)
     {
       // A value of several lines goes on indented under its name
-      end = std::min(lines[index].find('\n', start), lines[index].size());
+      end = std::min(lines[index].find('\n', start), size);
       this->lines.push_back(((start == 0) ? std::string() : std::string("    ")) + lines[index].substr(start, end - start));
       origins.push_back(index);
       width = std::max(width, strwidth(this->lines.back()));

@@ -16,7 +16,8 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd and
 - Follows the tail, Space pauses; scrolling above the first line brings the older entries in
 - Columns to choose: date, time, level, host, unit, identifier, PID; UTC, milliseconds, wrapped messages
 - Highlighting of messages by rules: built-in ones for times, addresses, identifiers, paths, quoted text, key=value
-  and the words that matter, or any rule file of [grc](https://github.com/garabik/grc)
+  and the words that matter, or any rule file of [grc](https://github.com/garabik/grc); colors of the escape sequences
+  a message comes with are shown under the rules, the rest of the sequences are taken out
 - Find with highlighting, next and previous, on into the older entries above the first line
 - Clone of a window with its lines, filter, selection and place: one stays where it is, the other goes elsewhere;
   a timeline is cloned with its counts, step and scale

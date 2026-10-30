@@ -21,6 +21,13 @@
 
 #include <memory>
 
+struct JournalTint
+{
+  size_t start;  // Bytes of the text
+  size_t end;
+  JournalPaint paint;
+};
+
 struct JournalLine
 {
   uint64_t realtime;  // Microseconds, formatted the way the window wants when drawn
@@ -31,6 +38,7 @@ struct JournalLine
   std::string pid;
   std::string cursor;  // Of the journal entry, its details are read by it
   std::string text;
+  std::vector<JournalTint> tints;  // Colors of the escape sequences the message has come with, taken out of the text
   bool continued = false;  // A line of a multi-line message after its first one, the columns are left out
 };
 

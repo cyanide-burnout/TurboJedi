@@ -93,7 +93,192 @@ static void PaintText(TDrawBuffer& buffer, int x, const std::string& text, size_
 static size_t GetLineSize(const JournalLine& line)
 {
   // Near enough to tell a few huge messages from many short ones
-  return sizeof(JournalLine) + line.host.size() + line.unit.size() + line.identifier.size() + line.pid.size() + line.cursor.size() + line.text.size();
+  return sizeof(JournalLine) + line.host.size() + line.unit.size() + line.identifier.size() + line.pid.size() + line.cursor.size() + line.text.size() + line.tints.size() * sizeof(JournalTint);
+}
+
+static bool GetEscapeColor(const std::vector<int>& codes, size_t& index, TColor& color)
+{
+  // 5;N of 256 colors or 2;R;G;B after 38 or 48, the codes taken are skipped
+  if ((index + 2 < codes.size()) &&
+      (codes[index + 1] == 5))
+  {
+    index += 2;
+    color  = TColorXTerm(codes[index]);
+    return true;
+  }
+
+  if ((index + 4 < codes.size()) &&
+      (codes[index + 1] == 2))
+  {
+    index += 4;
+    color  = TColorRGB(codes[index - 2], codes[index - 1], codes[index]);
+    return true;
+  }
+
+  // Cut short, nothing after it can be told apart
+  index = codes.size();
+  return false;
+}
+
+static void ApplyEscape(const std::string& parameters, JournalPaint& paint)
+{
+  // ANSI order of the colors, bright foregrounds over the blue window as grc rules have them, backgrounds stay dark
+  static const uint8_t colors[] = { 0x0, 0x4, 0x2, 0x6, 0x1, 0x5, 0x3, 0x7 };
+
+  int code;
+  size_t index;
+  std::vector<int> codes;
+
+  for (index = 0; index <= parameters.size(); index ++)
+  {
+    // Empty parameters count as zero, colons of the newer form are taken as semicolons
+    if ((index == 0) || (parameters[index - 1] == ';') || (parameters[index - 1] == ':'))
+    {
+      codes.push_back(atoi(parameters.c_str() + index));
+    }
+  }
+
+  for (index = 0; index < codes.size(); index ++)
+  {
+    code = codes[index];
+
+    if (code == 0)                    { paint = JournalPaint {};               continue; }
+    if (code == 1)                    { paint.style |=  slBold;                continue; }
+    if (code == 3)                    { paint.style |=  slItalic;              continue; }
+    if (code == 4)                    { paint.style |=  slUnderline;           continue; }
+    if (code == 5)                    { paint.style |=  slBlink;               continue; }
+    if (code == 7)                    { paint.style |=  slReverse;             continue; }
+    if (code == 22)                   { paint.style &= ~slBold;                continue; }
+    if (code == 23)                   { paint.style &= ~slItalic;              continue; }
+    if (code == 24)                   { paint.style &= ~slUnderline;           continue; }
+    if (code == 25)                   { paint.style &= ~slBlink;               continue; }
+    if (code == 27)                   { paint.style &= ~slReverse;             continue; }
+    if (code == 39)                   { paint.foreground = false;              continue; }
+    if (code == 49)                   { paint.background = false;              continue; }
+    if (code == 38)                   { paint.foreground |= GetEscapeColor(codes, index, paint.fore); continue; }
+    if (code == 48)                   { paint.background |= GetEscapeColor(codes, index, paint.back); continue; }
+
+    if (((code >= 30) && (code <= 37)) ||
+        ((code >= 90) && (code <= 97)))
+    {
+      paint.foreground = true;
+      paint.fore       = TColorBIOS(colors[code % 10] | 0x8);
+      continue;
+    }
+
+    if ((code >= 40) && (code <= 47))
+    {
+      paint.background = true;
+      paint.back       = TColorBIOS(colors[code % 10]);
+      continue;
+    }
+
+    if ((code >= 100) && (code <= 107))
+    {
+      paint.background = true;
+      paint.back       = TColorBIOS(colors[code % 10] | 0x8);
+      continue;
+    }
+  }
+}
+
+static void TakeEscapes(const std::string& message, size_t start, size_t end, std::string& text, std::vector<JournalTint>& tints, JournalPaint& paint)
+{
+  size_t index;
+  size_t last;
+  size_t from;
+  unsigned char character;
+
+  from = text.size();
+
+  for (index = start; index < end; index ++)
+  {
+    character = message[index];
+
+    if ((character == '\x1b') &&
+        (index + 1 < end) &&
+        (message[index + 1] == '['))
+    {
+      // CSI: parameters up to the final byte, SGR changes the paint, the rest is of no use in a list
+      for (last = index + 2; (last < end) && ((static_cast<unsigned char>(message[last]) < 0x40) || (static_cast<unsigned char>(message[last]) > 0x7e)); last ++);
+
+      if ((last < end) &&
+          (message[last] == 'm'))
+      {
+        if ((text.size() > from) &&
+            (paint.foreground || paint.background || paint.style))
+        {
+          // Text so far in the paint before the change
+          tints.push_back({ from, text.size(), paint });
+        }
+
+        ApplyEscape(message.substr(index + 2, last - index - 2), paint);
+        from = text.size();
+      }
+
+      index = last;
+      continue;
+    }
+
+    if ((character == '\x1b') &&
+        (index + 1 < end) &&
+        (message[index + 1] == ']'))
+    {
+      // OSC (a title, a link) up to BEL or ST
+      for (last = index + 2; (last < end) && (message[last] != '\x07') && ((message[last] != '\x1b') || (last + 1 >= end) || (message[last + 1] != '\\')); last ++);
+      index = last + ((last < end) && (message[last] == '\x1b'));
+      continue;
+    }
+
+    if (character == '\x1b')
+    {
+      // The other sequences: intermediate bytes, ESC ( B for one, then the final byte
+      for (index ++; (index + 1 < end) && (message[index] >= 0x20) && (message[index] <= 0x2f); index ++);
+      continue;
+    }
+
+    if ((character == '\t') ||
+        (character == '\r'))
+    {
+      // Control characters would be drawn as glyphs, these keep their room
+      text += ' ';
+      continue;
+    }
+
+    if ((character >= 0x20) &&
+        (character != 0x7f))
+    {
+      text += character;
+    }
+  }
+
+  if ((text.size() > from) &&
+      (paint.foreground || paint.background || paint.style))
+  {
+    // The paint goes on to the next line of the message, as on a terminal
+    tints.push_back({ from, text.size(), paint });
+  }
+}
+
+static std::string TakeEscapes(const std::string& value)
+{
+  size_t start;
+  size_t end;
+  std::string text;
+  JournalPaint paint;
+  std::vector<JournalTint> tints;
+
+  paint = JournalPaint {};
+
+  for (start = 0; start <= value.size(); start = end + 1)
+  {
+    // Line by line, the breaks stay where they are and the colors go
+    end   = std::min(value.find('\n', start), value.size());
+    text += (start != 0) ? "\n" : "";
+    TakeEscapes(value, start, end, text, tints, paint);
+  }
+
+  return text;
 }
 
 // JournalView
@@ -334,6 +519,15 @@ void JournalView::draw()
       if (room > 0)
       {
         buffer.moveStr(x, line->text, color, room, skip);
+
+        if (!chosen)
+        {
+          for (const JournalTint& tint : line->tints)
+          {
+            // Colors the message has come with, the rules paint over them
+            PaintText(buffer, x, line->text, tint.start, tint.end, skip, room, tint.paint.apply(color));
+          }
+        }
 
         if ((!chosen) &&
             (highlighter != nullptr))
@@ -867,9 +1061,11 @@ void JournalView::split(const JournalLine& model, const std::string& message, st
   size_t start;
   size_t end;
   size_t size;
+  JournalPaint paint;
 
   parts.clear();
   start = 0;
+  paint = JournalPaint {};
 
   // Line breaks at the end would leave empty rows under the entry, a blank message stays one empty line
   size = message.find_last_not_of(" \t\r\n") + 1;
@@ -879,14 +1075,9 @@ void JournalView::split(const JournalLine& model, const std::string& message, st
     // Multi-line message (e.g. a trace) becomes one line per row with the same fields
     end = std::min(message.find('\n', start), size);
     parts.push_back(model);
-    parts.back().text.assign(message, start, end - start);
     parts.back().continued = (start != 0);
 
-    for (char& character : parts.back().text)
-    {
-      // Control characters would be drawn as glyphs
-      character = ((character == '\t') || (character == '\r')) ? ' ' : character;
-    }
+    TakeEscapes(message, start, end, parts.back().text, parts.back().tints, paint);
 
     start = end + 1;
   }
@@ -1206,6 +1397,7 @@ void JournalView::details()
   std::string value;
   JournalFilter other;
   std::vector<std::string> fields;
+  std::vector<std::string> shown;
 
   if ((index = focus()) >= lines.size())
   {
@@ -1221,9 +1413,15 @@ void JournalView::details()
     return;
   }
 
+  for (const std::string& line : fields)
+  {
+    // Escape sequences of a terminal would be drawn as glyphs, a filter takes the value as the journal has it
+    shown.push_back(TakeEscapes(line));
+  }
+
   bounds = TProgram::deskTop->getExtent();
   bounds.grow(-2, -1);
-  dialog = new PageDialog(bounds, "Entry", fields, true);
+  dialog = new PageDialog(bounds, "Entry", shown, true);
   result = TProgram::deskTop->execView(dialog);
   chosen = dialog->chosen();
 

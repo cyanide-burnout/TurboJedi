@@ -141,9 +141,9 @@ std::vector<std::string> ReadJournalEntry(const JournalFilter& filter, const std
       equal = static_cast<const char*>(memchr(text, '=', length));
 
       if ((equal != nullptr) &&
-          (!std::all_of(text, text + length, [] (char character) { return (character == '\n') || (character == '\t') || (static_cast<unsigned char>(character) >= 0x20); })))
+          (!std::all_of(text, text + length, [] (char character) { return (character == '\n') || (character == '\t') || (character == '\r') || (character == '\x07') || (character == '\x1b') || (static_cast<unsigned char>(character) >= 0x20); })))
       {
-        // Binary data, only its name and size
+        // Binary data, only its name and size, escape sequences of a terminal are text the details take out
         fields.push_back(std::string(text, equal - text) + "=[" + std::to_string(length - (equal - text) - 1) + " bytes]");
         continue;
       }
