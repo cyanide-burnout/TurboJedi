@@ -641,6 +641,7 @@ void JediApplication::showUpdate()
   int width;
   TRect bounds;
   PageDialog* dialog;
+  std::string text;
   std::vector<std::string> lines;
 
   if (!update.error.empty())
@@ -652,8 +653,12 @@ void JediApplication::showUpdate()
 
   if (JediUpdate::compare(VERSION, update.tag) >= 0)
   {
-    // A build after the latest release counts as that release
-    messageBox(mfInformation | mfOKButton, "\003TurboJedi " VERSION " is up to date, the latest release is %s", update.tag.c_str());
+    // A build after the latest release counts as that release, the box is as wide as the version in the first line
+    text   = "TurboJedi " VERSION " is up to date,";
+    bounds = TRect(0, 0, std::max<int>(40, text.size() + 8), 9);
+    bounds.move((deskTop->size.x - bounds.b.x) / 2, (deskTop->size.y - bounds.b.y) / 2);
+
+    messageBoxRect(bounds, "\003" + text + "\n\003the latest release is " + update.tag, mfInformation | mfOKButton);
     return;
   }
 
