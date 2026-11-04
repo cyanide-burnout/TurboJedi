@@ -16,7 +16,7 @@ makedepends=('cmake' 'git' 'pkgconf')
 
 build() {
   cd "${startdir}/.."
-  make build
+  make build TURBOJEDI_TARGET=arch
 }
 
 package() {

@@ -35,7 +35,7 @@ class JediUpdate
 
     bool startup;       // Checks on start, off unless chosen
     time_t checked;     // When a check has been over the last time, whatever its answer
-    std::string shown;  // Newer release told about by a check on start, it is not told again
+    std::string shown;  // Release and system told about by a check on start, they are not told again
 
     void load(const std::string& path);  // Leaves the defaults when the file is not there
     void save();
@@ -43,6 +43,10 @@ class JediUpdate
 
     // Release numbers of two versions such as v0.9 and v0.9-5-gabcdef compared, a build after a release is that release
     static int compare(const std::string& one, const std::string& other);
+
+    // Distribution of this system the way install.sh names it for the packages: debian-13, ubuntu-24.04, fc44, el9, amzn2023,
+    // tumbleweed, leap16 or arch; empty when /etc/os-release cannot be read
+    static std::string system();
 
   private:
 

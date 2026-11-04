@@ -14,3 +14,8 @@ override_dh_auto_install:
 override_dh_installdocs:
 	dh_installdocs
 	install -m 644 Import/tvision/COPYRIGHT debian/turbojedi/usr/share/doc/turbojedi/tvision-COPYRIGHT
+
+# A package of a release carries the distribution it is built for in its version, 0.10.2~debian13: the same release built
+# for a newer version of the distribution is newer, a newer release is newer whatever the distribution, a build of its own has none
+override_dh_gencontrol:
+	dh_gencontrol -- $(if $(TURBOJEDI_TARGET),-v$(shell dpkg-parsechangelog -S Version)~$(subst -,,$(TURBOJEDI_TARGET)))

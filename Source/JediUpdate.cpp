@@ -9,7 +9,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <map>
 #include <vector>
+#include <sstream>
 #include <algorithm>
 
 #define CONNECT_TIMEOUT  5     // Seconds, a network without a way out tells nothing and is not waited for long
@@ -47,6 +49,72 @@ static std::vector<long> ParseVersion(const std::string& text)
   }
 
   return numbers;
+}
+
+static std::map<std::string, std::string> ReadRelease()
+{
+  FILE* file;
+  char line[512];
+  char* value;
+  size_t length;
+  std::map<std::string, std::string> fields;
+
+  if ((file = fopen("/etc/os-release", "r")) == nullptr)
+  {
+    // Nothing to tell the distribution by
+    return fields;
+  }
+
+  while (fgets(line, sizeof(line), file) != nullptr)
+  {
+    line[strcspn(line, "\r\n")] = '\0';
+
+    if ((line[0] == '#') ||
+        ((value = strchr(line, '=')) == nullptr))
+    {
+      // Comments and empty lines
+      continue;
+    }
+
+    *value ++ = '\0';
+    length    = strlen(value);
+
+    if ((length >= 2) &&
+        ((value[0] == '"') || (value[0] == '\'')) &&
+        (value[length - 1] == value[0]))
+    {
+      // Quoted as the shell would take it
+      value[length - 1] = '\0';
+      value ++;
+    }
+
+    fields[line] = value;
+  }
+
+  fclose(file);
+  return fields;
+}
+
+static bool Contains(const std::string& list, const char* word)
+{
+  std::string item;
+  std::istringstream stream(list);
+
+  while (stream >> item)
+  {
+    if (item == word)
+    {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+static std::string GetMajor(const std::string& version, const char* stops)
+{
+  // 13.1 is 13, so is 13/sid of a testing Debian
+  return version.substr(0, version.find_first_of(stops));
 }
 
 // JediUpdate
@@ -253,4 +321,73 @@ int JediUpdate::compare(const std::string& one, const std::string& other)
   }
 
   return 0;
+}
+
+std::string JediUpdate::system()
+{
+  FILE* file;
+  char line[64];
+  std::string id;
+  std::string like;
+  std::string version;
+  std::string codename;
+  std::map<std::string, std::string> fields;
+
+  // The same as GetTarget() of install.sh, both have to name the distribution alike
+  if ((fields = ReadRelease()).empty())
+  {
+    return std::string();
+  }
+
+  id       = fields["ID"];
+  like     = fields["ID_LIKE"];
+  version  = fields["VERSION_ID"];
+  codename = fields["UBUNTU_CODENAME"];
+
+  if ((id == "debian") || (id == "raspbian"))                  return "debian-" + GetMajor(version, ".");
+  if (id == "ubuntu")                                          return "ubuntu-" + version;
+  if (id == "fedora")                                          return "fc" + version;
+  if ((id == "rhel") || (id == "almalinux") || (id == "rocky") ||
+      (id == "centos") || (id == "ol") || (id == "eurolinux") ||
+      (id == "circle") || (id == "navy"))                      return "el" + GetMajor(version, ".");
+  if (id == "amzn")                                            return "amzn" + version;
+  if (id == "opensuse-tumbleweed")                             return "tumbleweed";
+  if ((id == "opensuse-leap") || (id == "sles") || (id == "sled")) return "leap" + GetMajor(version, ".");
+  if (id == "arch")                                            return "arch";
+
+  // Derivatives tell what they are made of
+  if (Contains(like, "ubuntu"))
+  {
+    if (codename == "jammy")    return "ubuntu-22.04";
+    if (codename == "noble")    return "ubuntu-24.04";
+    if (codename == "resolute") return "ubuntu-26.04";
+    return "ubuntu-" + codename;
+  }
+
+  if (Contains(like, "debian"))
+  {
+    version.clear();
+
+    if ((file = fopen("/etc/debian_version", "r")) != nullptr)
+    {
+      // 13.1, or trixie/sid on testing
+      if (fgets(line, sizeof(line), file) != nullptr)
+      {
+        line[strcspn(line, "\r\n")] = '\0';
+        version = line;
+      }
+
+      fclose(file);
+    }
+
+    return "debian-" + GetMajor(version, "./");
+  }
+
+  if (Contains(like, "opensuse-tumbleweed"))                   return "tumbleweed";
+  if (Contains(like, "suse"))                                  return "leap" + GetMajor(version, ".");
+  if (Contains(like, "rhel") || Contains(like, "centos"))      return "el" + GetMajor(version, ".");
+  if (Contains(like, "fedora"))                                return "fc" + version;
+  if (Contains(like, "arch"))                                  return "arch";
+
+  return id + "-" + version;
 }

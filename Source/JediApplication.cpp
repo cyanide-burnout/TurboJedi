@@ -650,15 +650,22 @@ void JediApplication::checkUpdate()
 void JediApplication::showUpdate()
 {
   bool newer;
+  bool moved;
+  std::string key;
+  std::string system;
   UpdateDialog* dialog;
   std::vector<std::string> lines;
 
-  newer = update.error.empty() && (JediUpdate::compare(VERSION, update.tag) < 0);
+  // A package knows the distribution it is built for, after an upgrade of the distribution its package for the new one is due
+  system = JediUpdate::system();
+  newer  = update.error.empty() && (JediUpdate::compare(VERSION, update.tag) < 0);
+  moved  = update.error.empty() && (BUILT_FOR[0] != '\0') && (!system.empty()) && (system != BUILT_FOR);
+  key    = update.tag + " " + system;
 
   if ((automatic) &&
-      ((!newer) || (update.tag == update.shown)))
+      (((!newer) && (!moved)) || (key == update.shown)))
   {
-    // A check on start keeps quiet about a failure, the latest release and a newer one told about already
+    // A check on start keeps quiet about a failure, the latest release and what it has told about already
     automatic = false;
     update.save();
     return;
@@ -672,9 +679,11 @@ void JediApplication::showUpdate()
     return;
   }
 
-  if (newer)
+  if (newer || moved)
   {
-    lines.push_back("TurboJedi " + update.tag + " is out, this build is " VERSION);
+    if (newer) lines.push_back("TurboJedi " + update.tag + " is out, this build is " VERSION);
+    if (moved) lines.push_back("The package is built for " BUILT_FOR ", the system is " + system + " now");
+
     lines.push_back("");
     lines.push_back("The release and its packages:");
     lines.push_back("  " JEDI_UPDATE_REPOSITORY "/releases/tag/" + update.tag);
@@ -695,9 +704,9 @@ void JediApplication::showUpdate()
 
   deskTop->execView(dialog);
 
-  // A newer release seen once is not told about again on start, a manual check tells every time
+  // What has been seen once is not told about again on start, a manual check tells every time
   update.startup = dialog->startup();
-  update.shown   = newer ? update.tag : update.shown;
+  update.shown   = (newer || moved) ? key : update.shown;
   automatic      = false;
   update.save();
 

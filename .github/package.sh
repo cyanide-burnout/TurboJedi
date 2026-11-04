@@ -38,12 +38,12 @@ mkdir -p dist
 
 if command -v dpkg-buildpackage > /dev/null
 then
-  make deb
+  make deb TURBOJEDI_TARGET="${DISTRO}"
 
   for FILE in ../turbojedi_*.deb
   do
-    # Debian and Ubuntu give the same name to their packages of one version
-    NAME=$(basename "${FILE}" | sed "s/_\([^_]*\)\.deb\$/_${DISTRO}_\1.deb/")
+    # Debian and Ubuntu give the same name to their packages of one version, the distribution in the version goes to the name
+    NAME=$(basename "${FILE}" | sed -e "s/~[^_]*_/_/" -e "s/_\([^_]*\)\.deb\$/_${DISTRO}_\1.deb/")
     mv "${FILE}" "dist/${NAME}"
   done
 

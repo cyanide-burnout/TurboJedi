@@ -10,7 +10,8 @@
 #
 # TURBOJEDI_VERSION=0.6 takes that release instead of the latest one. The package manager of the distribution
 # brings the dependencies, sudo or doas is asked for when this does not run as root. Run again, it updates TurboJedi,
-# nothing is downloaded when that release is installed already.
+# nothing is downloaded when that release is installed already for this version of the distribution; after an upgrade
+# of the distribution the package of the same release built for the new one takes the place of the old one.
 
 set -eu
 
@@ -106,7 +107,8 @@ GetTarget()
   fi
 }
 
-# Version of the installed package without the revision, nothing when there is none
+# Version of the installed package with the distribution it is built for, as the package of the release would have it:
+# 0.10.2~debian13 or 0.10.2-1.fc44, Arch Linux has none; nothing when there is no package
 
 GetInstalled()
 {
@@ -118,10 +120,21 @@ GetInstalled()
       # Prints that it is not installed on the standard output
       if rpm -q turbojedi > /dev/null 2>&1
       then
-        rpm -q --qf '%{VERSION}\n' turbojedi | head -n 1
+        rpm -q --qf '%{VERSION}-%{RELEASE}\n' turbojedi | head -n 1
       fi ;;
     pkg)
       pacman -Q turbojedi 2> /dev/null | sed -e 's/^[^ ]* //' -e 's/-[^-]*$//' ;;
+  esac
+}
+
+# Version the package of the release has for this distribution
+
+GetExpected()
+{
+  case "$KIND" in
+    deb)      echo "$1~$(echo "$TARGET" | tr -d -)" ;;
+    rpm|zypp) echo "$1-1.$TARGET" ;;
+    pkg)      echo "$1" ;;
   esac
 }
 
@@ -165,7 +178,7 @@ Main()
   VERSION=$(echo "$JSON" | sed -n 's/.*"tag_name": *"v\{0,1\}\([^"]*\)".*/\1/p' | head -n 1)
   INSTALLED=$(GetInstalled || true)
 
-  if [ -n "$INSTALLED" ] && [ "$INSTALLED" = "$VERSION" ]
+  if [ -n "$INSTALLED" ] && [ "$INSTALLED" = "$(GetExpected "$VERSION")" ]
   then
     echo "TurboJedi $VERSION is installed already"
     exit 0
@@ -201,9 +214,13 @@ Main()
     Fail "https://github.com/$REPOSITORY#building"
   fi
 
-  if [ -n "$INSTALLED" ]
+  if [ -n "$INSTALLED" ] && [ "${INSTALLED%%[~-]*}" = "$VERSION" ]
   then
-    echo "TurboJedi $INSTALLED goes to $VERSION"
+    # Same release, built for another version of the distribution or before the packages have been told apart
+    echo "TurboJedi $VERSION is installed, its package for $TARGET takes the place of the one there is"
+  elif [ -n "$INSTALLED" ]
+  then
+    echo "TurboJedi ${INSTALLED%%[~-]*} goes to $VERSION"
   fi
 
   SUDO=

@@ -45,7 +45,8 @@ curl -fsSL https://raw.githubusercontent.com/cyanide-burnout/TurboJedi/master/in
 ```
 
 It asks for sudo when not run as root, `TURBOJEDI_VERSION=0.6` before `sh` takes that release instead of the latest one.
-Run again, it updates TurboJedi and leaves it alone when that release is installed already.
+Run again, it updates TurboJedi and leaves it alone when that release is installed already. After an upgrade of the
+distribution it puts the package of the same release built for the new one; Check for updates tells about it as well.
 Raspberry Pi OS of 64 bits is Debian on arm64 and has packages; on 32 bits (armhf) TurboJedi builds from the sources.
 By hand:
 

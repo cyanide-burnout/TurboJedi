@@ -7,6 +7,10 @@ PREFIX      := $(DESTDIR)/usr/local
 VERSION := $(if $(wildcard .git),$(shell git describe --tags --always --dirty 2>/dev/null))
 VERSION := $(or $(VERSION),$(shell grep -v '^\$$Format' VERSION 2>/dev/null),unknown)
 
+# Distribution a package is built for, the way the names of the packages and install.sh tell it: debian-13, ubuntu-24.04,
+# fc44, el9, amzn2023, tumbleweed, leap16 or arch; a build of its own has none
+TARGET := $(TURBOJEDI_TARGET)
+
 # Versions of Debian start with a digit and keep - for the revision: v0.1-3-gabcdef becomes 0.1+3+gabcdef
 PACKAGE := turbojedi
 RELEASE := $(shell echo '$(VERSION)' | sed -e 's/^v//' -e 's/-/+/g' -e 's/^unknown$$/0~unknown/')
@@ -92,7 +96,7 @@ $(TURBOVISION)/build/libtvision.a:
 
 # Rewritten only when the version changes, so that only its users are built again
 $(SOURCE)/Version.h: FORCE
-	@echo '#define VERSION "$(VERSION)"' | cmp -s - $@ || echo '#define VERSION "$(VERSION)"' > $@
+	@printf '#define VERSION "%s"\n#define BUILT_FOR "%s"\n' '$(VERSION)' '$(TARGET)' | cmp -s - $@ || printf '#define VERSION "%s"\n#define BUILT_FOR "%s"\n' '$(VERSION)' '$(TARGET)' > $@
 
 $(SOURCE)/TurboJedi.o $(SOURCE)/JediApplication.o $(SOURCE)/JediUpdate.o: $(SOURCE)/Version.h
 
@@ -111,9 +115,9 @@ install:
 deb:
 	sh debian/changelog.sh '$(PACKAGE)' '$(RELEASE)' '$(AUTHOR)' > debian/changelog
 ifdef DISTRIBUTION
-	dpkg-buildpackage -b -a$(DISTRIBUTION) -tc -us -uc -j4
+	TURBOJEDI_TARGET='$(TARGET)' dpkg-buildpackage -b -a$(DISTRIBUTION) -tc -us -uc -j4
 else
-	dpkg-buildpackage -b -tc -us -uc -j4
+	TURBOJEDI_TARGET='$(TARGET)' dpkg-buildpackage -b -tc -us -uc -j4
 endif
 	rm -f debian/changelog
 

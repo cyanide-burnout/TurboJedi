@@ -55,7 +55,9 @@ cd "%{turbojedi_tree}"
 
 # Hardening flags of the distribution, rpm of EL9 and openSUSE does not set them by itself as Fedora does
 %{?set_build_flags}
-%make_build build
+
+# The tag of the distribution in the release is what TurboJedi tells the system by, fc44 or leap16
+%make_build build TURBOJEDI_TARGET="$(echo '%{?dist}' | sed 's/^\.//')"
 
 %install
 cd "%{turbojedi_tree}"
