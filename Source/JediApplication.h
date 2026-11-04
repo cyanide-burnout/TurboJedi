@@ -26,7 +26,7 @@ class JediApplication : public TApplication
 {
   public:
 
-    JediApplication(const JournalFilter& filter, int history, const std::string& layout);
+    JediApplication(const JournalFilter& filter, int history, const std::string& layout, const std::string& settings);
 
     void getEvent(TEvent& event) override;
     void handleEvent(TEvent& event) override;
@@ -46,7 +46,8 @@ class JediApplication : public TApplication
     uint64_t repeat;      // Milliseconds of Turbo Vision when the held button repeats
     std::string place;    // Path of the layout opened or saved the last time, empty before
 #ifdef USE_LIBCURL
-    JediUpdate update;    // Latest release on GitHub, asked from the Help menu
+    JediUpdate update;    // Latest release on GitHub, asked from the Help menu or on start
+    bool automatic;       // The running check has begun on start, it tells only about a newer release
 #endif
 
     void open(const JournalFilter& filter);

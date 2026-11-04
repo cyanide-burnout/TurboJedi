@@ -30,7 +30,8 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd and
 - Layouts: all windows with their filters, columns and places, saved to and opened from INI files;
   the last one comes back on the next start
 - Check for updates in the Help menu: asks GitHub for the latest release only when chosen, shows it
-  with the command of the install script; nothing goes to the network otherwise
+  with the command of the install script; nothing goes to the network otherwise. Its answer has the choice
+  of a check on start, once a day and only about a newer release, kept in `$XDG_CONFIG_HOME/turbojedi/update.ini`
 
 ## Installation
 

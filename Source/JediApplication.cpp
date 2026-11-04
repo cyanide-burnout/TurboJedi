@@ -41,7 +41,7 @@
 
 // JediApplication
 
-JediApplication::JediApplication(const JournalFilter& filter, int history, const std::string& layout) :
+JediApplication::JediApplication(const JournalFilter& filter, int history, const std::string& layout, const std::string& settings) :
   TProgInit(&JediApplication::initStatusLine, &JediApplication::initMenuBar, &TProgram::initDeskTop)
 {
   TRect bounds;
@@ -69,6 +69,11 @@ JediApplication::JediApplication(const JournalFilter& filter, int history, const
     // No layout to start with, a window of the command line filter
     open(filter);
   }
+
+#ifdef USE_LIBCURL
+  update.load(settings);
+  automatic = update.due() && update.start();
+#endif
 }
 
 TStatusLine* JediApplication::initStatusLine(TRect bounds)
@@ -634,38 +639,68 @@ void JediApplication::checkUpdate()
   if ((!update.busy()) &&
       (!update.start()))
   {
-    // A check running already shows its result when it is over
     messageBox("Cannot check for updates: libcurl cannot be set up", mfError | mfOKButton);
+    return;
   }
+
+  // A check of the start running already tells how it went as this one would
+  automatic = false;
 }
 
 void JediApplication::showUpdate()
 {
-  TRect bounds;
-  std::string text;
+  bool newer;
   UpdateDialog* dialog;
+  std::vector<std::string> lines;
+
+  newer = update.error.empty() && (JediUpdate::compare(VERSION, update.tag) < 0);
+
+  if ((automatic) &&
+      ((!newer) || (update.tag == update.shown)))
+  {
+    // A check on start keeps quiet about a failure, the latest release and a newer one told about already
+    automatic = false;
+    update.save();
+    return;
+  }
 
   if (!update.error.empty())
   {
     // No way out to the network is usual for a server
+    update.save();
     messageBox(mfError | mfOKButton, "Cannot check for updates: %s", update.error.c_str());
     return;
   }
 
-  if (JediUpdate::compare(VERSION, update.tag) >= 0)
+  if (newer)
   {
-    // A build after the latest release counts as that release, the box is as wide as the version in the first line
-    text   = "TurboJedi " VERSION " is up to date,";
-    bounds = TRect(0, 0, std::max<int>(40, text.size() + 8), 9);
-    bounds.move((deskTop->size.x - bounds.b.x) / 2, (deskTop->size.y - bounds.b.y) / 2);
+    lines.push_back("TurboJedi " + update.tag + " is out, this build is " VERSION);
+    lines.push_back("");
+    lines.push_back("The release and its packages:");
+    lines.push_back("  " JEDI_UPDATE_REPOSITORY "/releases/tag/" + update.tag);
+    lines.push_back("");
+    lines.push_back("Debian, Ubuntu, Fedora, RHEL, Amazon Linux, openSUSE and Arch update with the install script:");
+    lines.push_back("  " JEDI_UPDATE_COMMAND);
 
-    messageBoxRect(bounds, "\003" + text + "\n\003the latest release is " + update.tag, mfInformation | mfOKButton);
-    return;
+    dialog = new UpdateDialog(lines, JEDI_UPDATE_REPOSITORY "/releases/tag/" + update.tag, JEDI_UPDATE_COMMAND, update.startup, deskTop->size.x);
+  }
+  else
+  {
+    // A build after the latest release counts as that release
+    lines.push_back("TurboJedi " VERSION " is up to date,");
+    lines.push_back("the latest release is " + update.tag);
+
+    dialog = new UpdateDialog(lines, std::string(), std::string(), update.startup, deskTop->size.x);
   }
 
-  dialog = new UpdateDialog("TurboJedi " + update.tag + " is out, this build is " VERSION, JEDI_UPDATE_REPOSITORY "/releases/tag/" + update.tag, JEDI_UPDATE_COMMAND, deskTop->size.x);
-
   deskTop->execView(dialog);
+
+  // A newer release seen once is not told about again on start, a manual check tells every time
+  update.startup = dialog->startup();
+  update.shown   = newer ? update.tag : update.shown;
+  automatic      = false;
+  update.save();
+
   TObject::destroy(dialog);
 }
 

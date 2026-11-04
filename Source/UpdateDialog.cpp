@@ -4,42 +4,39 @@
 
 #define Uses_TButton
 #define Uses_TStaticText
+#define Uses_TSItem
 #define Uses_TEvent
 #include "UpdateDialog.h"
 #include "Commands.h"
 #include "JediClipboard.h"
 
-#include <vector>
 #include <algorithm>
 
 #define BUTTONS_WIDTH  44  // Copy URL, Copy command and Close with the gaps between them
+#define CLOSE_WIDTH    12  // Close alone
+#define CHOICE_WIDTH   33  // Check box of the check on start
 
 // UpdateDialog
 
-UpdateDialog::UpdateDialog(const std::string& heading, const std::string& link, const std::string& command, int room) :
+UpdateDialog::UpdateDialog(const std::vector<std::string>& lines, const std::string& link, const std::string& command, bool chosen, int room) :
   TWindowInit(&TDialog::initFrame),
   TDialog(TRect(0, 0, 0, 0), "Update")
 {
   int x;
   int rows;
   int width;
+  int buttons;
   int columns;
+  ushort value;
   TRect bounds;
   std::string text;
-  std::vector<std::string> lines;
 
   this->link    = link;
   this->command = command;
 
-  lines.push_back(heading);
-  lines.push_back("");
-  lines.push_back("The release and its packages:");
-  lines.push_back("  " + link);
-  lines.push_back("");
-  lines.push_back("Debian, Ubuntu, Fedora, RHEL, Amazon Linux, openSUSE and Arch update with the install script:");
-  lines.push_back("  " + command);
-
-  width = BUTTONS_WIDTH;
+  // Without a link the release is not newer, Close is the only button
+  buttons = link.empty() ? CLOSE_WIDTH : BUTTONS_WIDTH;
+  width   = std::max(buttons, CHOICE_WIDTH) + 4;
 
   for (const std::string& line : lines)
   {
@@ -47,7 +44,7 @@ UpdateDialog::UpdateDialog(const std::string& heading, const std::string& link, 
     width = std::max(width, strwidth(line) + 6);
   }
 
-  width   = std::min(width, std::max(room, BUTTONS_WIDTH + 4));
+  width   = std::min(width, std::max(room, std::max(buttons, CHOICE_WIDTH) + 4));
   columns = width - 6;
   rows    = 0;
 
@@ -60,16 +57,28 @@ UpdateDialog::UpdateDialog(const std::string& heading, const std::string& link, 
 
   // Not inserted yet, the frame grows along and ofCentered puts the dialog in the middle
   options |= ofCentered;
-  bounds   = TRect(0, 0, width, rows + 7);
+  bounds   = TRect(0, 0, width, rows + 9);
   changeBounds(bounds);
 
   insert(new TStaticText(TRect(3, 2, width - 3, rows + 2), text));
 
-  x = (width - BUTTONS_WIDTH) / 2;
+  // The choice goes along with every answer of a check, that is when updates are on the mind; the box draws a space
+  // in front of its mark, it stands a column to the left so that the mark is under the text
+  choice = new TCheckBoxes(TRect(2, rows + 3, 2 + CHOICE_WIDTH, rows + 4), new TSItem("Check for updates on ~s~tart", nullptr));
+  value  = chosen ? 1 : 0;
+  choice->setData(&value);
+  insert(choice);
 
-  insert(new TButton(TRect(x,      rows + 3, x + 12, rows + 5), "Copy ~U~RL",     cmUpdateCopyLink,    bfNormal));
-  insert(new TButton(TRect(x + 14, rows + 3, x + 30, rows + 5), "Copy co~m~mand", cmUpdateCopyCommand, bfNormal));
-  insert(new TButton(TRect(x + 32, rows + 3, x + 44, rows + 5), "~C~lose",        cmOK,                bfDefault));
+  x = (width - buttons) / 2;
+
+  if (!link.empty())
+  {
+    insert(new TButton(TRect(x,      rows + 5, x + 12, rows + 7), "Copy ~U~RL",     cmUpdateCopyLink,    bfNormal));
+    insert(new TButton(TRect(x + 14, rows + 5, x + 30, rows + 7), "Copy co~m~mand", cmUpdateCopyCommand, bfNormal));
+    x += 32;
+  }
+
+  insert(new TButton(TRect(x, rows + 5, x + 12, rows + 7), "~C~lose", cmOK, bfDefault));
 
   selectNext(False);
 }
@@ -87,4 +96,12 @@ void UpdateDialog::handleEvent(TEvent& event)
   }
 
   TDialog::handleEvent(event);
+}
+
+bool UpdateDialog::startup()
+{
+  ushort value;
+
+  choice->getData(&value);
+  return value != 0;
 }

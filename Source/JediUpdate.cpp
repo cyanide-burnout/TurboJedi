@@ -5,6 +5,7 @@
 #include "Version.h"
 #include "JediUpdate.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -13,6 +14,7 @@
 
 #define CONNECT_TIMEOUT  5     // Seconds, a network without a way out tells nothing and is not waited for long
 #define TRANSFER_TIMEOUT 10
+#define CHECK_INTERVAL   86400  // Seconds between checks on start
 
 // Helpers
 
@@ -51,9 +53,11 @@ static std::vector<long> ParseVersion(const std::string& text)
 
 JediUpdate::JediUpdate()
 {
-  ready = false;
-  multi = nullptr;
-  easy  = nullptr;
+  ready   = false;
+  multi   = nullptr;
+  easy    = nullptr;
+  startup = false;
+  checked = 0;
 }
 
 JediUpdate::~JediUpdate()
@@ -165,11 +169,69 @@ bool JediUpdate::poll()
     tag = found + strlen("/releases/tag/");
   }
 
+  // A failure counts as well, a machine without a way out is not asked again before a day is over
+  checked = time(nullptr);
+
   curl_multi_remove_handle(multi, easy);
   curl_easy_cleanup(easy);
   easy = nullptr;
 
   return true;
+}
+
+void JediUpdate::load(const std::string& path)
+{
+  FILE* file;
+  char line[256];
+  char* value;
+
+  this->path = path;
+
+  if ((path.empty()) ||
+      ((file = fopen(path.c_str(), "r")) == nullptr))
+  {
+    // Nothing chosen yet
+    return;
+  }
+
+  while (fgets(line, sizeof(line), file) != nullptr)
+  {
+    line[strcspn(line, "\r\n")] = '\0';
+
+    if ((value = strchr(line, '=')) == nullptr)
+    {
+      // Neither a key nor a value
+      continue;
+    }
+
+    *value ++ = '\0';
+
+    if (strcmp(line, "startup") == 0) startup = (strcmp(value, "yes") == 0);
+    if (strcmp(line, "checked") == 0) checked = strtoll(value, nullptr, 10);
+    if (strcmp(line, "shown")   == 0) shown   = value;
+  }
+
+  fclose(file);
+}
+
+void JediUpdate::save()
+{
+  FILE* file;
+
+  if ((path.empty()) ||
+      ((file = fopen(path.c_str(), "w")) == nullptr))
+  {
+    // Kept for this run only
+    return;
+  }
+
+  fprintf(file, "startup=%s\nchecked=%lld\nshown=%s\n", startup ? "yes" : "no", (long long)checked, shown.c_str());
+  fclose(file);
+}
+
+bool JediUpdate::due() const
+{
+  return startup && (time(nullptr) - checked >= CHECK_INTERVAL);
 }
 
 int JediUpdate::compare(const std::string& one, const std::string& other)

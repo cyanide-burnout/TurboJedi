@@ -25,6 +25,7 @@
 
 #define DEFAULT_HISTORY  1000
 #define LAST_LAYOUT      "last.jedi"
+#define UPDATE_SETTINGS  "update.ini"
 
 static int GetPriorityLevel(const char* value)
 {
@@ -95,7 +96,7 @@ static void RestoreTitle()
   WriteTerminal("\x1b[23;2t");
 }
 
-static std::string GetLastLayout()
+static std::string GetConfigPath(const char* name)
 {
   size_t position;
   const char* home;
@@ -111,7 +112,7 @@ static std::string GetLastLayout()
     mkdir(path.substr(0, position).c_str(), 0755);
   }
 
-  return path + LAST_LAYOUT;
+  return path + name;
 }
 
 static void PrintUsage(const char* name)
@@ -318,7 +319,7 @@ int main(int count, char* const* arguments)
     return EXIT_FAILURE;
   }
 
-  last   = GetLastLayout();
+  last   = GetConfigPath(LAST_LAYOUT);
   layout = (layout.empty() && !custom) ? last : layout;
 
   SetTextLocale();
@@ -329,7 +330,7 @@ int main(int count, char* const* arguments)
   WriteTerminal("\x1b[22;2t");
   atexit(RestoreTitle);
 
-  application = new JediApplication(filter, history, layout);
+  application = new JediApplication(filter, history, layout, GetConfigPath(UPDATE_SETTINGS));
 
   // Turbo Vision has probed the terminal for far2l extensions, tmux takes the probe for a title, ours goes after it
   WriteTerminal("\x1b]2;TurboJedi\x07");
