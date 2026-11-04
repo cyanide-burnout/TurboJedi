@@ -29,6 +29,8 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd and
   in a column per interval; a column takes every journal window to its time
 - Layouts: all windows with their filters, columns and places, saved to and opened from INI files;
   the last one comes back on the next start
+- Check for updates in the Help menu: asks GitHub for the latest release only when chosen, shows it
+  with the command of the install script; nothing goes to the network otherwise
 
 ## Installation
 
@@ -58,7 +60,7 @@ Alpine has no systemd, so there is no journal to show. Elsewhere TurboJedi build
 ## Building
 
 Debian packages: `build-essential cmake pkg-config libsystemd-dev libncurses-dev libpcre2-dev`, `libgpm-dev` for
-the mouse in the Linux console, and `grc` for its rule files if they are wanted
+the mouse in the Linux console, `libcurl4-openssl-dev` for Check for updates, and `grc` for its rule files if they are wanted
 
 ```
 git submodule update --init
@@ -69,6 +71,7 @@ sudo make install
 `make` builds tvision in `Import/tvision/build` first. `make install` puts the executable to `/usr/local/bin`
 and the manual page to `/usr/local/share/man/man1`, `PREFIX` and `DESTDIR` move them. Without libgpm the build
 goes on, with the mouse in terminal emulators only; the mouse of the Linux console needs the `gpm` service running.
+Without libcurl the Help menu has no Check for updates.
 
 ### Debian package
 
@@ -87,13 +90,13 @@ that architecture in place:
 ```
 sudo dpkg --add-architecture amd64
 sudo apt update
-sudo apt install crossbuild-essential-amd64 libsystemd-dev:amd64 libncurses-dev:amd64 libpcre2-dev:amd64 libgpm-dev:amd64
+sudo apt install crossbuild-essential-amd64 libsystemd-dev:amd64 libncurses-dev:amd64 libpcre2-dev:amd64 libgpm-dev:amd64 libcurl4-openssl-dev:amd64
 ```
 
 ### RPM package
 
 ```
-sudo dnf install rpm-build gcc-c++ make cmake systemd-devel ncurses-devel pcre2-devel gpm-devel
+sudo dnf install rpm-build gcc-c++ make cmake systemd-devel ncurses-devel pcre2-devel gpm-devel libcurl-devel
 make rpm
 ```
 
@@ -104,7 +107,7 @@ and gets it by `make rpm DIST=tumbleweed` or `DIST=leap16`.
 ### Arch Linux package
 
 ```
-sudo pacman -S --needed base-devel cmake git pkgconf gpm
+sudo pacman -S --needed base-devel cmake git pkgconf gpm curl
 make arch
 ```
 

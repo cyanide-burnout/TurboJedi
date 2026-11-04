@@ -133,8 +133,11 @@ TMenuBar* JediApplication::initMenuBar(TRect bounds)
       *new TMenuItem("~L~ist...",     cmJournalWindows, kbAlt0,    hcNoContext, "Alt-0") +
       *new TMenuItem("~C~lose",       cmClose,          kbAltF3,   hcNoContext, "Alt-F3") +
     *new TSubMenu("~H~elp", kbAltH) +
-      *new TMenuItem("~K~eys",        cmJournalHelp,   kbF1,      hcNoContext, "F1") +
-      *new TMenuItem("~A~bout",       cmJournalAbout,  kbNoKey));
+      *new TMenuItem("~K~eys",              cmJournalHelp,   kbF1,      hcNoContext, "F1") +
+#ifdef USE_LIBCURL
+      *new TMenuItem("Check for ~u~pdates", cmJournalUpdate, kbNoKey) +
+#endif
+      *new TMenuItem("~A~bout",             cmJournalAbout,  kbNoKey));
 }
 
 void JediApplication::getEvent(TEvent& event)
@@ -207,6 +210,10 @@ void JediApplication::handleEvent(TEvent& event)
       case cmJournalHelp:      showHelp();         break;
       case cmJournalTimeline:  timeline(current);  break;
       case cmJournalAbout:     showAbout();        break;
+#ifdef USE_LIBCURL
+      case cmJournalUpdate:    checkUpdate();      break;
+      case cmJournalUpdated:   showUpdate();       break;
+#endif
       default:                                     return;
     }
 
@@ -236,6 +243,24 @@ void JediApplication::idle()
     ticks        = THardwareInfo::getTickCountMs();
     poll.timeout = (repeat > ticks) ? std::min<int>(poll.timeout, repeat - ticks) : 0;
   }
+
+#ifdef USE_LIBCURL
+  if (update.busy())
+  {
+    // The check goes on between the events, its result comes as a command so that the dialog is not opened from idle()
+    poll.timeout = std::min(poll.timeout, 50);
+
+    if (update.poll())
+    {
+      TEvent event;
+
+      event.what            = evCommand;
+      event.message.command = cmJournalUpdated;
+      event.message.infoPtr = nullptr;
+      putEvent(event);
+    }
+  }
+#endif
 
   eventTimeoutMs = poll.timeout;
 
@@ -590,5 +615,71 @@ void JediApplication::showHelp()
 
 void JediApplication::showAbout()
 {
-  messageBox("\003TurboJedi " VERSION "\n\003Turbo Journald Interface\n\003Artem Prilutskiy, 2026", mfInformation | mfOKButton);
+  TRect bounds;
+
+  // Wider than a message box usually is, the address fits on its line
+  bounds = TRect(0, 0, 44, 10);
+  bounds.move((deskTop->size.x - bounds.b.x) / 2, (deskTop->size.y - bounds.b.y) / 2);
+
+  messageBoxRect(bounds, "\003TurboJedi " VERSION "\n\003Turbo Journald Interface\n\003Artem Prilutskiy, 2026\n\n\003github.com/cyanide-burnout/TurboJedi", mfInformation | mfOKButton);
 }
+
+#ifdef USE_LIBCURL
+
+void JediApplication::checkUpdate()
+{
+  if ((!update.busy()) &&
+      (!update.start()))
+  {
+    // A check running already shows its result when it is over
+    messageBox("Cannot check for updates: libcurl cannot be set up", mfError | mfOKButton);
+  }
+}
+
+void JediApplication::showUpdate()
+{
+  int width;
+  TRect bounds;
+  PageDialog* dialog;
+  std::vector<std::string> lines;
+
+  if (!update.error.empty())
+  {
+    // No way out to the network is usual for a server
+    messageBox(mfError | mfOKButton, "Cannot check for updates: %s", update.error.c_str());
+    return;
+  }
+
+  if (JediUpdate::compare(VERSION, update.tag) >= 0)
+  {
+    // A build after the latest release counts as that release
+    messageBox(mfInformation | mfOKButton, "\003TurboJedi " VERSION " is up to date, the latest release is %s", update.tag.c_str());
+    return;
+  }
+
+  lines.push_back("TurboJedi " + update.tag + " is out, this build is " VERSION);
+  lines.push_back("");
+  lines.push_back("The release and its packages:");
+  lines.push_back("  " JEDI_UPDATE_REPOSITORY "/releases/tag/" + update.tag);
+  lines.push_back("");
+  lines.push_back("Debian, Ubuntu, Fedora, RHEL, Amazon Linux, openSUSE and Arch update with the install script:");
+  lines.push_back("  " JEDI_UPDATE_COMMAND);
+
+  width = 0;
+
+  for (const std::string& line : lines)
+  {
+    // Frame, scroll bar and a column of room
+    width = std::max(width, strwidth(line) + 4);
+  }
+
+  // As large as the text with the buttons under it, not larger than the desktop
+  bounds = TRect(0, 0, std::min<int>(width, deskTop->size.x), std::min<int>(lines.size() + 5, deskTop->size.y));
+  bounds.move((deskTop->size.x - bounds.b.x) / 2, (deskTop->size.y - bounds.b.y) / 2);
+  dialog = new PageDialog(bounds, "Update", lines);
+
+  deskTop->execView(dialog);
+  TObject::destroy(dialog);
+}
+
+#endif

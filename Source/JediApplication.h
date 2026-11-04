@@ -16,6 +16,9 @@
 #include <string>
 
 #include "JediClock.h"
+#ifdef USE_LIBCURL
+#include "JediUpdate.h"
+#endif
 #include "JournalTools.h"
 #include "JournalWindow.h"
 
@@ -42,6 +45,9 @@ class JediApplication : public TApplication
     MouseEventType held;  // The mouse with a button held, buttons are zero when none is
     uint64_t repeat;      // Milliseconds of Turbo Vision when the held button repeats
     std::string place;    // Path of the layout opened or saved the last time, empty before
+#ifdef USE_LIBCURL
+    JediUpdate update;    // Latest release on GitHub, asked from the Help menu
+#endif
 
     void open(const JournalFilter& filter);
     void clone();
@@ -52,6 +58,10 @@ class JediApplication : public TApplication
     void chooseSave();
     void showHelp();
     void showAbout();
+#ifdef USE_LIBCURL
+    void checkUpdate();
+    void showUpdate();
+#endif
     void timeline(JournalWindow* current);
 
     static TStatusLine* initStatusLine(TRect bounds);

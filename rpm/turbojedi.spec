@@ -21,6 +21,7 @@ BuildRequires:  pkgconfig
 BuildRequires:  systemd-devel
 BuildRequires:  ncurses-devel
 BuildRequires:  pcre2-devel
+BuildRequires:  libcurl-devel
 
 # Mouse of the Linux console, EL10 has no GPM
 %if 0%{?rhel} < 10

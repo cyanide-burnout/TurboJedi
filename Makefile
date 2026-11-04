@@ -63,6 +63,13 @@ OBJECTS := \
 	$(SOURCE)/DirectoryDialog.o \
 	$(TURBOVISION)/build/libtvision.a
 
+# libcurl lets the Help menu check for a newer release, without it the item is left out
+ifeq ($(shell $(PKG_CONFIG) --exists libcurl && echo yes), yes)
+	DEPENDENCIES += libcurl
+	OBJECTS      += $(SOURCE)/JediUpdate.o
+	FLAGS        += -DUSE_LIBCURL
+endif
+
 FLAGS += \
 	-Wno-unused-result -O2 -flto=auto -MMD -gdwarf \
 	-I$(TURBOVISION)/include \
@@ -87,7 +94,7 @@ $(TURBOVISION)/build/libtvision.a:
 $(SOURCE)/Version.h: FORCE
 	@echo '#define VERSION "$(VERSION)"' | cmp -s - $@ || echo '#define VERSION "$(VERSION)"' > $@
 
-$(SOURCE)/TurboJedi.o $(SOURCE)/JediApplication.o: $(SOURCE)/Version.h
+$(SOURCE)/TurboJedi.o $(SOURCE)/JediApplication.o $(SOURCE)/JediUpdate.o: $(SOURCE)/Version.h
 
 # Internal headers of Turbo Vision include each other from there, only the event source needs them
 $(SOURCE)/JournalSource.o: CXXFLAGS += -I$(TURBOVISION)/include/tvision

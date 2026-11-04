@@ -15,16 +15,16 @@ if command -v apt-get > /dev/null
 then
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -q
-  apt-get install -y -q --no-install-recommends build-essential debhelper cmake pkgconf git ca-certificates libsystemd-dev libncurses-dev libpcre2-dev libgpm-dev
+  apt-get install -y -q --no-install-recommends build-essential debhelper cmake pkgconf git ca-certificates libsystemd-dev libncurses-dev libpcre2-dev libgpm-dev libcurl4-openssl-dev
 elif command -v pacman > /dev/null
 then
-  pacman -Syu --noconfirm --needed base-devel cmake git pkgconf systemd-libs ncurses pcre2 gpm
+  pacman -Syu --noconfirm --needed base-devel cmake git pkgconf systemd-libs ncurses pcre2 gpm curl
 elif command -v zypper > /dev/null
 then
   # Tumbleweed images carry tools of busybox in place of those rpm-build wants, they give way
-  zypper -n -q install --force-resolution gcc-c++ make cmake pkgconf git rpm-build gcc-PIE systemd-devel ncurses-devel pcre2-devel gpm-devel
+  zypper -n -q install --force-resolution gcc-c++ make cmake pkgconf git rpm-build gcc-PIE systemd-devel ncurses-devel pcre2-devel gpm-devel libcurl-devel
 else
-  dnf install -y -q gcc-c++ make cmake pkgconf-pkg-config git rpm-build systemd-devel ncurses-devel pcre2-devel
+  dnf install -y -q gcc-c++ make cmake pkgconf-pkg-config git rpm-build systemd-devel ncurses-devel pcre2-devel libcurl-devel
 
   # Mouse of the Linux console, EL10 has no GPM and builds without it
   dnf install -y -q gpm-devel || true

@@ -26,6 +26,8 @@ enum
   cmJournalWrap,
   cmJournalHelp,
   cmJournalAbout,
+  cmJournalUpdate,
+  cmJournalUpdated,            // The check for a newer release is over
   cmJournalGoTo,
   cmJournalSync,
   cmJournalSyncTo,             // Broadcast with a JournalMoment
