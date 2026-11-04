@@ -618,7 +618,7 @@ void JediApplication::showAbout()
   TRect bounds;
 
   // Wider than a message box usually is, the address fits on its line
-  bounds = TRect(0, 0, 44, 10);
+  bounds = TRect(0, 0, 44, 11);
   bounds.move((deskTop->size.x - bounds.b.x) / 2, (deskTop->size.y - bounds.b.y) / 2);
 
   messageBoxRect(bounds, "\003TurboJedi " VERSION "\n\003Turbo Journald Interface\n\003Artem Prilutskiy, 2026\n\n\003github.com/cyanide-burnout/TurboJedi", mfInformation | mfOKButton);
