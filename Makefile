@@ -66,7 +66,7 @@ OBJECTS := \
 # libcurl lets the Help menu check for a newer release, without it the item is left out
 ifeq ($(shell $(PKG_CONFIG) --exists libcurl && echo yes), yes)
 	DEPENDENCIES += libcurl
-	OBJECTS      += $(SOURCE)/JediUpdate.o
+	OBJECTS      += $(SOURCE)/JediUpdate.o $(SOURCE)/UpdateDialog.o
 	FLAGS        += -DUSE_LIBCURL
 endif
 

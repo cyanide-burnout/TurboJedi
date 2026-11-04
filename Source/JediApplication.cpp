@@ -25,6 +25,9 @@
 #include "TimelineWindow.h"
 #include "Commands.h"
 #include "JournalSource.h"
+#ifdef USE_LIBCURL
+#include "UpdateDialog.h"
+#endif
 
 #include <time.h>
 #include <stdio.h>
@@ -638,11 +641,9 @@ void JediApplication::checkUpdate()
 
 void JediApplication::showUpdate()
 {
-  int width;
   TRect bounds;
-  PageDialog* dialog;
   std::string text;
-  std::vector<std::string> lines;
+  UpdateDialog* dialog;
 
   if (!update.error.empty())
   {
@@ -662,26 +663,7 @@ void JediApplication::showUpdate()
     return;
   }
 
-  lines.push_back("TurboJedi " + update.tag + " is out, this build is " VERSION);
-  lines.push_back("");
-  lines.push_back("The release and its packages:");
-  lines.push_back("  " JEDI_UPDATE_REPOSITORY "/releases/tag/" + update.tag);
-  lines.push_back("");
-  lines.push_back("Debian, Ubuntu, Fedora, RHEL, Amazon Linux, openSUSE and Arch update with the install script:");
-  lines.push_back("  " JEDI_UPDATE_COMMAND);
-
-  width = 0;
-
-  for (const std::string& line : lines)
-  {
-    // Frame, scroll bar and a column of room
-    width = std::max(width, strwidth(line) + 4);
-  }
-
-  // As large as the text with the buttons under it, not larger than the desktop
-  bounds = TRect(0, 0, std::min<int>(width, deskTop->size.x), std::min<int>(lines.size() + 5, deskTop->size.y));
-  bounds.move((deskTop->size.x - bounds.b.x) / 2, (deskTop->size.y - bounds.b.y) / 2);
-  dialog = new PageDialog(bounds, "Update", lines);
+  dialog = new UpdateDialog("TurboJedi " + update.tag + " is out, this build is " VERSION, JEDI_UPDATE_REPOSITORY "/releases/tag/" + update.tag, JEDI_UPDATE_COMMAND, deskTop->size.x);
 
   deskTop->execView(dialog);
   TObject::destroy(dialog);

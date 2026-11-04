@@ -28,6 +28,8 @@ enum
   cmJournalAbout,
   cmJournalUpdate,
   cmJournalUpdated,            // The check for a newer release is over
+  cmUpdateCopyLink,
+  cmUpdateCopyCommand,
   cmJournalGoTo,
   cmJournalSync,
   cmJournalSyncTo,             // Broadcast with a JournalMoment
