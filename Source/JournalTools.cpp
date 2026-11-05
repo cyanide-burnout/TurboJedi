@@ -6,6 +6,7 @@
 
 #include <pwd.h>
 #include <time.h>
+#include <fcntl.h>
 #include <signal.h>
 #include <stdint.h>
 #include <unistd.h>
@@ -348,13 +349,120 @@ static long page;
 static volatile sig_atomic_t faults;
 static struct sigaction previous;
 
+// What a signal handler may call only: open(), read(), close() and the functions of memory and strings, no allocation
+
+static int GetHexDigit(char character)
+{
+  if ((character >= '0') && (character <= '9')) return character - '0';
+  if ((character >= 'a') && (character <= 'f')) return character - 'a' + 10;
+  return -1;
+}
+
+static bool EndsWith(const char* text, size_t length, const char* tail)
+{
+  size_t size;
+
+  size = strlen(tail);
+  return (length >= size) && (memcmp(text + length - size, tail, size) == 0);
+}
+
+static bool IsJournalLine(const char* line, size_t length, uintptr_t address)
+{
+  int digit;
+  int field;
+  size_t index;
+  uintptr_t start;
+  uintptr_t end;
+
+  // start-end perms offset dev inode path, as /proc/self/maps has it
+  start = 0;
+  end   = 0;
+
+  for (index = 0; (index < length) && ((digit = GetHexDigit(line[index])) >= 0); index ++) start = start * 16 + digit;
+
+  if ((index >= length) ||
+      (line[index ++] != '-'))
+  {
+    return false;
+  }
+
+  for (; (index < length) && ((digit = GetHexDigit(line[index])) >= 0); index ++) end = end * 16 + digit;
+
+  if ((address < start) ||
+      (address >= end))
+  {
+    // Another mapping
+    return false;
+  }
+
+  for (field = 0; field < 4; field ++)
+  {
+    // Up to the path
+    for (; (index < length) && (line[index] == ' '); index ++);
+    for (; (index < length) && (line[index] != ' '); index ++);
+  }
+
+  for (; (index < length) && (line[index] == ' '); index ++);
+
+  line   += index;
+  length -= index;
+  length -= EndsWith(line, length, " (deleted)") ? strlen(" (deleted)") : 0;
+
+  // A file of a journal, rotated away or archived dirty as well; only libsystemd maps them in TurboJedi
+  return EndsWith(line, length, ".journal") || EndsWith(line, length, ".journal~");
+}
+
+static bool IsJournalMapping(uintptr_t address)
+{
+  int handle;
+  bool found;
+  size_t used;
+  size_t begin;
+  size_t index;
+  ssize_t length;
+  char buffer[8192];
+
+  if ((handle = open("/proc/self/maps", O_RDONLY | O_CLOEXEC)) < 0)
+  {
+    // Nothing to tell it by, the fault is not taken for a journal one
+    return false;
+  }
+
+  found = false;
+  used  = 0;
+
+  while ((!found) &&
+         ((length = read(handle, buffer + used, sizeof(buffer) - used)) > 0))
+  {
+    used += length;
+
+    for (begin = 0, index = 0; index < used; index ++)
+    {
+      if (buffer[index] == '\n')
+      {
+        found = found || IsJournalLine(buffer + begin, index - begin, address);
+        begin = index + 1;
+      }
+    }
+
+    // The part of a line read so far goes in front of the rest, a line longer than the buffer has no path of interest
+    memmove(buffer, buffer + begin, used - begin);
+    used = (used - begin < sizeof(buffer)) ? (used - begin) : 0;
+  }
+
+  close(handle);
+  return found;
+}
+
 static void HandleJournalFault(int number, siginfo_t* information, void* context)
 {
   void* address;
 
   address = (void*)((uintptr_t)information->si_addr & ~((uintptr_t)page - 1));
 
+  // Only a page of a mapped file of a journal is replaced, any other fault is not ours to hide
   if ((information->si_code == BUS_ADRERR) &&
+      (IsJournalMapping((uintptr_t)information->si_addr)) &&
       (mmap(address, page, PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0) != MAP_FAILED))
   {
     // The access made again reads zeros, the way systemd itself survives a journal file cut short
