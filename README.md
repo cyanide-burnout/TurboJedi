@@ -210,7 +210,9 @@ turbojedi -D /mnt/journals/web1
 ```
 
 The files are `root:systemd-journal` with mode 0640 and NFS compares numbers: the user who reads them needs a group with
-the GID `systemd-journal` has on that machine, root reads them only with `no_root_squash` in the export.
+the GID `systemd-journal` has on that machine, root reads them only with `no_root_squash` in the export. A mount of NFS is
+`hard` unless told otherwise: while the server is away, and during its grace period of 90 seconds after a start, the windows
+wait for it the way every program on that mount does, and go on when it answers.
 
 A window per machine, each with its directory chosen by Shift-F7, puts several machines side by side: Alt-G takes every
 window to the time of the selected line, and a layout keeps their directories for the next start.

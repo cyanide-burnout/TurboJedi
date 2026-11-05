@@ -254,6 +254,21 @@ bool SeekJournalPlace(sd_journal* journal, sd_journal* source)
   return true;
 }
 
+static void RefreshJournalFile(const std::string& path)
+{
+  int handle;
+  char byte;
+  struct stat status;
+
+  // FUSE takes in the changes of a file when it sees its attributes, NFS when the file is read: a mapping does neither
+  if ((handle = open(path.c_str(), O_RDONLY | O_CLOEXEC)) >= 0)
+  {
+    fstat(handle, &status);
+    pread(handle, &byte, 1, 0);
+    close(handle);
+  }
+}
+
 static void ListJournalFiles(const std::string& directory, int depth, std::vector<std::string>& files)
 {
   DIR* handle;
@@ -273,15 +288,15 @@ static void ListJournalFiles(const std::string& directory, int depth, std::vecto
     path   = directory + "/" + entry->d_name;
     length = strlen(entry->d_name);
 
-    if ((entry->d_name[0] == '.') ||
-        (stat(path.c_str(), &status) < 0))
+    if (entry->d_name[0] == '.')
     {
-      // Hidden ones, those gone meanwhile
+      // Hidden ones
       continue;
     }
 
-    if ((S_ISDIR(status.st_mode)) &&
-        (depth > 0))
+    if ((depth > 0) &&
+        ((entry->d_type == DT_DIR) ||
+         ((entry->d_type == DT_UNKNOWN) && (stat(path.c_str(), &status) == 0) && (S_ISDIR(status.st_mode)))))
     {
       // Directories of machine IDs, as libsystemd takes them
       ListJournalFiles(path, depth - 1, files);
@@ -291,8 +306,14 @@ static void ListJournalFiles(const std::string& directory, int depth, std::vecto
     if (((length > 8) && (strcmp(entry->d_name + length - 8, ".journal") == 0)) ||
         ((length > 9) && (strcmp(entry->d_name + length - 9, ".journal~") == 0)))
     {
-      // The inode tells a new file under the name of a rotated one
-      files.push_back(path + ":" + std::to_string(status.st_ino));
+      if (strchr(entry->d_name, '@') == nullptr)
+      {
+        // An archived one has @ in its name and does not change anymore, only the files written to are looked at
+        RefreshJournalFile(path);
+      }
+
+      // A rotation archives the file under a name of its own, the set of names tells it
+      files.push_back(path);
     }
   }
 
