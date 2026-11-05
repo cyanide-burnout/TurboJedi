@@ -75,6 +75,18 @@ int GetJournalWait(sd_journal* journal, int limit);
 std::vector<std::string> ReadJournalEntry(const JournalFilter& filter, const std::string& cursor);
 bool GetJournalField(sd_journal* journal, const char* name, char* buffer, size_t size);
 
+// The file system of the journal tells nothing about its changes: a network one, which libsystemd knows, or FUSE such as sshfs,
+// which it does not; such a journal is read on every poll instead of when inotify tells
+bool IsJournalBlind(sd_journal* journal, const JournalFilter& filter);
+
+// Files of a journal directory and of the directories of machine IDs in it, each looked at: FUSE gives what a journal has mapped
+// anew only when it sees a change of a file. True when the files differ from the signature, which takes them then: a rotation
+// brings a new file and libsystemd does not see it without inotify
+bool CheckJournalFiles(const std::string& directory, std::string& signature);
+
+// The journal opened again with its filter, on the place it has read up to; false keeps the old one
+bool ReopenJournal(sd_journal** journal, const JournalFilter& filter);
+
 // Puts the journal on the entry another one has read last, so next() goes on after it; false when the other has read nothing
 bool SeekJournalPlace(sd_journal* journal, sd_journal* source);
 

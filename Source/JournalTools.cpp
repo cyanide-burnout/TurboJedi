@@ -10,7 +10,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <dirent.h>
+#include <sys/vfs.h>
+#include <sys/stat.h>
+#include <linux/magic.h>
 
+#include <vector>
 #include <algorithm>
 
 #define PID_SCAN  100000  // Recent entries to learn the names of processes from
@@ -201,6 +206,107 @@ int GetJournalWait(sd_journal* journal, int limit)
   moment = now.tv_sec * 1000000ULL + now.tv_nsec / 1000;
 
   return (timeout > moment) ? (int)std::min<uint64_t>(limit, (timeout - moment + 999) / 1000) : 0;
+}
+
+bool IsJournalBlind(sd_journal* journal, const JournalFilter& filter)
+{
+  struct statfs information;
+
+  return (sd_journal_reliable_fd(journal) <= 0) ||
+         ((!filter.directory.empty()) &&
+          (statfs(filter.directory.c_str(), &information) == 0) &&
+          (information.f_type == FUSE_SUPER_MAGIC));
+}
+
+static void ListJournalFiles(const std::string& directory, int depth, std::vector<std::string>& files)
+{
+  DIR* handle;
+  size_t length;
+  std::string path;
+  struct stat status;
+  struct dirent* entry;
+
+  if ((handle = opendir(directory.c_str())) == nullptr)
+  {
+    // Gone or not readable, the journal tells about it
+    return;
+  }
+
+  while ((entry = readdir(handle)) != nullptr)
+  {
+    path   = directory + "/" + entry->d_name;
+    length = strlen(entry->d_name);
+
+    if ((entry->d_name[0] == '.') ||
+        (stat(path.c_str(), &status) < 0))
+    {
+      // Hidden ones, those gone meanwhile
+      continue;
+    }
+
+    if ((S_ISDIR(status.st_mode)) &&
+        (depth > 0))
+    {
+      // Directories of machine IDs, as libsystemd takes them
+      ListJournalFiles(path, depth - 1, files);
+      continue;
+    }
+
+    if (((length > 8) && (strcmp(entry->d_name + length - 8, ".journal") == 0)) ||
+        ((length > 9) && (strcmp(entry->d_name + length - 9, ".journal~") == 0)))
+    {
+      // The inode tells a new file under the name of a rotated one
+      files.push_back(path + ":" + std::to_string(status.st_ino));
+    }
+  }
+
+  closedir(handle);
+}
+
+bool CheckJournalFiles(const std::string& directory, std::string& signature)
+{
+  std::string text;
+  std::vector<std::string> files;
+
+  ListJournalFiles(directory, 1, files);
+  std::sort(files.begin(), files.end());
+
+  for (const std::string& file : files)
+  {
+    text += file;
+    text += '\n';
+  }
+
+  if (text == signature)
+  {
+    // The same files, their changes are in sight now
+    return false;
+  }
+
+  signature = text;
+  return true;
+}
+
+bool ReopenJournal(sd_journal** journal, const JournalFilter& filter)
+{
+  sd_journal* fresh;
+
+  if (OpenJournalQuery(&fresh, filter) < 0)
+  {
+    // The old one goes on with the files it has
+    return false;
+  }
+
+  if (!SeekJournalPlace(fresh, *journal))
+  {
+    // Nothing read yet, what comes after the tail is next
+    sd_journal_seek_tail(fresh);
+    sd_journal_previous(fresh);
+  }
+
+  sd_journal_close(*journal);
+  *journal = fresh;
+  return true;
 }
 
 bool SeekJournalPlace(sd_journal* journal, sd_journal* source)

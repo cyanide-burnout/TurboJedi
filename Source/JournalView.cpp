@@ -111,6 +111,7 @@ JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar
   highlighter = JournalHighlighter::get(filter.highlight);
   journal     = nullptr;
   notifier    = nullptr;
+  blind       = false;
   header   = nullptr;
   since    = 0;
   until    = 0;
@@ -158,6 +159,7 @@ JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar
   options  |= ofFirstClick;
   journal   = nullptr;
   notifier  = nullptr;
+  blind     = false;
   header    = nullptr;
   layout    = 0;
   moving    = false;
@@ -175,8 +177,7 @@ JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar
 
   if (journal != nullptr)
   {
-    // Change notification for sd_journal_process(), the wait of the application ends on it as well
-    notifier = CreateJournalSource(sd_journal_get_fd(journal));
+    attach();
 
     if (!SeekJournalPlace(journal, source.journal))
     {
@@ -525,7 +526,18 @@ void JournalView::handleEvent(TEvent& event)
     case evBroadcast:
       if ((event.message.command == cmJournalPoll) &&
           (journal != nullptr) &&
-          (pending || (sd_journal_process(journal) != SD_JOURNAL_NOP)))
+          (blind) &&
+          (CheckJournalFiles(filter.directory, files)) &&
+          (ReopenJournal(&journal, filter)))
+      {
+        // A rotation on a file system without inotify, the new file comes in with the journal opened again
+        ReleaseJournalSource(notifier);
+        attach();
+      }
+
+      if ((event.message.command == cmJournalPoll) &&
+          (journal != nullptr) &&
+          (pending || (sd_journal_process(journal) != SD_JOURNAL_NOP) || blind))
       {
         // Never clear the poll, every window has to get it
         count = first + lines.size();
@@ -595,6 +607,20 @@ const JournalFilter& JournalView::getFilter() const
   return filter;
 }
 
+void JournalView::attach()
+{
+  // Change notification for sd_journal_process(), the wait of the application ends on it as well;
+  // a file system without it is looked at on every poll, the files it has now tell a rotation later
+  notifier = CreateJournalSource(sd_journal_get_fd(journal));
+  blind    = IsJournalBlind(journal, filter);
+  files.clear();
+
+  if (blind)
+  {
+    CheckJournalFiles(filter.directory, files);
+  }
+}
+
 void JournalView::open()
 {
   int result;
@@ -641,8 +667,7 @@ void JournalView::open()
     return;
   }
 
-  // Change notification for sd_journal_process(), the wait of the application ends on it as well
-  notifier = CreateJournalSource(sd_journal_get_fd(journal));
+  attach();
 
   if (!filter.until.empty())
   {

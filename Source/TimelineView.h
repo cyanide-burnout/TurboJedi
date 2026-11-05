@@ -51,6 +51,8 @@ class TimelineView : public TScroller
 
     sd_journal* journal;
     JournalSource* notifier;  // Wakes the application when the journal changes
+    bool blind;               // Its file system tells nothing about the changes, it is read on every poll
+    std::string files;        // Of the directory of a blind journal, a change of them opens the journal again
     JournalFilter filter;
     JournalMatcher matcher;  // Text of the filter, applied the way a journal window applies it
     std::string error;       // Why there is nothing to show
@@ -70,6 +72,7 @@ class TimelineView : public TScroller
     std::vector<Interval> intervals;
     size_t cursor;
 
+    void attach();
     void open();
     void begin(uint64_t fixed);
     void read();

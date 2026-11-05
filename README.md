@@ -11,6 +11,7 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd and
 ## Features
 
 - Windows with journals and filters of their own: journals of this machine, of every machine or of a directory,
+  one mounted from another machine over SSH or NFS as well,
   levels, source (unit, identifier, command, transport, boot, user, machine, PID,
   any `FIELD=VALUE`), time range, and text, plain or a regular expression of PCRE2, to show or to leave out
 - Follows the tail, Space pauses; scrolling above the first line brings the older entries in
@@ -172,6 +173,46 @@ sudo turbojedi --clipboard-copy "sudo -u $USER $HOME/remote-copy.sh"
 ```
 
 Your shell puts in `$USER` and `$HOME` before `sudo` starts.
+
+## Journals of other machines
+
+A journal directory mounted from another machine opens with `-D` or Shift-F7 like any other directory, with the filters,
+the history, the timeline, the details and Alt-G. `/var/log/journal` opens as it is, with the directories of machine IDs
+in it; a machine that keeps its journal in memory only (`Storage=volatile`) has it in `/run/log/journal`. A network file
+system or FUSE tells nothing about appended entries and new files, TurboJedi looks at the files every second instead and
+opens the journal again after a rotation.
+
+Over SSH with sshfs, as a user of the group `systemd-journal` on that machine or as root:
+
+```
+mkdir -p ~/journals/web1
+sshfs -o ro,reconnect,cache=no,ServerAliveInterval=15 admin@web1:/var/log/journal ~/journals/web1
+turbojedi -D ~/journals/web1
+fusermount -u ~/journals/web1
+```
+
+`cache=no` lets the appended entries in at once, sshfs keeps what it knows about a file for 20 seconds otherwise and they
+come in by those steps.
+
+Over NFS, exported read-only by that machine in `/etc/exports`:
+
+```
+/var/log/journal  monitor.example.com(ro,no_subtree_check)
+```
+
+and mounted where TurboJedi runs:
+
+```
+sudo mkdir -p /mnt/journals/web1
+sudo mount -t nfs -o ro web1:/var/log/journal /mnt/journals/web1
+turbojedi -D /mnt/journals/web1
+```
+
+The files are `root:systemd-journal` with mode 0640 and NFS compares numbers: the user who reads them needs a group with
+the GID `systemd-journal` has on that machine, root reads them only with `no_root_squash` in the export.
+
+A window per machine, each with its directory chosen by Shift-F7, puts several machines side by side: Alt-G takes every
+window to the time of the selected line, and a layout keeps their directories for the next start.
 
 ## Keys
 

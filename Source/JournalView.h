@@ -78,6 +78,8 @@ class JournalView : public TScroller
 
     sd_journal* journal;
     JournalSource* notifier;  // Wakes the application when the journal changes
+    bool blind;               // Its file system tells nothing about the changes, it is read on every poll
+    std::string files;        // Of the directory of a blind journal, a change of them opens the journal again
     JournalFilter filter;
     int history;
     size_t capacity;
@@ -120,6 +122,7 @@ class JournalView : public TScroller
     std::string status;
     std::string caption;
 
+    void attach();
     void open();
     void read();
     size_t back();

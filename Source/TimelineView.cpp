@@ -87,6 +87,7 @@ TimelineView::TimelineView(const TRect& bounds, TScrollBar* horizontal, const Jo
   options    |= ofFirstClick;
   journal     = nullptr;
   notifier    = nullptr;
+  blind       = false;
   since       = 0;
   until       = 0;
   start       = 0;
@@ -125,6 +126,7 @@ TimelineView::TimelineView(const TRect& bounds, TScrollBar* horizontal, const Ti
   options    |= ofFirstClick;
   journal     = nullptr;
   notifier    = nullptr;
+  blind       = false;
 
   // The expression is compiled again, it is not shared
   matcher.set(filter.text, filter.mode);
@@ -138,8 +140,7 @@ TimelineView::TimelineView(const TRect& bounds, TScrollBar* horizontal, const Ti
 
   if (journal != nullptr)
   {
-    // Change notification for sd_journal_process(), the wait of the application ends on it as well
-    notifier = CreateJournalSource(sd_journal_get_fd(journal));
+    attach();
 
     if (!SeekJournalPlace(journal, source.journal))
     {
@@ -403,8 +404,18 @@ void TimelineView::handleEvent(TEvent& event)
       (event.message.command == cmJournalPoll) &&
       (journal != nullptr))
   {
+    if ((blind) &&
+        (!closed) &&
+        (CheckJournalFiles(filter.directory, files)) &&
+        (ReopenJournal(&journal, filter)))
+    {
+      // A rotation on a file system without inotify, the new file comes in with the journal opened again
+      ReleaseJournalSource(notifier);
+      attach();
+    }
+
     // Never clear the poll, every window has to get it; inotify is cleared after the range as well, it would wake the application all along
-    if (((sd_journal_process(journal) != SD_JOURNAL_NOP) || pending) &&
+    if (((sd_journal_process(journal) != SD_JOURNAL_NOP) || pending || blind) &&
         (!closed))
     {
       read();
@@ -440,6 +451,20 @@ bool TimelineView::getLogarithmic()
   return logarithmic;
 }
 
+void TimelineView::attach()
+{
+  // Change notification for sd_journal_process(), the wait of the application ends on it as well;
+  // a file system without it is looked at on every poll, the files it has now tell a rotation later
+  notifier = CreateJournalSource(sd_journal_get_fd(journal));
+  blind    = IsJournalBlind(journal, filter);
+  files.clear();
+
+  if (blind)
+  {
+    CheckJournalFiles(filter.directory, files);
+  }
+}
+
 void TimelineView::open()
 {
   int result;
@@ -460,8 +485,7 @@ void TimelineView::open()
     return;
   }
 
-  // Change notification for sd_journal_process(), the wait of the application ends on it as well
-  notifier = CreateJournalSource(sd_journal_get_fd(journal));
+  attach();
 
   if (!filter.until.empty())
   {
