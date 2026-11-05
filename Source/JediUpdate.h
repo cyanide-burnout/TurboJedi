@@ -11,8 +11,11 @@
 
 #include <curl/curl.h>
 
-#define JEDI_UPDATE_REPOSITORY  "https://github.com/cyanide-burnout/TurboJedi"
-#define JEDI_UPDATE_COMMAND     "curl -fsSL https://raw.githubusercontent.com/cyanide-burnout/TurboJedi/master/install.sh | sh"
+#include "Version.h"
+
+// Of the repository the build comes from, the install script of its default branch
+#define JEDI_UPDATE_REPOSITORY  "https://github.com/" REPOSITORY
+#define JEDI_UPDATE_COMMAND     "curl -fsSL https://raw.githubusercontent.com/" REPOSITORY "/HEAD/install.sh | sh"
 
 // Latest release of GitHub, asked when the user wants to know or on start once a day when the user has chosen so:
 // the redirect of releases/latest names its tag, nothing else is read. The transfer goes on in idle() of the application,

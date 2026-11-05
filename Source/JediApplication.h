@@ -16,7 +16,7 @@
 #include <string>
 
 #include "JediClock.h"
-#ifdef USE_LIBCURL
+#ifdef USE_UPDATE
 #include "JediUpdate.h"
 #endif
 #include "JournalTools.h"
@@ -45,7 +45,7 @@ class JediApplication : public TApplication
     MouseEventType held;  // The mouse with a button held, buttons are zero when none is
     uint64_t repeat;      // Milliseconds of Turbo Vision when the held button repeats
     std::string place;    // Path of the layout opened or saved the last time, empty before
-#ifdef USE_LIBCURL
+#ifdef USE_UPDATE
     JediUpdate update;    // Latest release on GitHub, asked from the Help menu or on start
     bool automatic;       // The running check has begun on start, it tells only about a newer release
 #endif
@@ -59,7 +59,7 @@ class JediApplication : public TApplication
     void chooseSave();
     void showHelp();
     void showAbout();
-#ifdef USE_LIBCURL
+#ifdef USE_UPDATE
     void checkUpdate();
     void showUpdate();
 #endif

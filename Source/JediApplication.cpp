@@ -25,7 +25,7 @@
 #include "TimelineWindow.h"
 #include "Commands.h"
 #include "JournalSource.h"
-#ifdef USE_LIBCURL
+#ifdef USE_UPDATE
 #include "UpdateDialog.h"
 #endif
 
@@ -70,7 +70,7 @@ JediApplication::JediApplication(const JournalFilter& filter, int history, const
     open(filter);
   }
 
-#ifdef USE_LIBCURL
+#ifdef USE_UPDATE
   update.load(settings);
   automatic = update.due() && update.start();
 #endif
@@ -142,7 +142,7 @@ TMenuBar* JediApplication::initMenuBar(TRect bounds)
       *new TMenuItem("~C~lose",       cmClose,          kbAltF3,   hcNoContext, "Alt-F3") +
     *new TSubMenu("~H~elp", kbAltH) +
       *new TMenuItem("~K~eys",              cmJournalHelp,   kbF1,      hcNoContext, "F1") +
-#ifdef USE_LIBCURL
+#ifdef USE_UPDATE
       *new TMenuItem("Check for ~u~pdates", cmJournalUpdate, kbNoKey) +
 #endif
       *new TMenuItem("~A~bout",             cmJournalAbout,  kbNoKey));
@@ -218,7 +218,7 @@ void JediApplication::handleEvent(TEvent& event)
       case cmJournalHelp:      showHelp();         break;
       case cmJournalTimeline:  timeline(current);  break;
       case cmJournalAbout:     showAbout();        break;
-#ifdef USE_LIBCURL
+#ifdef USE_UPDATE
       case cmJournalUpdate:    checkUpdate();      break;
       case cmJournalUpdated:   showUpdate();       break;
 #endif
@@ -252,7 +252,7 @@ void JediApplication::idle()
     poll.timeout = (repeat > ticks) ? std::min<int>(poll.timeout, repeat - ticks) : 0;
   }
 
-#ifdef USE_LIBCURL
+#ifdef USE_UPDATE
   if (update.busy())
   {
     // The check goes on between the events, its result comes as a command so that the dialog is not opened from idle()
@@ -624,15 +624,22 @@ void JediApplication::showHelp()
 void JediApplication::showAbout()
 {
   TRect bounds;
+  std::string link;
+  std::string text;
 
-  // Wider than a message box usually is, the address fits on its line
-  bounds = TRect(0, 0, 44, 11);
+  // The repository the build comes from, a build without one leaves the line out
+  link = (REPOSITORY[0] != '\0') ? ("github.com/" REPOSITORY) : "";
+  text = "\003TurboJedi " VERSION "\n\003Turbo Journald Interface\n\003Artem Prilutskiy, 2026";
+  text = link.empty() ? text : (text + "\n\n\003" + link);
+
+  // Wider than a message box usually is, the address fits on its line, an empty row stays above the button
+  bounds = TRect(0, 0, std::max<int>(44, link.size() + 8), link.empty() ? 9 : 11);
   bounds.move((deskTop->size.x - bounds.b.x) / 2, (deskTop->size.y - bounds.b.y) / 2);
 
-  messageBoxRect(bounds, "\003TurboJedi " VERSION "\n\003Turbo Journald Interface\n\003Artem Prilutskiy, 2026\n\n\003github.com/cyanide-burnout/TurboJedi", mfInformation | mfOKButton);
+  messageBoxRect(bounds, text, mfInformation | mfOKButton);
 }
 
-#ifdef USE_LIBCURL
+#ifdef USE_UPDATE
 
 void JediApplication::checkUpdate()
 {

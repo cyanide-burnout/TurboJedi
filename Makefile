@@ -7,6 +7,13 @@ PREFIX      := $(DESTDIR)/usr/local
 VERSION := $(if $(wildcard .git),$(shell git describe --tags --always --dirty 2>/dev/null))
 VERSION := $(or $(VERSION),$(shell grep -v '^\$$Format' VERSION 2>/dev/null),unknown)
 
+# Repository of the project on GitHub as owner/name, told by the origin of the clone: About, --help and Check for updates
+# link there, so a fork links to itself. A copy without git or a mirror elsewhere has none and no check for updates,
+# REPOSITORY= leaves it out on purpose, REPOSITORY=owner/name gives another one
+ifeq ($(origin REPOSITORY), undefined)
+	REPOSITORY := $(if $(wildcard .git),$(shell git remote get-url origin 2>/dev/null | sed -n -E -e 's,/$$,,' -e 's,\.git$$,,' -e 's,^(https://([^@/]+@)?|ssh://git@|git@)github\.com[:/]([^/]+/[^/]+)$$,\3,p'))
+endif
+
 # Distribution a package is built for, the way the names of the packages and install.sh tell it: debian-13, ubuntu-24.04,
 # fc44, el9, amzn2023, tumbleweed, leap16 or arch; a build of its own has none
 TARGET := $(TURBOJEDI_TARGET)
@@ -67,11 +74,13 @@ OBJECTS := \
 	$(SOURCE)/DirectoryDialog.o \
 	$(TURBOVISION)/build/libtvision.a
 
-# libcurl lets the Help menu check for a newer release, without it the item is left out
+# libcurl and the repository let the Help menu check for a newer release, without either the item is left out
+ifneq ($(REPOSITORY), )
 ifeq ($(shell $(PKG_CONFIG) --exists libcurl && echo yes), yes)
 	DEPENDENCIES += libcurl
 	OBJECTS      += $(SOURCE)/JediUpdate.o $(SOURCE)/UpdateDialog.o
-	FLAGS        += -DUSE_LIBCURL
+	FLAGS        += -DUSE_UPDATE
+endif
 endif
 
 FLAGS += \
@@ -96,7 +105,8 @@ $(TURBOVISION)/build/libtvision.a:
 
 # Rewritten only when the version changes, so that only its users are built again
 $(SOURCE)/Version.h: FORCE
-	@printf '#define VERSION "%s"\n#define BUILT_FOR "%s"\n' '$(VERSION)' '$(TARGET)' | cmp -s - $@ || printf '#define VERSION "%s"\n#define BUILT_FOR "%s"\n' '$(VERSION)' '$(TARGET)' > $@
+	@printf '#define VERSION "%s"\n#define BUILT_FOR "%s"\n#define REPOSITORY "%s"\n' '$(VERSION)' '$(TARGET)' '$(REPOSITORY)' | cmp -s - $@ || \
+	 printf '#define VERSION "%s"\n#define BUILT_FOR "%s"\n#define REPOSITORY "%s"\n' '$(VERSION)' '$(TARGET)' '$(REPOSITORY)' > $@
 
 $(SOURCE)/TurboJedi.o $(SOURCE)/JediApplication.o $(SOURCE)/JediUpdate.o: $(SOURCE)/Version.h
 

@@ -118,7 +118,7 @@ static std::string GetConfigPath(const char* name)
 static void PrintUsage(const char* name)
 {
   printf("TurboJedi %s, Turbo Journald Interface\n", VERSION);
-  printf("Artem Prilutskiy, 2026, https://github.com/cyanide-burnout/TurboJedi\n");
+  printf("Artem Prilutskiy, 2026%s%s\n", (REPOSITORY[0] != '\0') ? ", https://github.com/" : "", REPOSITORY);
   printf("\n");
   printf("Usage: %s [options] [FIELD=VALUE ...]\n", name);
   printf("Shows the system journal and follows it, every window asks the journal with a filter of its own\n");
