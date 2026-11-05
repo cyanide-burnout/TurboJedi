@@ -22,6 +22,11 @@
 #include <vector>
 #include <algorithm>
 
+#ifndef FUSE_SUPER_MAGIC
+// linux/magic.h of the kernels of EL9 and Ubuntu 22.04 does not have it yet, the magic of FUSE has been this one always
+#define FUSE_SUPER_MAGIC  0x65735546
+#endif
+
 #define PID_SCAN  100000  // Recent entries to learn the names of processes from
 
 // Journal fields behind the source part of a filter
