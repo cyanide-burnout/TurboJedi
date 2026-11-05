@@ -53,6 +53,7 @@ class TimelineView : public TScroller
     JournalSource* notifier;  // Wakes the application when the journal changes
     bool blind;               // Its file system tells nothing about the changes, it is read on every poll
     std::string files;        // Of the directory of a blind journal, a change of them opens the journal again
+    unsigned faults;          // Faults of mapped files seen when it has been opened, a new one opens a blind journal again
     JournalFilter filter;
     JournalMatcher matcher;  // Text of the filter, applied the way a journal window applies it
     std::string error;       // Why there is nothing to show

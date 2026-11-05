@@ -84,8 +84,14 @@ bool IsJournalBlind(sd_journal* journal, const JournalFilter& filter);
 // brings a new file and libsystemd does not see it without inotify
 bool CheckJournalFiles(const std::string& directory, std::string& signature);
 
-// The journal opened again with its filter, on the place it has read up to; false keeps the old one
-bool ReopenJournal(sd_journal** journal, const JournalFilter& filter);
+// The journal opened again with its filter, after the entry of the cursor or on the place it has read up to; false keeps the old one
+bool ReopenJournal(sd_journal** journal, const JournalFilter& filter, const std::string& cursor);
+
+// A fault of a mapped file of a journal gives a page of zeros instead of SIGBUS, libsystemd reads it as a damaged entry: a file
+// of FUSE or of a network goes bad under an open journal when its connection comes back, sshfs after reconnect for one.
+// Other faults go to the handler there has been before, set after Turbo Vision the terminal is not touched for a journal
+void SetJournalFaultHandler();
+unsigned GetJournalFaults();  // Faults so far, a journal opened before one of them is opened again
 
 // Puts the journal on the entry another one has read last, so next() goes on after it; false when the other has read nothing
 bool SeekJournalPlace(sd_journal* journal, sd_journal* source);

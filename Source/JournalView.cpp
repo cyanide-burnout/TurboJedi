@@ -527,10 +527,10 @@ void JournalView::handleEvent(TEvent& event)
       if ((event.message.command == cmJournalPoll) &&
           (journal != nullptr) &&
           (blind) &&
-          (CheckJournalFiles(filter.directory, files)) &&
-          (ReopenJournal(&journal, filter)))
+          ((CheckJournalFiles(filter.directory, files)) || (faults != GetJournalFaults())) &&
+          (ReopenJournal(&journal, filter, lines.empty() ? std::string() : lines.back().cursor)))
       {
-        // A rotation on a file system without inotify, the new file comes in with the journal opened again
+        // A rotation on a file system without inotify, or its files gone bad under the journal after a reconnect: opened again
         ReleaseJournalSource(notifier);
         attach();
       }
@@ -613,6 +613,7 @@ void JournalView::attach()
   // a file system without it is looked at on every poll, the files it has now tell a rotation later
   notifier = CreateJournalSource(sd_journal_get_fd(journal));
   blind    = IsJournalBlind(journal, filter);
+  faults   = GetJournalFaults();
   files.clear();
 
   if (blind)

@@ -192,7 +192,8 @@ fusermount -u ~/journals/web1
 ```
 
 `cache=no` lets the appended entries in at once, sshfs keeps what it knows about a file for 20 seconds otherwise and they
-come in by those steps.
+come in by those steps. With `reconnect` the files open before the connection broke cannot be read anymore, the windows
+open their journals again when it is back and go on after their last lines.
 
 Over NFS, exported read-only by that machine in `/etc/exports`:
 

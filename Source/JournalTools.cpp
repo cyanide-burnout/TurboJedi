@@ -6,12 +6,15 @@
 
 #include <pwd.h>
 #include <time.h>
+#include <signal.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <dirent.h>
 #include <sys/vfs.h>
+#include <sys/mman.h>
 #include <sys/stat.h>
 #include <linux/magic.h>
 
@@ -218,6 +221,33 @@ bool IsJournalBlind(sd_journal* journal, const JournalFilter& filter)
           (information.f_type == FUSE_SUPER_MAGIC));
 }
 
+static void SeekJournalCursor(sd_journal* journal, const char* position)
+{
+  // Whether the entry has passed a text filter or not
+  if ((sd_journal_seek_cursor(journal, position) >= 0) &&
+      (sd_journal_next(journal) > 0) &&
+      (sd_journal_test_cursor(journal, position) <= 0))
+  {
+    // The entry has gone meanwhile, the one after it is still to read
+    sd_journal_previous(journal);
+  }
+}
+
+bool SeekJournalPlace(sd_journal* journal, sd_journal* source)
+{
+  char* position;
+
+  if (sd_journal_get_cursor(source, &position) < 0)
+  {
+    // No entry there yet
+    return false;
+  }
+
+  SeekJournalCursor(journal, position);
+  free(position);
+  return true;
+}
+
 static void ListJournalFiles(const std::string& directory, int depth, std::vector<std::string>& files)
 {
   DIR* handle;
@@ -287,7 +317,7 @@ bool CheckJournalFiles(const std::string& directory, std::string& signature)
   return true;
 }
 
-bool ReopenJournal(sd_journal** journal, const JournalFilter& filter)
+bool ReopenJournal(sd_journal** journal, const JournalFilter& filter, const std::string& cursor)
 {
   sd_journal* fresh;
 
@@ -297,7 +327,12 @@ bool ReopenJournal(sd_journal** journal, const JournalFilter& filter)
     return false;
   }
 
-  if (!SeekJournalPlace(fresh, *journal))
+  if (!cursor.empty())
+  {
+    // The last line read, the old journal may have nothing readable left
+    SeekJournalCursor(fresh, cursor.c_str());
+  }
+  else if (!SeekJournalPlace(fresh, *journal))
   {
     // Nothing read yet, what comes after the tail is next
     sd_journal_seek_tail(fresh);
@@ -309,27 +344,51 @@ bool ReopenJournal(sd_journal** journal, const JournalFilter& filter)
   return true;
 }
 
-bool SeekJournalPlace(sd_journal* journal, sd_journal* source)
+static long page;
+static volatile sig_atomic_t faults;
+static struct sigaction previous;
+
+static void HandleJournalFault(int number, siginfo_t* information, void* context)
 {
-  char* position;
+  void* address;
 
-  if (sd_journal_get_cursor(source, &position) < 0)
+  address = (void*)((uintptr_t)information->si_addr & ~((uintptr_t)page - 1));
+
+  if ((information->si_code == BUS_ADRERR) &&
+      (mmap(address, page, PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0) != MAP_FAILED))
   {
-    // No entry there yet
-    return false;
+    // The access made again reads zeros, the way systemd itself survives a journal file cut short
+    faults = faults + 1;
+    return;
   }
 
-  // Whether the entry has passed a text filter or not
-  if ((sd_journal_seek_cursor(journal, position) >= 0) &&
-      (sd_journal_next(journal) > 0) &&
-      (sd_journal_test_cursor(journal, position) <= 0))
+  if ((previous.sa_flags & SA_SIGINFO) &&
+      (previous.sa_sigaction != nullptr))
   {
-    // The entry has gone meanwhile, the one after it is still to read
-    sd_journal_previous(journal);
+    // Not a mapped file gone bad, the handler of Turbo Vision gives the terminal back before the default action
+    previous.sa_sigaction(number, information, context);
+    return;
   }
 
-  free(position);
-  return true;
+  // No handler before, the access made again meets the default action
+  signal(SIGBUS, ((previous.sa_handler == SIG_IGN) || (previous.sa_handler == SIG_DFL)) ? SIG_DFL : previous.sa_handler);
+}
+
+void SetJournalFaultHandler()
+{
+  struct sigaction action {};
+
+  page                = sysconf(_SC_PAGESIZE);
+  action.sa_sigaction = HandleJournalFault;
+  action.sa_flags     = SA_SIGINFO | SA_NODEFER;
+
+  sigemptyset(&action.sa_mask);
+  sigaction(SIGBUS, &action, &previous);
+}
+
+unsigned GetJournalFaults()
+{
+  return faults;
 }
 
 std::string GetJournalUserIdentifier(const std::string& user)

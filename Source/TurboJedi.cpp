@@ -332,6 +332,10 @@ int main(int count, char* const* arguments)
 
   application = new JediApplication(filter, history, layout, GetConfigPath(UPDATE_SETTINGS));
 
+  // Journals of sshfs and NFS may lose their files under the mapping, the windows open them again instead of a crash;
+  // after Turbo Vision has set its handlers, other faults go on to them
+  SetJournalFaultHandler();
+
   // Turbo Vision has probed the terminal for far2l extensions, tmux takes the probe for a title, ours goes after it
   WriteTerminal("\x1b]2;TurboJedi\x07");
 

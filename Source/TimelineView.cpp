@@ -406,10 +406,10 @@ void TimelineView::handleEvent(TEvent& event)
   {
     if ((blind) &&
         (!closed) &&
-        (CheckJournalFiles(filter.directory, files)) &&
-        (ReopenJournal(&journal, filter)))
+        ((CheckJournalFiles(filter.directory, files)) || (faults != GetJournalFaults())) &&
+        (ReopenJournal(&journal, filter, std::string())))
     {
-      // A rotation on a file system without inotify, the new file comes in with the journal opened again
+      // A rotation on a file system without inotify, or its files gone bad under the journal after a reconnect: opened again
       ReleaseJournalSource(notifier);
       attach();
     }
@@ -457,6 +457,7 @@ void TimelineView::attach()
   // a file system without it is looked at on every poll, the files it has now tell a rotation later
   notifier = CreateJournalSource(sd_journal_get_fd(journal));
   blind    = IsJournalBlind(journal, filter);
+  faults   = GetJournalFaults();
   files.clear();
 
   if (blind)
