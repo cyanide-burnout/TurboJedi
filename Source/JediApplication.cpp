@@ -628,7 +628,7 @@ void JediApplication::showAbout()
   std::string text;
 
   // The repository the build comes from, a build without one leaves the line out
-  link = (REPOSITORY[0] != '\0') ? ("github.com/" REPOSITORY) : "";
+  link = REPOSITORY;
   text = "\003TurboJedi " VERSION "\n\003Turbo Journald Interface\n\003Artem Prilutskiy, 2026";
   text = link.empty() ? text : (text + "\n\n\003" + link);
 

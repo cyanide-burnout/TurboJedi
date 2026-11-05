@@ -77,7 +77,7 @@ Without libcurl the Help menu has no Check for updates.
 
 About, `--help` and Check for updates link to the repository on GitHub the clone comes from, its `origin`, so a fork links
 to itself and checks its own releases. A copy without git or a clone of another host has none, `make REPOSITORY=` leaves
-it out on purpose and `make REPOSITORY=owner/name` names another one.
+it out on purpose and `make REPOSITORY=https://github.com/owner/name` names another one.
 
 ### Debian package
 

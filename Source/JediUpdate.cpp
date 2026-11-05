@@ -230,7 +230,7 @@ bool JediUpdate::poll()
            ((found = strstr(location, "/releases/tag/")) == nullptr))
   {
     // Rate limited or GitHub has changed
-    error = "GitHub has answered with HTTP " + std::to_string(code);
+    error = "the repository has answered with HTTP " + std::to_string(code);
   }
   else
   {

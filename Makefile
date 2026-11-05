@@ -7,11 +7,11 @@ PREFIX      := $(DESTDIR)/usr/local
 VERSION := $(if $(wildcard .git),$(shell git describe --tags --always --dirty 2>/dev/null))
 VERSION := $(or $(VERSION),$(shell grep -v '^\$$Format' VERSION 2>/dev/null),unknown)
 
-# Repository of the project on GitHub as owner/name, told by the origin of the clone: About, --help and Check for updates
-# link there, so a fork links to itself. A copy without git or a mirror elsewhere has none and no check for updates,
-# REPOSITORY= leaves it out on purpose, REPOSITORY=owner/name gives another one
+# Address of the repository of the project, told by the origin of the clone on GitHub, the only host whose releases and files
+# Check for updates knows: About, --help and the check link there, so a fork links to itself. A copy without git or a clone
+# of another host has none, nor the links and the check; REPOSITORY= leaves it out on purpose, REPOSITORY=<address> names another one
 ifeq ($(origin REPOSITORY), undefined)
-	REPOSITORY := $(if $(wildcard .git),$(shell git remote get-url origin 2>/dev/null | sed -n -E -e 's,/$$,,' -e 's,\.git$$,,' -e 's,^(https://([^@/]+@)?|ssh://git@|git@)github\.com[:/]([^/]+/[^/]+)$$,\3,p'))
+	REPOSITORY := $(if $(wildcard .git),$(shell git remote get-url origin 2>/dev/null | sed -n -E -e 's,/$$,,' -e 's,\.git$$,,' -e 's,^(https://([^@/]+@)?|ssh://git@|git@)github\.com[:/]([^/]+/[^/]+)$$,https://github.com/\3,p'))
 endif
 
 # Distribution a package is built for, the way the names of the packages and install.sh tell it: debian-13, ubuntu-24.04,
