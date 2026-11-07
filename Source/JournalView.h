@@ -115,6 +115,8 @@ class JournalView : public TScroller
     uint64_t unseen;
     bool follow;
     bool moving;
+    bool held;        // Paused with a full window: what comes is counted, not kept, nothing on the screen or marked is dropped
+    uint64_t counted; // Of unseen, the entries only counted while held, read again after the last line
 
     // Absolute line numbers, so selection survives trimming: the cursor, a range from the anchor to it made by Shift
     // or by a stroke of M, and the lines marked by the strokes before, which need not be next to each other
@@ -151,6 +153,7 @@ class JournalView : public TScroller
     void clear();
     void pause();
     void refresh();
+    bool full();
     void select(int64_t index, bool extend);
     void mark();
     bool ranging();                  // The range from the anchor to the cursor is a part of the selection

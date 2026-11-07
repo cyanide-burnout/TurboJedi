@@ -238,7 +238,7 @@ void SeekJournalEnd(sd_journal* journal)
   }
 }
 
-static void SeekJournalCursor(sd_journal* journal, const char* position)
+void SeekJournalCursor(sd_journal* journal, const char* position)
 {
   // Whether the entry has passed a text filter or not
   if ((sd_journal_seek_cursor(journal, position) >= 0) &&

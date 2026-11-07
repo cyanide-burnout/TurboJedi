@@ -15,7 +15,8 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd and
   levels, source (unit, identifier, command, transport, boot, user, machine, PID,
   any `FIELD=VALUE`), time range, and text, plain or a regular expression of PCRE2, to show or to leave out
 - Follows the tail, Space pauses; scrolling above the first line brings the older entries in. The title of every
-  window tells it: ► follows, ‖ is paused, ‖ +12 has 12 entries come meanwhile
+  window tells it: ► follows, ‖ is paused, ‖ +12 has 12 entries come meanwhile. A paused window that is full keeps
+  its lines and marks, the new entries are counted and come in when it follows again
 - Columns to choose: date, time, level, host, unit, identifier, PID; UTC, milliseconds, wrapped messages, hidden heading
 - Highlighting of messages by rules: built-in ones for times, addresses, identifiers, paths, quoted text, key=value
   and the words that matter, or any rule file of [grc](https://github.com/garabik/grc); colors of the escape sequences

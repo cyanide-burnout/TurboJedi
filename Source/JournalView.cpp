@@ -123,6 +123,8 @@ JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar
   until    = 0;
   closed   = false;
   pending  = false;
+  held     = false;
+  counted  = 0;
   older    = false;
   layout   = 0;
   first    = FIRST_LINE;
@@ -156,8 +158,10 @@ JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar
   until       = source.until;
   closed      = source.closed;
   pending     = source.pending;
+  held        = false;
+  counted     = 0;
   older       = source.older;
-  unseen      = source.unseen;
+  unseen      = source.unseen - source.counted;
   follow      = source.follow;
   anchor      = source.anchor;
   cursor      = source.cursor;
@@ -190,7 +194,13 @@ JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar
   {
     attach();
 
-    if (!SeekJournalPlace(journal, source.journal))
+    if ((source.held) &&
+        (!lines.empty()))
+    {
+      // The source has only counted the entries after its last line, the clone counts them anew
+      SeekJournalCursor(journal, lines.back().cursor.c_str());
+    }
+    else if (!SeekJournalPlace(journal, source.journal))
     {
       // Nothing has been read there yet, the tail the way open() takes it without history
       SeekJournalEnd(journal);
@@ -398,7 +408,9 @@ void JournalView::handleEvent(TEvent& event)
 {
   int64_t index;
   uint64_t count;
+  uint64_t unread;
   bool extend;
+  bool waiting;
   JournalPoll* poll;
 
   if (event.what == evKeyDown)
@@ -589,19 +601,26 @@ void JournalView::handleEvent(TEvent& event)
           (ReopenJournal(&journal, filter, lines.empty() ? std::string() : lines.back().cursor)))
       {
         // A rotation on a file system without inotify, or its files gone bad under the journal after a reconnect: opened again
+        // after the last line, the entries only counted are counted anew
         ReleaseJournalSource(notifier);
         attach();
+        unseen -= counted;
+        counted = 0;
       }
 
       if ((event.message.command == cmJournalPoll) &&
           (journal != nullptr) &&
-          (pending || (sd_journal_process(journal) != SD_JOURNAL_NOP) || blind))
+          (pending || (sd_journal_process(journal) != SD_JOURNAL_NOP) || blind || (held && (follow || !full()))))
       {
-        // Never clear the poll, every window has to get it
-        count = first + lines.size();
+        // Never clear the poll, every window has to get it; held entries come once the window follows or has room again
+        count   = first + lines.size();
+        waiting = held;
+        unread  = unseen;
         read();
 
         if ((pending) ||
+            (held != waiting) ||
+            (unseen != unread) ||
             ((first + lines.size()) != count))
         {
           // Something has passed the filter or more is to come
@@ -702,6 +721,8 @@ void JournalView::open()
   until   = 0;
   closed  = false;
   pending = false;
+  held    = false;
+  counted = 0;
   older   = true;
 
   // Lines of another query
@@ -788,6 +809,20 @@ void JournalView::read()
   JournalLine model;
   std::vector<JournalLine> parts;
 
+  if ((held) &&
+      (follow || !full()))
+  {
+    // Following again or room again: the entries only counted meanwhile are read for real after the last line kept
+    held    = false;
+    counted = 0;
+
+    if ((!lines.empty()) &&
+        (!lines.back().cursor.empty()))
+    {
+      SeekJournalCursor(journal, lines.back().cursor.c_str());
+    }
+  }
+
   for (count = 0; (!closed) && (count < READ_STEP) && (sd_journal_next(journal) > 0); count ++)
   {
     if ((until != 0) &&
@@ -799,10 +834,22 @@ void JournalView::read()
       break;
     }
 
+    // Paused and full: the oldest lines and their marks stay, what comes is counted and read again when the window follows
+    held = held || ((!follow) && full());
+
     if (parse(journal, model, buffer))
     {
       // Whatever has been appended meanwhile
       split(model, buffer, parts);
+
+      if (held)
+      {
+        // Counted the way push() counts the lines, the counts of the levels get the entry when it is read for real
+        counts[model.priority] --;
+        unseen  += parts.size();
+        counted += parts.size();
+        continue;
+      }
 
       for (JournalLine& part : parts)
       {
@@ -1144,10 +1191,12 @@ void JournalView::trim()
 
 void JournalView::clear()
 {
-  first += lines.size();
-  width  = 0;
-  unseen = 0;
-  layout = 0;
+  first  += lines.size();
+  width   = 0;
+  unseen  = 0;
+  counted = 0;
+  held    = false;
+  layout  = 0;
   anchor  = NO_SELECTION;
   cursor  = NO_SELECTION;
   marking = false;
@@ -1215,6 +1264,11 @@ void JournalView::refresh()
     // Follow state and counters of the focused window live in the status line hint
     TProgram::statusLine->drawView();
   }
+}
+
+bool JournalView::full()
+{
+  return (lines.size() >= capacity) || (bytes >= BYTE_CAPACITY);
 }
 
 void JournalView::select(int64_t index, bool extend)
@@ -1659,6 +1713,12 @@ const char* JournalView::describe()
   int length;
 
   length = snprintf(buffer, sizeof(buffer), unseen ? "%s +%llu" : "%s", pending ? "LOADING" : (follow ? "FOLLOW" : "PAUSED"), (unsigned long long)unseen);
+
+  if (held)
+  {
+    // New entries are counted, not kept, until the window follows
+    length += snprintf(buffer + length, sizeof(buffer) - length, " \xe2\x94\x82 FULL");
+  }
 
   if (filter.columns & JOURNAL_COLUMN_WRAP)
   {
