@@ -22,6 +22,8 @@ Selections: marks of lines apart, the state of a window in its title, a paused w
 - A line cursor on the arrows: Up, Down, PgUp, PgDn, Home and End move it, it comes on the last row first; on the
   newest line the window follows
 
+Thanks to select26 on Habr.
+
 ## 0.11 — 2026-11-05
 
 Distribution and remote journals.
@@ -40,6 +42,8 @@ Distribution and remote journals.
 
 - Check for updates on start, chosen in the answer of a check: once a day whatever the answer and only about a newer
   release, kept in `$XDG_CONFIG_HOME/turbojedi/update.ini`
+
+Thanks to icelord.
 
 ## 0.10.1 — 2026-11-04
 
@@ -92,6 +96,8 @@ Clones and the install script.
 - Packages for Ubuntu 22.04, Amazon Linux 2023, openSUSE Tumbleweed and Leap 16; Debian 12 packages serve Raspberry Pi
   OS bookworm
 
+Thanks to Tuxozaur and konkere on Habr.
+
 ## 0.6 — 2026-10-26
 
 Clipboard.
@@ -115,17 +121,24 @@ Timeline.
 - Timelines in layouts: `[timeline]` with the filter, the step and the scale; `[journal]` for windows of the journal,
   `[window]` is still read
 - UTF-8 for characters when the locale has none, as under sudo
+- rpm: the license and the documentation by their names
+
+Thanks to TIEugene on Habr.
 
 ## 0.4.1 — 2026-10-25
 
 - Whole fields of the journal, a byte bound on the buffer of a window
+
+Thanks to opium on Habr.
 
 ## 0.4 — 2026-10-25
 
 Sources of journals.
 
 - Journals of every window: of this machine, of every machine or of a directory, Browse for the directory
-- Host names of the machines, `--merge` for the journals of every machine
+- Machine in Source, chosen by host name; `--merge` for the journals of every machine
+
+Thanks to antonchev on Habr.
 
 ## 0.3 — 2026-10-24
 
@@ -134,6 +147,9 @@ Sources of journals.
 ## 0.2 — 2026-10-24
 
 - Packages for Debian, Ubuntu, Fedora and RHEL on amd64 and arm64 by GitHub Actions, `make deb` and `make rpm`
+- The list of a pick dialog is given back on shut down instead of leaking
+
+Thanks to vlad4kr7 and Apoheliy on Habr.
 
 ## 0.1 — 2026-10-24
 
