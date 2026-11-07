@@ -6,6 +6,7 @@
 #define Uses_TSubMenu
 #define Uses_TMenuItem
 #define Uses_TMenu
+#define Uses_TMenuView
 #define Uses_TStatusDef
 #define Uses_TStatusItem
 #define Uses_TEvent
@@ -180,9 +181,11 @@ void JediApplication::getEvent(TEvent& event)
 
   if ((event.what == evCommand) &&
       (event.message.command == cmQuit) &&
-      (TopView() != this))
+      (TopView() != this) &&
+      (dynamic_cast<TMenuView*>(TopView()) == nullptr))
   {
-    // Status line makes the command here and a dialog would ignore it: close the dialog, quit afterwards
+    // Status line makes the command here and a dialog would ignore it: close the dialog, quit afterwards. An open menu
+    // takes any command to close and passes it on by itself, endModal() does not end it and the command would go round
     TopView()->endModal(cmCancel);
     putEvent(event);
     clearEvent(event);
