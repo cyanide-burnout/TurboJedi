@@ -1289,8 +1289,33 @@ void JournalView::reverse()
   lines   = std::move(other);
   layout  = 0;
 
-  // Jumps Back would go to the lines of the other order
-  places.clear();
+  for (JournalPlace& place : places)
+  {
+    if ((place.top < first) ||
+        (place.top >= first + numbers.size()))
+    {
+      // Trimmed away meanwhile, Back passes it by
+      continue;
+    }
+
+    // Back goes to the lines of that screen the other way round as well, its top line at the bottom;
+    // a range goes to its cursor the way the selection of the window does
+    place.top = first + lineOf(std::max<int64_t>(0, (int64_t)rowOf(numbers[place.top - first]) - size.y + 1));
+
+    if ((place.anchor != NO_SELECTION) &&
+        (place.cursor >= first) &&
+        (place.cursor < first + numbers.size()))
+    {
+      place.cursor = first + numbers[place.cursor - first];
+      place.anchor = place.cursor;
+    }
+    else
+    {
+      place.anchor = NO_SELECTION;
+      place.cursor = NO_SELECTION;
+    }
+  }
+
   filter.columns ^= JOURNAL_COLUMN_REVERSE;
 
   if (owner != nullptr)
