@@ -506,10 +506,15 @@ void JournalView::handleEvent(TEvent& event)
       return;
     }
 
+    if (marking)
+    {
+      // The mouse ends a stroke the way M does
+      mark();
+    }
+
     if (event.mouse.controlKeyState & kbCtrlShift)
     {
       // Ctrl+click puts the cursor on a line and marks it or takes its mark off, the other marks stay
-      marking = false;
       select(lineOf(std::max<int64_t>(0, delta.y + makeLocal(event.mouse.where).y)), false);
 
       if ((anchor != NO_SELECTION) &&
@@ -523,10 +528,9 @@ void JournalView::handleEvent(TEvent& event)
       return;
     }
 
-    // Click selects a row, Shift+click and dragging extend, dragging past an edge scrolls; the mouse ends the marks
-    extend  = (event.mouse.controlKeyState & kbShift) != 0;
-    marking = false;
-    marks.clear();
+    // Click puts the cursor on a row and the marks stay as the keys leave them, Shift+click and dragging extend,
+    // dragging past an edge scrolls; Esc drops the marks
+    extend = (event.mouse.controlKeyState & kbShift) != 0;
 
     do
     {
@@ -1250,11 +1254,10 @@ void JournalView::mark()
   was   = marks.count(cursor) != 0;
 
   if ((!begin) &&
-      (unmark) &&
-      (anchor == cursor))
+      (unmark))
   {
-    // M twice on a marked line without a move takes its mark off
-    marks.erase(cursor);
+    // A stroke begun on a marked line takes the marks off the lines it has passed, M twice there takes off one
+    marks.erase(marks.lower_bound(std::min(anchor, cursor)), marks.upper_bound(std::max(anchor, cursor)));
   }
   else if (ranging())
   {
@@ -1265,7 +1268,8 @@ void JournalView::mark()
     }
   }
 
-  // The first M begins a stroke on the cursor, the second one ends it and its lines stay marked; marking pauses
+  // The first M begins a stroke on the cursor, the second one ends it and its lines stay marked, or unmarked when it has begun
+  // on a marked line; marking pauses
   marking = begin;
   unmark  = begin && was;
   anchor  = cursor;
@@ -1280,9 +1284,15 @@ bool JournalView::ranging()
 
 bool JournalView::picked(uint64_t number)
 {
-  return
-    (ranging() && (number >= std::min(anchor, cursor)) && (number <= std::max(anchor, cursor))) ||
-    (marks.count(number) != 0);
+  if (ranging() &&
+      (number >= std::min(anchor, cursor)) &&
+      (number <= std::max(anchor, cursor)))
+  {
+    // The range adds its lines, a stroke that takes marks off leaves them out
+    return !(marking && unmark);
+  }
+
+  return marks.count(number) != 0;
 }
 
 uint64_t JournalView::selected()
@@ -1292,11 +1302,11 @@ uint64_t JournalView::selected()
   uint64_t upper;
   uint64_t amount;
 
-  // The range and the marks out of it, within the lines there are
+  // The range and the marks out of it, within the lines there are; a stroke that takes marks off counts none of its lines
   range  = ranging();
   lower  = range ? std::max(std::min(anchor, cursor), first) : 0;
   upper  = range ? std::min<uint64_t>(std::max(anchor, cursor) + 1, first + lines.size()) : 0;
-  amount = (upper > lower) ? (upper - lower) : 0;
+  amount = ((upper > lower) && !(marking && unmark)) ? (upper - lower) : 0;
 
   for (auto mark = marks.lower_bound(first); (mark != marks.end()) && (*mark < first + lines.size()); mark ++)
   {
@@ -1657,8 +1667,8 @@ const char* JournalView::describe()
 
   if (marking)
   {
-    // The keys extend the selection
-    length += snprintf(buffer + length, sizeof(buffer) - length, " \xe2\x94\x82 MARK");
+    // The keys extend the selection, or take marks off from a marked line on
+    length += snprintf(buffer + length, sizeof(buffer) - length, unmark ? " \xe2\x94\x82 UNMARK" : " \xe2\x94\x82 MARK");
   }
 
   if (anchor != NO_SELECTION)

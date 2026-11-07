@@ -121,7 +121,7 @@ class JournalView : public TScroller
     uint64_t anchor;
     uint64_t cursor;
     bool marking;               // A stroke of M or Insert: the keys mark from where it has begun, Shift is kept by some terminals
-    bool unmark;                // The stroke has begun on a marked line, ended there without a move it takes the mark off
+    bool unmark;                // The stroke has begun on a marked line, it takes the marks off the lines it passes
     std::set<uint64_t> marks;
 
     std::vector<JournalPlace> places;  // Where the window has been before its jumps, the last one on top
