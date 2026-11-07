@@ -133,6 +133,7 @@ JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar
   anchor   = NO_SELECTION;
   cursor   = NO_SELECTION;
   marking  = false;
+  unmark   = false;
 
   open();
 }
@@ -161,6 +162,8 @@ JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar
   anchor      = source.anchor;
   cursor      = source.cursor;
   marking     = source.marking;
+  unmark      = source.unmark;
+  marks       = source.marks;
   places      = source.places;
 
   growMode  = gfGrowHiX | gfGrowHiY;
@@ -234,11 +237,11 @@ void JournalView::draw()
   int skip;
   bool chosen;
   bool head;
+  bool extra;
+  bool picks;
   size_t index;
   uint64_t row;
   uint64_t chunk;
-  uint64_t lower;
-  uint64_t upper;
   char date[16];
   char clock[16];
   std::string source;
@@ -246,6 +249,7 @@ void JournalView::draw()
   TDrawBuffer buffer;
   TColorAttr normal;
   TColorAttr marked;
+  TColorAttr bar;
   TColorAttr stamp;
   TColorAttr color;
   TColorAttr found;
@@ -258,8 +262,8 @@ void JournalView::draw()
   found  = TColorAttr(TColorBIOS(0x0), TColorBIOS(0xe));
   stamp.setForeground(TColorBIOS(0x03));
 
-  lower = std::min(anchor, cursor);
-  upper = (anchor != NO_SELECTION) ? std::max(anchor, cursor) : 0;
+  // The cursor tells whether its line is a part of a selection
+  extra = selected() > 0;
 
   for (y = 0; y < size.y; y ++)
   {
@@ -279,13 +283,22 @@ void JournalView::draw()
         color.setBackground(TColorBIOS(colors[line->priority][1]));
       }
 
-      chosen = ((first + index) >= lower) && ((first + index) <= upper);
+      picks  = picked(first + index);
+      chosen = picks || ((anchor != NO_SELECTION) && (cursor == first + index));
+      bar    = marked;
+
+      if ((anchor != NO_SELECTION) &&
+          (cursor == first + index))
+      {
+        // The cursor is a cyan bar as in a panel of mc, on a selected line its text is white, the selection keeps its own bar
+        bar = (picks && extra) ? TColorAttr(TColorBIOS(0xf), TColorBIOS(0x3)) : TColorAttr(TColorBIOS(0x0), TColorBIOS(0x3));
+      }
 
       if (chosen)
       {
         // Selected rows look like a selection in any other scroller
-        buffer.moveChar(0, ' ', marked, size.x);
-        color = marked;
+        buffer.moveChar(0, ' ', bar, size.x);
+        color = bar;
       }
 
       x    = 0;
@@ -298,12 +311,12 @@ void JournalView::draw()
 
         if (filter.columns & JOURNAL_COLUMN_DATE)
         {
-          buffer.moveStr(x, date, chosen ? marked : stamp);
+          buffer.moveStr(x, date, chosen ? bar : stamp);
         }
 
         if (filter.columns & JOURNAL_COLUMN_TIME)
         {
-          buffer.moveStr(x + ((filter.columns & JOURNAL_COLUMN_DATE) ? 11 : 0), clock, chosen ? marked : stamp);
+          buffer.moveStr(x + ((filter.columns & JOURNAL_COLUMN_DATE) ? 11 : 0), clock, chosen ? bar : stamp);
         }
       }
 
@@ -318,13 +331,13 @@ void JournalView::draw()
 
       if (filter.columns & JOURNAL_COLUMN_HOST)
       {
-        buffer.moveStr(x, head ? line->host : std::string(), chosen ? marked : normal, widths[0]);
+        buffer.moveStr(x, head ? line->host : std::string(), chosen ? bar : normal, widths[0]);
         x += widths[0] + 1;
       }
 
       if (filter.columns & JOURNAL_COLUMN_UNIT)
       {
-        buffer.moveStr(x, head ? line->unit : std::string(), chosen ? marked : normal, widths[1]);
+        buffer.moveStr(x, head ? line->unit : std::string(), chosen ? bar : normal, widths[1]);
         x += widths[1] + 1;
       }
 
@@ -427,6 +440,8 @@ void JournalView::handleEvent(TEvent& event)
       anchor  = NO_SELECTION;
       cursor  = NO_SELECTION;
       marking = false;
+      unmark  = false;
+      marks.clear();
       refresh();
       clearEvent(event);
       return;
@@ -491,9 +506,27 @@ void JournalView::handleEvent(TEvent& event)
       return;
     }
 
-    // Click selects a row, Shift+click and dragging extend, dragging past an edge scrolls; the mouse ends a mark
+    if (event.mouse.controlKeyState & kbCtrlShift)
+    {
+      // Ctrl+click puts the cursor on a line and marks it or takes its mark off, the other marks stay
+      marking = false;
+      select(lineOf(std::max<int64_t>(0, delta.y + makeLocal(event.mouse.where).y)), false);
+
+      if ((anchor != NO_SELECTION) &&
+          (marks.erase(cursor) == 0))
+      {
+        marks.insert(cursor);
+      }
+
+      refresh();
+      clearEvent(event);
+      return;
+    }
+
+    // Click selects a row, Shift+click and dragging extend, dragging past an edge scrolls; the mouse ends the marks
     extend  = (event.mouse.controlKeyState & kbShift) != 0;
     marking = false;
+    marks.clear();
 
     do
     {
@@ -1090,6 +1123,9 @@ void JournalView::trim()
     first ++;
   }
 
+  // Marks of the lines gone go with them
+  marks.erase(marks.begin(), marks.lower_bound(first));
+
   if ((!follow) &&
       (first != oldest))
   {
@@ -1110,7 +1146,9 @@ void JournalView::clear()
   anchor  = NO_SELECTION;
   cursor  = NO_SELECTION;
   marking = false;
+  unmark  = false;
 
+  marks.clear();
   lines.clear();
   bytes = 0;
   rows.clear();
@@ -1132,6 +1170,7 @@ void JournalView::refresh()
   setLimit((filter.columns & JOURNAL_COLUMN_WRAP) ? 0 : (indent() + width), total());
 
   if ((follow) &&
+      (!marking) &&
       (anchor == cursor) &&
       (anchor != NO_SELECTION) &&
       (!lines.empty()))
@@ -1191,13 +1230,9 @@ void JournalView::select(int64_t index, bool extend)
 
 void JournalView::mark()
 {
-  if (marking)
-  {
-    // Back to the cursor alone
-    marking = false;
-    select((cursor > first) ? (cursor - first) : 0, false);
-    return;
-  }
+  bool begin;
+  bool was;
+  uint64_t number;
 
   if (anchor == NO_SELECTION)
   {
@@ -1205,10 +1240,70 @@ void JournalView::mark()
     select(lineOf(std::min<uint64_t>(delta.y + size.y, total()) - 1), false);
   }
 
-  // The selection begins on the cursor, the keys extend it from now on
-  marking = (anchor != NO_SELECTION);
+  if (anchor == NO_SELECTION)
+  {
+    // No lines at all
+    return;
+  }
+
+  begin = !marking;
+  was   = marks.count(cursor) != 0;
+
+  if ((!begin) &&
+      (unmark) &&
+      (anchor == cursor))
+  {
+    // M twice on a marked line without a move takes its mark off
+    marks.erase(cursor);
+  }
+  else if (ranging())
+  {
+    // The stroke, or a range made by Shift before it, goes to the marks
+    for (number = std::min(anchor, cursor); number <= std::max(anchor, cursor); number ++)
+    {
+      marks.insert(number);
+    }
+  }
+
+  // The first M begins a stroke on the cursor, the second one ends it and its lines stay marked; marking pauses
+  marking = begin;
+  unmark  = begin && was;
   anchor  = cursor;
+  follow  = follow && !begin;
   refresh();
+}
+
+bool JournalView::ranging()
+{
+  return (anchor != NO_SELECTION) && (marking || (anchor != cursor));
+}
+
+bool JournalView::picked(uint64_t number)
+{
+  return
+    (ranging() && (number >= std::min(anchor, cursor)) && (number <= std::max(anchor, cursor))) ||
+    (marks.count(number) != 0);
+}
+
+uint64_t JournalView::selected()
+{
+  bool range;
+  uint64_t lower;
+  uint64_t upper;
+  uint64_t amount;
+
+  // The range and the marks out of it, within the lines there are
+  range  = ranging();
+  lower  = range ? std::max(std::min(anchor, cursor), first) : 0;
+  upper  = range ? std::min<uint64_t>(std::max(anchor, cursor) + 1, first + lines.size()) : 0;
+  amount = (upper > lower) ? (upper - lower) : 0;
+
+  for (auto mark = marks.lower_bound(first); (mark != marks.end()) && (*mark < first + lines.size()); mark ++)
+  {
+    amount += !(range && (*mark >= lower) && (*mark < upper));
+  }
+
+  return amount;
 }
 
 void JournalView::reveal(size_t index)
@@ -1230,23 +1325,36 @@ void JournalView::copy()
   size_t limit;
   std::string text;
 
-  if (anchor != NO_SELECTION)
+  if (selected() > 0)
   {
-    index = std::max(std::min(anchor, cursor), first) - first;
-    limit = std::min<uint64_t>(std::max(anchor, cursor) + 1 - first, lines.size());
+    // The selection in the order of the lines, marks need not be next to each other
+    for (index = 0; index < lines.size(); index ++)
+    {
+      text += picked(first + index) ? (compose(lines[index]) + '\n') : std::string();
+    }
   }
   else
   {
-    // Nothing selected, take the lines on the screen
-    index = std::min<size_t>(lineOf(delta.y), lines.size());
-    limit = (total() > 0) ? (lineOf(std::min<uint64_t>(delta.y + size.y, total()) - 1) + 1) : 0;
-  }
+    if ((anchor != NO_SELECTION) &&
+        (cursor >= first))
+    {
+      // The line under the cursor
+      index = std::min<size_t>(cursor - first, lines.size());
+      limit = std::min<size_t>(index + 1, lines.size());
+    }
+    else
+    {
+      // Nothing selected, take the lines on the screen
+      index = std::min<size_t>(lineOf(delta.y), lines.size());
+      limit = (total() > 0) ? (lineOf(std::min<uint64_t>(delta.y + size.y, total()) - 1) + 1) : 0;
+    }
 
-  for ( ; index < limit; index ++)
-  {
-    // Full lines with the columns of the window regardless of its width
-    text += compose(lines[index]);
-    text += '\n';
+    for ( ; index < limit; index ++)
+    {
+      // Full lines with the columns of the window regardless of its width
+      text += compose(lines[index]);
+      text += '\n';
+    }
   }
 
   if (!text.empty())
@@ -1259,8 +1367,8 @@ void JournalView::copy()
 void JournalView::save()
 {
   char path[MAXPATH];
+  bool whole;
   size_t index;
-  size_t limit;
   TFileDialog* dialog;
   std::ofstream file;
 
@@ -1271,14 +1379,16 @@ void JournalView::save()
     dialog->getFileName(path);
     file.open(path);
 
-    // Selected lines when there are some, all of them otherwise
-    index = (anchor != NO_SELECTION) ? (std::max(std::min(anchor, cursor), first) - first) : 0;
-    limit = (anchor != NO_SELECTION) ? std::min<uint64_t>(std::max(anchor, cursor) + 1 - first, lines.size()) : lines.size();
+    // Selected lines when there are some, all of them otherwise; the cursor alone is no selection
+    whole = selected() == 0;
 
-    for ( ; file.is_open() && (index < limit); index ++)
+    for (index = 0; file.is_open() && (index < lines.size()); index ++)
     {
-      // Columns of the window, the way Copy gives them
-      file << compose(lines[index]) << '\n';
+      if (whole || picked(first + index))
+      {
+        // Columns of the window, the way Copy gives them
+        file << compose(lines[index]) << '\n';
+      }
     }
 
     if ((!file.is_open()) ||
@@ -1536,8 +1646,6 @@ const char* JournalView::describe()
 {
   char buffer[96];
   int length;
-  uint64_t lower;
-  uint64_t upper;
 
   length = snprintf(buffer, sizeof(buffer), unseen ? "%s +%llu" : "%s", pending ? "LOADING" : (follow ? "FOLLOW" : "PAUSED"), (unsigned long long)unseen);
 
@@ -1555,9 +1663,8 @@ const char* JournalView::describe()
 
   if (anchor != NO_SELECTION)
   {
-    lower = std::max(std::min(anchor, cursor), first);
-    upper = std::min<uint64_t>(std::max(anchor, cursor) + 1, first + lines.size());
-    snprintf(buffer + length, sizeof(buffer) - length, " \xe2\x94\x82 %llu selected", (unsigned long long)((upper > lower) ? (upper - lower) : 0));
+    // The cursor alone counts as the one line Copy takes
+    snprintf(buffer + length, sizeof(buffer) - length, " \xe2\x94\x82 %llu selected", (unsigned long long)std::max<uint64_t>(selected(), 1));
   }
 
   status = buffer;

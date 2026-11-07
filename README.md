@@ -242,7 +242,8 @@ window to the time of the selected line, and a layout keeps their directories fo
 | Enter, double click | details of the entry under the cursor, Enter on a field there opens a window with it added to the filter |
 | Space | pause or follow |
 | Shift+arrows, mouse | select lines from the cursor, Esc drops the cursor and the selection |
-| M, Insert | mark: the keys select from the cursor without Shift, which Terminal of macOS and some others keep for themselves; M again goes back to the cursor |
+| M, Insert | begin marking from the cursor, the keys mark the lines they pass; M again ends it and they stay marked, so lines apart are marked one stroke after another; M twice on a marked line takes its mark off. No Shift is needed, which Terminal of macOS and some others keep for themselves |
+| Ctrl+click | mark a line or take its mark off |
 | Ctrl-Ins | copy the selected lines, the line under the cursor or the screen |
 | Ctrl-E | export the selected lines or all of them |
 | F8 | clear the window |

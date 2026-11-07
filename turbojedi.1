@@ -141,8 +141,10 @@ entries come meanwhile after it.
 Select lines from the cursor, also with the mouse. \fBEsc\fR drops the cursor and the selection.
 .TP
 .B M, Insert
-Mark: the keys select from the cursor without Shift, which Terminal of macOS and some others keep for themselves.
-\fBM\fR again goes back to the cursor.
+Begin marking from the cursor, the keys mark the lines they pass. \fBM\fR again ends it and they stay marked,
+so lines apart are marked one stroke after another; \fBM\fR twice on a marked line takes its mark off.
+No Shift is needed, which Terminal of macOS and some others keep for themselves.
+\fBCtrl\fR+click marks a line or takes its mark off.
 .TP
 .B Ctrl-Ins
 Copy the selected lines, the line under the cursor or the screen to the clipboard.

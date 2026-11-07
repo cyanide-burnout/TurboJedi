@@ -9,6 +9,7 @@
 #define Uses_TScrollBar
 #include <tvision/tv.h>
 
+#include <set>
 #include <deque>
 #include <vector>
 #include <string>
@@ -115,10 +116,13 @@ class JournalView : public TScroller
     bool follow;
     bool moving;
 
-    // Absolute line numbers, so selection survives trimming
+    // Absolute line numbers, so selection survives trimming: the cursor, a range from the anchor to it made by Shift
+    // or by a stroke of M, and the lines marked by the strokes before, which need not be next to each other
     uint64_t anchor;
     uint64_t cursor;
-    bool marking;    // Set by M or Insert: the keys extend the selection from the cursor without Shift, which some terminals keep
+    bool marking;               // A stroke of M or Insert: the keys mark from where it has begun, Shift is kept by some terminals
+    bool unmark;                // The stroke has begun on a marked line, ended there without a move it takes the mark off
+    std::set<uint64_t> marks;
 
     std::vector<JournalPlace> places;  // Where the window has been before its jumps, the last one on top
 
@@ -149,6 +153,9 @@ class JournalView : public TScroller
     void refresh();
     void select(int64_t index, bool extend);
     void mark();
+    bool ranging();                  // The range from the anchor to the cursor is a part of the selection
+    bool picked(uint64_t number);    // A line of the selection
+    uint64_t selected();             // Lines of the selection there are, the cursor alone is none
     void reveal(size_t index);
     void copy();
     void save();
