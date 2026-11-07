@@ -426,17 +426,19 @@ void JournalView::handleEvent(TEvent& event)
       back();
     }
 
-    if ((event.keyDown.controlKeyState & kbShift) &&
-        ((event.keyDown.keyCode == kbUp)   ||
-         (event.keyDown.keyCode == kbDown) ||
-         (event.keyDown.keyCode == kbPgUp) ||
-         (event.keyDown.keyCode == kbPgDn) ||
-         (event.keyDown.keyCode == kbHome) ||
-         (event.keyDown.keyCode == kbEnd)))
+    if ((event.keyDown.keyCode == kbUp)   ||
+        (event.keyDown.keyCode == kbDown) ||
+        (event.keyDown.keyCode == kbPgUp) ||
+        (event.keyDown.keyCode == kbPgDn) ||
+        (event.keyDown.keyCode == kbHome) ||
+        (event.keyDown.keyCode == kbEnd))
     {
+      // The keys move the cursor, a line selected by itself, Shift extends the selection from it
+      extend = (event.keyDown.controlKeyState & kbShift) != 0;
+
       if (anchor == NO_SELECTION)
       {
-        // Selection starts on the last row of the window
+        // The cursor comes on the last row of the window, the newest line while following
         select(lineOf(std::min<uint64_t>(delta.y + size.y, total()) - 1), false);
       }
 
@@ -452,7 +454,7 @@ void JournalView::handleEvent(TEvent& event)
         case kbEnd:  index  = (int64_t)lines.size() - 1; break;
       }
 
-      select(index, true);
+      select(index, extend);
       clearEvent(event);
       return;
     }
@@ -1105,6 +1107,16 @@ void JournalView::refresh()
   moving = true;
   setLimit((filter.columns & JOURNAL_COLUMN_WRAP) ? 0 : (indent() + width), total());
 
+  if ((follow) &&
+      (anchor == cursor) &&
+      (anchor != NO_SELECTION) &&
+      (!lines.empty()))
+  {
+    // The cursor goes on with the tail, also when following has come back by Space or by scrolling down
+    anchor = first + lines.size() - 1;
+    cursor = anchor;
+  }
+
   if (follow)
   {
     // Stay on the tail
@@ -1138,8 +1150,9 @@ void JournalView::select(int64_t index, bool extend)
     cursor = first + index;
     anchor = (extend && (anchor != NO_SELECTION)) ? anchor : cursor;
 
-    // Selection must not run away with the tail
-    follow = false;
+    // The cursor on the newest line follows the tail, anywhere else or a selection of more lines does not run away with it
+    follow  = (anchor == cursor) && (index == (int64_t)lines.size() - 1);
+    unseen *= !follow;
     reveal(index);
     refresh();
   }

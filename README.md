@@ -237,10 +237,11 @@ window to the time of the selected line, and a layout keeps their directories fo
 | Alt-G | every other window goes to the time of the selected line |
 | Alt-Left, Alt-Backspace | back to where the window was before Ctrl-G, Alt-G or a find |
 | Alt-T | timeline: entries of the filter of the window by intervals of time; Left and Right move, Enter takes every journal window to the interval, `+` and `-` change the step, `L` the scale |
-| Enter, double click | details of the entry, Enter on a field there opens a window with it added to the filter |
+| Up, Down, PgUp, PgDn, Home, End | move the cursor, it comes on the last row first; on the newest line the window follows, anywhere else it pauses |
+| Enter, double click | details of the entry under the cursor, Enter on a field there opens a window with it added to the filter |
 | Space | pause or follow |
-| Shift+arrows, mouse | select lines, Esc drops the selection |
-| Ctrl-Ins | copy the selected lines or the screen |
+| Shift+arrows, mouse | select lines from the cursor, Esc drops the cursor and the selection |
+| Ctrl-Ins | copy the selected lines, the line under the cursor or the screen |
 | Ctrl-E | export the selected lines or all of them |
 | F8 | clear the window |
 | Ctrl-O, Ctrl-S | open, save a layout; both start at the layout opened or saved last, Save offers its file again |

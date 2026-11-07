@@ -124,18 +124,22 @@ in a column per interval. \fBLeft\fR and \fBRight\fR move the cursor, \fBEnter\f
 to the first entry of the interval, \fB+\fR and \fB\-\fR make the intervals finer or coarser,
 \fBL\fR switches between linear and logarithmic scale.
 .TP
+.B Up, Down, PgUp, PgDn, Home, End
+Move the cursor, it comes on the last row of the window first. On the newest line the window follows the tail,
+anywhere else it pauses.
+.TP
 .B Enter
-All fields of the entry, also by a double click.
+All fields of the entry under the cursor, also by a double click.
 \fBEnter\fR on a field there opens a window with the filter of this one and the field.
 .TP
 .B Space
 Pause or follow the tail. Scrolling above the first line brings the older entries in.
 .TP
 .B Shift+arrows
-Select lines, also with the mouse. \fBEsc\fR drops the selection.
+Select lines from the cursor, also with the mouse. \fBEsc\fR drops the cursor and the selection.
 .TP
 .B Ctrl-Ins
-Copy the selected lines or the screen to the clipboard.
+Copy the selected lines, the line under the cursor or the screen to the clipboard.
 .TP
 .B Ctrl-E
 Export the selected lines or all of them to a file.
