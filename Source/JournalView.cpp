@@ -499,16 +499,17 @@ void JournalView::handleEvent(TEvent& event)
   {
     if (event.mouse.eventFlags & meDoubleClick)
     {
-      // Double click opens the entry under the mouse
-      select(lineOf(delta.y + makeLocal(event.mouse.where).y), false);
+      // Double click opens the entry under the mouse, a stroke of M goes on to it
+      select(lineOf(delta.y + makeLocal(event.mouse.where).y), marking);
       details();
       clearEvent(event);
       return;
     }
 
-    if (marking)
+    if ((marking) &&
+        (event.mouse.controlKeyState & kbCtrlShift))
     {
-      // The mouse ends a stroke the way M does
+      // Ctrl+click is a mark of its own, the stroke ends first the way M ends it
       mark();
     }
 
@@ -529,8 +530,8 @@ void JournalView::handleEvent(TEvent& event)
     }
 
     // Click puts the cursor on a row and the marks stay as the keys leave them, Shift+click and dragging extend,
-    // dragging past an edge scrolls; Esc drops the marks
-    extend = (event.mouse.controlKeyState & kbShift) != 0;
+    // dragging past an edge scrolls; in a stroke of M a click goes on with it as the keys do; Esc drops the marks
+    extend = ((event.mouse.controlKeyState & kbShift) != 0) || marking;
 
     do
     {

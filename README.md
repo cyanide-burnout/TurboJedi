@@ -243,7 +243,7 @@ window to the time of the selected line, and a layout keeps their directories fo
 | Space | pause or follow |
 | Shift+arrows, mouse | select lines from the cursor, Esc drops the cursor, the selection and the marks |
 | M, Insert | begin marking from the cursor, the keys mark the lines they pass; M again ends it and they stay marked, so lines apart are marked one stroke after another. Begun on a marked line it takes the marks off instead. No Shift is needed, which Terminal of macOS and some others keep for themselves |
-| Click | put the cursor on a line, the marks stay; Ctrl+click marks a line or takes its mark off, Shift+click and dragging select |
+| Click | put the cursor on a line, the marks stay; in a stroke of M the click goes on with it as the keys do. Ctrl+click marks a line or takes its mark off, Shift+click and dragging select |
 | Ctrl-Ins | copy the selected lines, the line under the cursor or the screen |
 | Ctrl-E | export the selected lines or all of them |
 | F8 | clear the window |
