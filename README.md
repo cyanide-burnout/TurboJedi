@@ -124,7 +124,8 @@ make arch
 
 ### Packages of a release
 
-A tag `v*` makes GitHub Actions build all the packages and put them to its release.
+A tag `v*` makes GitHub Actions build all the packages and put them to its release. The notes of the release are the
+section of [CHANGELOG.md](CHANGELOG.md) for its version, written before the tag.
 
 ## Usage
 

@@ -46,7 +46,7 @@ or rule files of grc, synchronized time across windows and saved layouts.
 
 %prep
 # What %%setup would unpack: %%license and %%doc take the names from the build directory
-cp -p "%{turbojedi_tree}/LICENSE" "%{turbojedi_tree}/README.md" .
+cp -p "%{turbojedi_tree}/LICENSE" "%{turbojedi_tree}/README.md" "%{turbojedi_tree}/CHANGELOG.md" .
 cp -p "%{turbojedi_tree}/Import/tvision/COPYRIGHT" tvision-COPYRIGHT
 
 %build
@@ -65,6 +65,6 @@ make install PREFIX=%{buildroot}%{_prefix}
 
 %files
 %license LICENSE tvision-COPYRIGHT
-%doc README.md
+%doc README.md CHANGELOG.md
 %{_bindir}/turbojedi
 %{_mandir}/man1/turbojedi.1*

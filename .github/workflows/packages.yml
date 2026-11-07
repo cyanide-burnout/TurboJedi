@@ -71,6 +71,12 @@ jobs:
       contents: write
 
     steps:
+      # Only the notes of the release are needed, before the packages since checkout cleans the directory
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: CHANGELOG.md
+          sparse-checkout-cone-mode: false
+
       - uses: actions/download-artifact@v8
         with:
           path: dist
@@ -81,5 +87,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
-          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1 || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "TurboJedi ${TAG#v}" --generate-notes
+          # The section of CHANGELOG.md for the version goes in front of the link to the full changelog, a version
+          # without one gets the link alone. Versions are compared as strings, 0.1 is not 0.10; the wrapped lines of
+          # an item are joined, GitHub breaks a release text where its lines break
+          awk -v version="${TAG#v}" '
+            /^## /      { found = (($2 "") == version); next }
+            !found      { next }
+            /^  +[^ -]/ { sub(/^ +/, " "); text = text $0; next }
+            count ++    { print text }
+                        { text = $0 }
+            END         { if (count) print text }' CHANGELOG.md > notes.md
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1 || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "TurboJedi ${TAG#v}" --notes-file notes.md --generate-notes
           gh release upload "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --clobber
