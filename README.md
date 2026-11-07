@@ -14,14 +14,17 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd and
   one mounted from another machine over SSH or NFS as well,
   levels, source (unit, identifier, command, transport, boot, user, machine, PID,
   any `FIELD=VALUE`), time range, and text, plain or a regular expression of PCRE2, to show or to leave out
-- Follows the tail, Space pauses; scrolling above the first line brings the older entries in. The title of every
+- Follows the tail, Space pauses; scrolling past the oldest line brings the older entries in. The title of every
   window tells it: ► follows, ‖ is paused, ‖ +12 has 12 entries come meanwhile. A paused window that is full keeps
   its lines and marks, the new entries are counted and come in when it follows again
-- Columns to choose: date, time, level, host, unit, identifier, PID; UTC, milliseconds, wrapped messages, hidden heading
+- The newest entries at the bottom or on top, like `journalctl --reverse`, for every window of its own; the lines of
+  a message stay under it, the title ends with ▲ or ▼
+- Columns to choose: date, time, level, host, unit, identifier, PID; UTC, milliseconds, wrapped messages, hidden heading,
+  the newest on top
 - Highlighting of messages by rules: built-in ones for times, addresses, identifiers, paths, quoted text, key=value
   and the words that matter, or any rule file of [grc](https://github.com/garabik/grc); colors of the escape sequences
   a message comes with are shown under the rules, the rest of the sequences are taken out
-- Find with highlighting, next and previous, on into the older entries above the first line
+- Find with highlighting, next and previous, on into the older entries past the oldest line
 - Clone of a window with its lines, filter, selection and place: one stays where it is, the other goes elsewhere;
   a timeline is cloned with its counts, step and scale
 - List of the windows to go to, narrowed down by a filter
@@ -146,6 +149,7 @@ turbojedi [options] [FIELD=VALUE ...]
 | `-D`, `--directory DIR` | journal files of `DIR` in the first window |
 | `-m`, `--merge` | journals of every machine there are in the first window, like `journalctl --merge`: other machine IDs in `/var/log/journal` and `/var/log/journal/remote` of `systemd-journal-remote` |
 | `-n`, `--lines N` | history to start with, 1000 by default |
+| `-r`, `--reverse` | the newest entries on top in the first window, like `journalctl --reverse` |
 | `-H`, `--highlight NAME` | highlighting rules: `builtin` (default), `off`, a rule file of grc such as `conf.log`, or a path |
 | `-c`, `--layout FILE` | windows of a saved layout |
 | `--clipboard-copy COMMAND` | command of `sh` that takes copied lines on its standard input, over `$TURBOJEDI_CLIPBOARD_COPY` |
@@ -234,13 +238,14 @@ window to the time of the selected line, and a layout keeps their directories fo
 | Ctrl-T | time range |
 | Ctrl-K | columns |
 | Ctrl-W | wrap long messages |
+| Ctrl-R | the newest entries on top or at the bottom; the title ends with ▲ when they are at the bottom, ▼ when on top |
 | Ctrl-L | highlighting rules |
 | Ctrl-F, Ctrl-N, Ctrl-P | find, next, previous |
 | Ctrl-G | go to a time |
 | Alt-G | every other window goes to the time of the selected line |
 | Alt-Left, Alt-Backspace | back to where the window was before Ctrl-G, Alt-G or a find |
 | Alt-T | timeline: entries of the filter of the window by intervals of time; Left and Right move, Enter takes every journal window to the interval, `+` and `-` change the step, `L` the scale |
-| Up, Down, PgUp, PgDn, Home, End | move the cursor, it comes on the last row first; on the newest line the window follows, anywhere else it pauses |
+| Up, Down, PgUp, PgDn, Home, End | move the cursor, it comes on the newest row of the screen first; on the newest line the window follows, anywhere else it pauses |
 | Enter, double click | details of the entry under the cursor, Enter on a field there opens a window with it added to the filter |
 | Space | pause or follow |
 | Shift+arrows, mouse | select lines from the cursor, Esc drops the cursor, the selection and the marks |
@@ -272,7 +277,7 @@ columns = date,time,level,identifier,pid,millisecond
 Keys: `bounds`, `directory`, `merge`, `unit`, `identifier`, `command`, `transport`, `boot`, `user`, `machine`, `pid`, `match` (repeatable),
 `since`, `until`, `text`, `regex`, `exclude`, `case`, `levels` (letters `EACRWNID` of the levels shown, dashes
 for the hidden ones), `highlight` and `columns` (`date`, `time`, `level`, `host`, `unit`, `identifier`, `pid`, `utc`,
-`millisecond`, `wrap`, `headless`).
+`millisecond`, `wrap`, `headless`, `reverse`).
 
 A timeline is a `[timeline]` section with `bounds`, the keys of the filter it counts, `step` (seconds of an interval,
 `0` lets the window choose one that fits) and `scale` (`linear` or `log`):

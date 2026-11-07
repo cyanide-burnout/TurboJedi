@@ -134,6 +134,7 @@ static void PrintUsage(const char* name)
   printf("  -D, --directory DIR   journal files of DIR instead of the local journal\n");
   printf("  -m, --merge           journals of every machine there are, like journalctl --merge, instead of this one\n");
   printf("  -n, --lines N         history to start with (default %d)\n", DEFAULT_HISTORY);
+  printf("  -r, --reverse         newest entries on top, like journalctl --reverse\n");
   printf("  -H, --highlight NAME  rules that paint messages: builtin (default), off, a rule file of grc\n");
   printf("                        such as conf.log, or a path to one\n");
   printf("  -c, --layout FILE     windows of a layout saved by File, Save layout, options are left for new windows then\n");
@@ -184,6 +185,7 @@ int main(int count, char* const* arguments)
     { "layout",         required_argument, nullptr, 'c' },
     { "lines",          required_argument, nullptr, 'n' },
     { "merge",          no_argument,       nullptr, 'm' },
+    { "reverse",        no_argument,       nullptr, 'r' },
     { "highlight",      required_argument, nullptr, 'H' },
     { "clipboard-copy", required_argument, nullptr, 'C' },
     { "help",           no_argument,       nullptr, 'h' },
@@ -202,7 +204,7 @@ int main(int count, char* const* arguments)
   // The option goes over the environment, an empty one leaves the clipboard of Turbo Vision
   clipboard = (getenv("TURBOJEDI_CLIPBOARD_COPY") != nullptr) ? getenv("TURBOJEDI_CLIPBOARD_COPY") : "";
 
-  while ((result = getopt_long(count, arguments, "t:u:U:p:kS:bD:c:n:mH:h", options, nullptr)) > 0)
+  while ((result = getopt_long(count, arguments, "t:u:U:p:kS:bD:c:n:mrH:h", options, nullptr)) > 0)
   {
     // Only the history, the journals to read and the clipboard keep the last layout
     custom |= (result != 'n') && (result != 'D') && (result != 'm') && (result != 'C');
@@ -266,6 +268,10 @@ int main(int count, char* const* arguments)
 
       case 'm':
         filter.merge = true;
+        break;
+
+      case 'r':
+        filter.columns |= JOURNAL_COLUMN_REVERSE;
         break;
 
       case 'n':

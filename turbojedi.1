@@ -50,6 +50,9 @@ instead of this machine only.
 \fB\-n\fR, \fB\-\-lines\fR \fIN\fR
 History to start with, 1000 by default.
 .TP
+\fB\-r\fR, \fB\-\-reverse\fR
+The newest entries on top in the first window, like \fBjournalctl \-\-reverse\fR.
+.TP
 \fB\-H\fR, \fB\-\-highlight\fR \fINAME\fR
 Rules that paint messages: \fBbuiltin\fR (default), \fBoff\fR, a rule file of
 .BR grc (1)
@@ -97,17 +100,22 @@ Journals of the window: of this machine, of every machine there is, like \fBjour
 Time range.
 .TP
 .B Ctrl-K
-Columns: date, time, level, host, unit, identifier, PID; UTC, milliseconds, wrapped messages, hidden heading.
+Columns: date, time, level, host, unit, identifier, PID; UTC, milliseconds, wrapped messages, hidden heading,
+the newest on top.
 .TP
 .B Ctrl-W
 Wrap long messages.
+.TP
+.B Ctrl-R
+The newest entries on top or at the bottom, the lines of a message stay under it. The title of the window ends
+with \[u25B2] when the newest are at the bottom and with \[u25BC] when they are on top.
 .TP
 .B Ctrl-L
 Highlighting rules of the window.
 .TP
 .B Ctrl-F
 Find and highlight. \fBCtrl-N\fR and \fBCtrl-P\fR go to the next and previous one,
-the search goes on into the older entries above the first line.
+the search goes on into the older entries past the oldest line.
 .TP
 .B Ctrl-G
 Go to a time, given the way \fB\-\-since\fR takes it.
@@ -125,15 +133,15 @@ to the first entry of the interval, \fB+\fR and \fB\-\fR make the intervals fine
 \fBL\fR switches between linear and logarithmic scale.
 .TP
 .B Up, Down, PgUp, PgDn, Home, End
-Move the cursor, it comes on the last row of the window first. On the newest line the window follows the tail,
-anywhere else it pauses.
+Move the cursor, it comes on the row of the window nearest to the newest entries first. On the newest line the
+window follows the tail, anywhere else it pauses.
 .TP
 .B Enter
 All fields of the entry under the cursor, also by a double click.
 \fBEnter\fR on a field there opens a window with the filter of this one and the field.
 .TP
 .B Space
-Pause or follow the tail. Scrolling above the first line brings the older entries in.
+Pause or follow the tail. Scrolling past the oldest line brings the older entries in.
 The title of a window starts with \[u25BA] when it follows, with \[u2016] when it is paused, and with the count of the
 entries come meanwhile after it. A paused window that is full keeps its lines and marks, the new entries are counted
 and come in when it follows again.

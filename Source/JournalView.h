@@ -71,6 +71,7 @@ class JournalView : public TScroller
     const char* describe();
     const char* name();
     const char* sign();  // Of the title: ► following, ‖ paused, with +N entries come meanwhile
+    const char* order();  // At the end of the title: ▲ the newest at the bottom, ▼ the newest on top
     std::string heading();
     void arrange();  // Shows or hides the heading as the columns say, the lines take its row
 
@@ -87,9 +88,11 @@ class JournalView : public TScroller
     int history;
     size_t capacity;
 
+    // In the order of the screen: the newest entry last, or first with the newest on top; the lines of a message
+    // go under it either way
     std::deque<JournalLine> lines;
     size_t bytes;    // Held by the lines, bounded like their count
-    uint64_t first;  // Absolute number of lines.front(), far from zero so history can go in front
+    uint64_t first;  // Absolute number of lines.front(), far from zero so lines can go in front
     int width;
 
     std::string buffer;
@@ -138,7 +141,7 @@ class JournalView : public TScroller
     size_t back();
     bool parse(sd_journal* source, JournalLine& model, std::string& message);
     void split(const JournalLine& model, const std::string& message, std::vector<JournalLine>& parts);
-    void push(JournalLine& line);
+    void push(std::vector<JournalLine>& parts);  // The lines of an entry after the newest one
     void measure(const JournalLine& line);
     int indent();
     int span();
@@ -147,6 +150,11 @@ class JournalView : public TScroller
     uint64_t rowOf(size_t index);
     size_t lineOf(uint64_t row);
     size_t focus();
+    bool reversed();                 // The newest entries on top
+    const JournalLine& edge(bool newest);  // The line at the newest or the oldest end, there has to be one
+    size_t latest();                 // The line on the screen nearest to the newest end
+    bool oldest();                   // The screen is at the end of the oldest lines, the history comes in there
+    void reverse();                  // The other order, with the same lines selected and on the screen
     void format(uint64_t realtime, char* date, char* clock);
     std::string compose(const JournalLine& line);
     void trim();

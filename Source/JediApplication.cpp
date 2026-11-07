@@ -116,6 +116,7 @@ TMenuBar* JediApplication::initMenuBar(TRect bounds)
       *new TMenuItem("T~i~me...",       cmJournalTime,         kbCtrlT,   hcNoContext, "Ctrl-T") +
       *new TMenuItem("Col~u~mns...",    cmJournalColumns,      kbCtrlK,   hcNoContext, "Ctrl-K") +
       *new TMenuItem("~W~rap lines",    cmJournalWrap,         kbCtrlW,   hcNoContext, "Ctrl-W") +
+      *new TMenuItem("N~e~west on top", cmJournalReverse,      kbCtrlR,   hcNoContext, "Ctrl-R") +
       *new TMenuItem("~H~ighlight...",  cmJournalHighlight,    kbCtrlL,   hcNoContext, "Ctrl-L") +
       newLine() +
       *new TMenuItem("~F~ind...",       cmJournalFind,         kbCtrlF,   hcNoContext, "Ctrl-F") +
@@ -581,11 +582,13 @@ void JediApplication::showHelp()
     "Lines",
     "  Ctrl-K          Columns, UTC and milliseconds",
     "  Ctrl-W          Wrap long messages",
+    "  Ctrl-R          Newest entries on top or at the bottom, the lines of a message",
+    "                  stay under it",
     "  Ctrl-L          Highlight rules: built-in, off or a rule file of grc",
     "  Space           Pause or follow the tail",
-    "  Up, Down, PgUp, Move the cursor, it comes on the last row first; on the newest line",
-    "  PgDn, Home, End the window follows the tail, anywhere else it pauses.",
-    "                  Above the first line the older entries come in",
+    "  Up, Down, PgUp, Move the cursor, it comes on the newest row of the screen first;",
+    "  PgDn, Home, End on the newest line the window follows the tail, anywhere else",
+    "                  it pauses. Past the oldest line the older entries come in",
     "  Shift+arrows    Select lines from the cursor, also with the mouse",
     "  M, Insert       Begin marking from the cursor, the keys mark the lines they pass;",
     "                  M again ends it and they stay marked, so lines apart are marked",
@@ -598,7 +601,7 @@ void JediApplication::showHelp()
     "  Enter           All fields of the entry under the cursor, also double click,",
     "                  Enter on a field there opens a window with the filter of this one and the field",
     "  Ctrl-F          Find and highlight, Ctrl-N and Ctrl-P go to the next and previous one,",
-    "                  the search goes on into the older entries above the first line",
+    "                  the search goes on into the older entries past the oldest line",
     "  Ctrl-G          Go to a time",
     "  Alt-G           Every other window goes to the time of the selected line",
     "  Alt-Left        Back to where the window was before Ctrl-G, Alt-G or a find,",

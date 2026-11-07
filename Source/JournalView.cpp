@@ -198,7 +198,7 @@ JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar
         (!lines.empty()))
     {
       // The source has only counted the entries after its last line, the clone counts them anew
-      SeekJournalCursor(journal, lines.back().cursor.c_str());
+      SeekJournalCursor(journal, edge(true).cursor.c_str());
     }
     else if (!SeekJournalPlace(journal, source.journal))
     {
@@ -408,6 +408,7 @@ void JournalView::handleEvent(TEvent& event)
 {
   int64_t index;
   uint64_t count;
+  uint64_t number;
   uint64_t unread;
   bool extend;
   bool waiting;
@@ -459,14 +460,21 @@ void JournalView::handleEvent(TEvent& event)
       return;
     }
 
-    if ((delta.y == 0) &&
-        ((event.keyDown.keyCode == kbUp)   ||
-         (event.keyDown.keyCode == kbPgUp) ||
-         (event.keyDown.keyCode == kbHome) ||
-         (event.keyDown.keyCode == kbCtrlHome) ||
-         (event.keyDown.keyCode == kbCtrlPgUp)))
+    if ((oldest()) &&
+        ((reversed()) ?
+         ((event.keyDown.keyCode == kbDown) ||
+          (event.keyDown.keyCode == kbPgDn) ||
+          (event.keyDown.keyCode == kbEnd)  ||
+          (event.keyDown.keyCode == kbCtrlEnd) ||
+          (event.keyDown.keyCode == kbCtrlPgDn)) :
+         ((event.keyDown.keyCode == kbUp)   ||
+          (event.keyDown.keyCode == kbPgUp) ||
+          (event.keyDown.keyCode == kbHome) ||
+          (event.keyDown.keyCode == kbCtrlHome) ||
+          (event.keyDown.keyCode == kbCtrlPgUp))))
     {
-      // Above the first line comes the history, the key itself is handled as usual afterwards
+      // Past the oldest line comes the history, above the first one or under the last one with the newest on top;
+      // the key itself is handled as usual afterwards
       back();
     }
 
@@ -482,8 +490,8 @@ void JournalView::handleEvent(TEvent& event)
 
       if (anchor == NO_SELECTION)
       {
-        // The cursor comes on the last row of the window, the newest line while following
-        select(lineOf(std::min<uint64_t>(delta.y + size.y, total()) - 1), false);
+        // The cursor comes on the row of the window nearest to the newest end, the newest line while following
+        select(latest(), false);
       }
 
       index = (cursor > first) ? (cursor - first) : 0;
@@ -587,6 +595,10 @@ void JournalView::handleEvent(TEvent& event)
           refresh();
           break;
 
+        case cmJournalReverse:
+          reverse();
+          break;
+
         default:
           return;
       }
@@ -598,7 +610,7 @@ void JournalView::handleEvent(TEvent& event)
           (journal != nullptr) &&
           (blind) &&
           ((CheckJournalFiles(filter.directory, files)) || (faults != GetJournalFaults())) &&
-          (ReopenJournal(&journal, filter, lines.empty() ? std::string() : lines.back().cursor)))
+          (ReopenJournal(&journal, filter, lines.empty() ? std::string() : edge(true).cursor)))
       {
         // A rotation on a file system without inotify, or its files gone bad under the journal after a reconnect: opened again
         // after the last line, the entries only counted are counted anew
@@ -612,8 +624,10 @@ void JournalView::handleEvent(TEvent& event)
           (journal != nullptr) &&
           (pending || (sd_journal_process(journal) != SD_JOURNAL_NOP) || blind || (held && follow)))
       {
-        // Never clear the poll, every window has to get it; held entries come once the window follows again
-        count   = first + lines.size();
+        // Never clear the poll, every window has to get it; held entries come once the window follows again.
+        // The newest on top come in front, the first number tells them as the count tells the ones at the end
+        number  = first;
+        count   = lines.size();
         waiting = held;
         unread  = unseen;
         read();
@@ -621,7 +635,8 @@ void JournalView::handleEvent(TEvent& event)
         if ((pending) ||
             (held != waiting) ||
             (unseen != unread) ||
-            ((first + lines.size()) != count))
+            (first != number) ||
+            (lines.size() != count))
         {
           // Something has passed the filter or more is to come
           refresh();
@@ -649,13 +664,13 @@ void JournalView::handleEvent(TEvent& event)
           (event.message.infoPtr == vScrollBar) &&
           (!moving))
       {
-        // Scrolling away from the tail pauses, scrolling back to it resumes
-        follow  = delta.y >= limit.y - size.y;
+        // Scrolling away from the tail pauses, scrolling back to it resumes; the tail is on top with the newest there
+        follow  = reversed() ? (delta.y == 0) : (delta.y >= limit.y - size.y);
         unseen *= !follow;
 
-        if (delta.y == 0)
+        if (oldest())
         {
-          // Scrolled up to the first line, the history comes in front of it
+          // Scrolled to the oldest line, the history comes past it
           back();
         }
 
@@ -742,7 +757,8 @@ void JournalView::open()
     model.realtime = time(nullptr) * 1000000ULL;
     model.priority = LOG_ERR;
     model.text     = message;
-    push(model);
+    parts.assign(1, model);
+    push(parts);
     refresh();
     return;
   }
@@ -784,11 +800,7 @@ void JournalView::open()
     {
       // Show the entry the cursor is on before moving forward
       split(model, buffer, parts);
-
-      for (JournalLine& part : parts)
-      {
-        push(part);
-      }
+      push(parts);
     }
   }
 
@@ -805,6 +817,7 @@ void JournalView::open()
 void JournalView::read()
 {
   int count;
+  uint64_t before;
   uint64_t realtime;
   JournalLine model;
   std::vector<JournalLine> parts;
@@ -817,11 +830,14 @@ void JournalView::read()
     counted = 0;
 
     if ((!lines.empty()) &&
-        (!lines.back().cursor.empty()))
+        (!edge(true).cursor.empty()))
     {
-      SeekJournalCursor(journal, lines.back().cursor.c_str());
+      SeekJournalCursor(journal, edge(true).cursor.c_str());
     }
   }
+
+  // The newest on top come in front of the rows on the screen
+  before = (reversed() && !follow) ? total() : 0;
 
   for (count = 0; (!closed) && (count < READ_STEP) && (sd_journal_next(journal) > 0); count ++)
   {
@@ -852,11 +868,19 @@ void JournalView::read()
         continue;
       }
 
-      for (JournalLine& part : parts)
-      {
-        push(part);
-      }
+      push(parts);
     }
+  }
+
+  if ((reversed()) &&
+      (!follow) &&
+      (total() != before))
+  {
+    // Paused with the newest on top, the rows on the screen stay where they are under the ones come in front of them
+    moving = true;
+    setLimit(limit.x, total());
+    scrollTo(delta.x, delta.y + (total() - before));
+    moving = false;
   }
 
   // A long range comes in batches, the screen keeps going between them
@@ -878,15 +902,15 @@ size_t JournalView::back()
 
   if ((!older) ||
       (lines.empty()) ||
-      (lines.front().cursor.empty()) ||
+      (edge(false).cursor.empty()) ||
       (OpenJournalQuery(&source, filter) < 0))
   {
     return 0;
   }
 
   // A journal of its own, the one of the window keeps following the tail,
-  // seeking lands on the entry of the first line, the next steps go older
-  ended = (sd_journal_seek_cursor(source, lines.front().cursor.c_str()) < 0) || (sd_journal_previous(source) <= 0);
+  // seeking lands on the entry of the oldest line, the next steps go older
+  ended = (sd_journal_seek_cursor(source, edge(false).cursor.c_str()) < 0) || (sd_journal_previous(source) <= 0);
 
   for (count = 0, size = bytes; (!ended) && (count < HISTORY_STEP) && ((lines.size() + batch.size()) < capacity) && (size < BYTE_CAPACITY); count ++)
   {
@@ -908,7 +932,8 @@ size_t JournalView::back()
 
     if (parse(source, model, buffer))
     {
-      // Entries come newest first, their lines go in reverse so the batch can be put in front as it is
+      // Entries come newest first: under the newest on top they go on in their order, otherwise their lines go
+      // in reverse so the batch can be put in front as it is
       split(model, buffer, parts);
 
       for (const JournalLine& part : parts)
@@ -917,7 +942,8 @@ size_t JournalView::back()
         size += GetLineSize(part);
       }
 
-      batch.insert(batch.end(), std::make_move_iterator(parts.rbegin()), std::make_move_iterator(parts.rend()));
+      if (reversed()) batch.insert(batch.end(), std::make_move_iterator(parts.begin()),  std::make_move_iterator(parts.end()));
+      else            batch.insert(batch.end(), std::make_move_iterator(parts.rbegin()), std::make_move_iterator(parts.rend()));
     }
   }
 
@@ -927,13 +953,29 @@ size_t JournalView::back()
 
   for (JournalLine& line : batch)
   {
+    if (reversed())
+    {
+      // Under the last line, the numbers go on after it
+      lines.push_back(std::move(line));
+      bytes += GetLineSize(lines.back());
+      measure(lines.back());
+      continue;
+    }
+
     lines.push_front(std::move(line));
     bytes += GetLineSize(lines.front());
     measure(lines.front());
     first --;
   }
 
-  if (!batch.empty())
+  if ((!batch.empty()) &&
+      (reversed()))
+  {
+    // Nothing on the screen moves
+    layout = 0;
+    refresh();
+  }
+  else if (!batch.empty())
   {
     // The rows on the screen stay where they are
     layout = 0;
@@ -1036,23 +1078,43 @@ void JournalView::split(const JournalLine& model, const std::string& message, st
   while (start < size);
 }
 
-void JournalView::push(JournalLine& line)
+void JournalView::push(std::vector<JournalLine>& parts)
 {
-  lines.push_back(std::move(line));
-  bytes += GetLineSize(lines.back());
-  measure(lines.back());
-  unseen += !follow;
+  size_t index;
+  const JournalLine* line;
 
-  if ((filter.columns & JOURNAL_COLUMN_WRAP) &&
-      (layout == span()) &&
-      (rows.size() == lines.size()))
+  for (index = 0; index < parts.size(); index ++)
   {
-    // Counted rows go on without counting them all again
-    rows.push_back(rows.back() + std::max(1, (strwidth(lines.back().text) + layout - 1) / layout));
-  }
-  else
-  {
-    layout = 0;
+    if (reversed())
+    {
+      // The newest entry goes on top with its lines in their order under it, the numbers go on in front;
+      // the rows are counted again
+      lines.push_front(std::move(parts[parts.size() - 1 - index]));
+      line   = &lines.front();
+      layout = 0;
+      first --;
+    }
+    else
+    {
+      lines.push_back(std::move(parts[index]));
+      line = &lines.back();
+
+      if ((filter.columns & JOURNAL_COLUMN_WRAP) &&
+          (layout == span()) &&
+          (rows.size() == lines.size()))
+      {
+        // Counted rows go on without counting them all again
+        rows.push_back(rows.back() + std::max(1, (strwidth(line->text) + layout - 1) / layout));
+      }
+      else
+      {
+        layout = 0;
+      }
+    }
+
+    bytes  += GetLineSize(*line);
+    unseen += !follow;
+    measure(*line);
   }
 }
 
@@ -1133,8 +1195,126 @@ size_t JournalView::focus()
     return (cursor > first) ? (cursor - first) : 0;
   }
 
-  // The last line on the screen, which is the newest one while following
-  return (total() > 0) ? lineOf(std::min<uint64_t>(delta.y + size.y, total()) - 1) : lines.size();
+  // The line on the screen nearest to the newest end, which is the newest one while following
+  return (total() > 0) ? latest() : lines.size();
+}
+
+bool JournalView::reversed()
+{
+  return (filter.columns & JOURNAL_COLUMN_REVERSE) != 0;
+}
+
+const JournalLine& JournalView::edge(bool newest)
+{
+  return (newest != reversed()) ? lines.back() : lines.front();
+}
+
+size_t JournalView::latest()
+{
+  // The first row with the newest on top, the last one otherwise
+  return reversed() ? lineOf(delta.y) : lineOf(std::min<uint64_t>(delta.y + size.y, total()) - 1);
+}
+
+bool JournalView::oldest()
+{
+  return reversed() ? ((uint64_t)(delta.y + size.y) >= total()) : (delta.y == 0);
+}
+
+void JournalView::reverse()
+{
+  size_t top;
+  size_t end;
+  size_t index;
+  size_t start;
+  size_t block;
+  std::set<uint64_t> chosen;
+  std::vector<size_t> starts;
+  std::vector<size_t> numbers;  // New index of every line
+  std::deque<JournalLine> other;
+
+  // An entry is a line with the next lines of its message under it, or what trimming has left of one
+  for (start = 0; start < lines.size(); start = end)
+  {
+    starts.push_back(start);
+
+    for (end = start + 1; (end < lines.size()) && (lines[end].continued) && (lines[end].cursor == lines[start].cursor); end ++)
+    {
+      // The lines of the same message
+    }
+  }
+
+  // The entries go the other way, the lines of every one stay in their order; the top line of the screen is taken
+  // while the rows still tell it
+  top = (total() > 0) ? lineOf(delta.y) : 0;
+  numbers.resize(lines.size());
+
+  for (block = starts.size(); block > 0; block --)
+  {
+    start = starts[block - 1];
+    end   = (block < starts.size()) ? starts[block] : lines.size();
+
+    for (index = start; index < end; index ++)
+    {
+      numbers[index] = other.size();
+      other.push_back(std::move(lines[index]));
+    }
+  }
+
+  for (index = 0; index < numbers.size(); index ++)
+  {
+    if (picked(first + index))
+    {
+      // A range would not stay a range when it ends inside an entry, the selection stays as marks
+      chosen.insert(first + numbers[index]);
+    }
+  }
+
+  if ((anchor != NO_SELECTION) &&
+      (cursor >= first) &&
+      (cursor < first + numbers.size()))
+  {
+    // The cursor stays on its line, a stroke of M ends there as M would end it
+    cursor = first + numbers[cursor - first];
+    anchor = cursor;
+  }
+  else
+  {
+    anchor = NO_SELECTION;
+    cursor = NO_SELECTION;
+  }
+
+  marks   = std::move(chosen);
+  marking = false;
+  unmark  = false;
+  lines   = std::move(other);
+  layout  = 0;
+
+  // Jumps Back would go to the lines of the other order
+  places.clear();
+  filter.columns ^= JOURNAL_COLUMN_REVERSE;
+
+  if (owner != nullptr)
+  {
+    // The title tells the order
+    static_cast<TWindow*>(owner)->frame->drawView();
+  }
+
+  if ((!follow) &&
+      (!lines.empty()))
+  {
+    // Paused, the lines of the screen stay on it the other way round: the top one goes to the bottom, the cursor stays seen
+    moving = true;
+    setLimit(limit.x, total());
+    scrollTo(delta.x, std::max<int64_t>(0, (int64_t)rowOf(numbers[top]) - size.y + 1));
+    moving = false;
+
+    if (anchor != NO_SELECTION)
+    {
+      reveal(cursor - first);
+    }
+  }
+
+  refresh();
 }
 
 void JournalView::format(uint64_t realtime, char* date, char* clock)
@@ -1160,27 +1340,35 @@ void JournalView::format(uint64_t realtime, char* date, char* clock)
 
 void JournalView::trim()
 {
-  uint64_t oldest;
+  uint64_t number;
   uint64_t before;
 
-  oldest = first;
+  number = first;
   before = follow ? 0 : total();
 
   while ((lines.size() > capacity) ||
          ((bytes > BYTE_CAPACITY) && (lines.size() > 1)))
   {
-    // The oldest go first, rows are counted again
-    bytes -= GetLineSize(lines.front());
-    lines.pop_front();
+    // The oldest go first, from the bottom with the newest on top; rows are counted again
+    bytes -= GetLineSize(edge(false));
     layout = 0;
+
+    if (reversed())
+    {
+      lines.pop_back();
+      continue;
+    }
+
+    lines.pop_front();
     first ++;
   }
 
   // Marks of the lines gone go with them
   marks.erase(marks.begin(), marks.lower_bound(first));
+  marks.erase(marks.lower_bound(first + lines.size()), marks.end());
 
   if ((!follow) &&
-      (first != oldest))
+      (first != number))
   {
     // The rows on the screen stay where they are while paused, the ones gone themselves leave the oldest on top
     moving = true;
@@ -1203,7 +1391,9 @@ void JournalView::clear()
   marking = false;
   unmark  = false;
 
+  // The numbers of the newest on top go on in front, places of the lines gone could get them again
   marks.clear();
+  places.clear();
   lines.clear();
   bytes = 0;
   rows.clear();
@@ -1230,15 +1420,15 @@ void JournalView::refresh()
       (anchor != NO_SELECTION) &&
       (!lines.empty()))
   {
-    // The cursor goes on with the tail, also when following has come back by Space or by scrolling down
-    anchor = first + lines.size() - 1;
+    // The cursor goes on with the tail, also when following has come back by Space or by scrolling to it
+    anchor = first + (reversed() ? 0 : (lines.size() - 1));
     cursor = anchor;
   }
 
   if (follow)
   {
-    // Stay on the tail
-    scrollTo((filter.columns & JOURNAL_COLUMN_WRAP) ? 0 : delta.x, std::max<int64_t>(0, (int64_t)total() - size.y));
+    // Stay on the tail, on top with the newest there
+    scrollTo((filter.columns & JOURNAL_COLUMN_WRAP) ? 0 : delta.x, reversed() ? 0 : std::max<int64_t>(0, (int64_t)total() - size.y));
   }
 
   // Scroll bars tell the view about their values by a broadcast to the window, which misses a view not inserted yet
@@ -1291,7 +1481,7 @@ void JournalView::select(int64_t index, bool extend)
     anchor = (extend && (anchor != NO_SELECTION)) ? anchor : cursor;
 
     // The cursor on the newest line follows the tail, anywhere else or a selection of more lines does not run away with it
-    follow  = (anchor == cursor) && (index == (int64_t)lines.size() - 1);
+    follow  = (anchor == cursor) && (index == (reversed() ? 0 : ((int64_t)lines.size() - 1)));
     unseen *= !follow;
     reveal(index);
     refresh();
@@ -1306,8 +1496,8 @@ void JournalView::mark()
 
   if (anchor == NO_SELECTION)
   {
-    // The cursor comes on the last row of the window, as the keys bring it
-    select(lineOf(std::min<uint64_t>(delta.y + size.y, total()) - 1), false);
+    // The cursor comes on the row nearest to the newest end, as the keys bring it
+    select(latest(), false);
   }
 
   if (anchor == NO_SELECTION)
@@ -1586,12 +1776,19 @@ void JournalView::find(int direction)
     (anchor != NO_SELECTION) ? (int64_t)((cursor > first) ? (cursor - first) : 0) :
     (direction > 0) ? ((int64_t)lineOf(delta.y) - 1) : (int64_t)lineOf(std::min<uint64_t>(delta.y + size.y, total()));
 
-  for (index += direction; index < (int64_t)lines.size(); index += direction)
+  for (index += direction; ; index += direction)
   {
-    if (index < 0)
+    if ((index < 0) ||
+        (index >= (int64_t)lines.size()))
     {
-      // Above the first line the history comes in by batches until the journal, the range or the capacity ends,
-      // the tail must not take the screen meanwhile
+      // Past the oldest line, above the first one or under the last one with the newest on top, the history comes in
+      // by batches until the journal, the range or the capacity ends, the tail must not take the screen meanwhile;
+      // past the newest there is nothing more
+      if ((index < 0) == reversed())
+      {
+        break;
+      }
+
       follow = false;
 
       if ((added = back()) == 0)
@@ -1599,7 +1796,8 @@ void JournalView::find(int direction)
         break;
       }
 
-      index += added;
+      // Lines in front move the ones there are
+      index += reversed() ? 0 : added;
     }
 
     if (finder.match(lines[index].identifier + "[" + lines[index].pid + "]: " + lines[index].text))
@@ -1616,6 +1814,7 @@ void JournalView::find(int direction)
 void JournalView::seek(uint64_t realtime, bool nearest)
 {
   size_t index;
+  size_t later;
 
   if (lines.empty())
   {
@@ -1626,10 +1825,42 @@ void JournalView::seek(uint64_t realtime, bool nearest)
   remember();
   follow = false;
 
-  while ((lines.front().realtime > realtime) &&
+  while ((edge(false).realtime > realtime) &&
          (back() > 0))
   {
     // History before the moment, up to the start of the journal or the range, or the capacity
+  }
+
+  if (reversed())
+  {
+    // From the bottom up the time goes on: the entry at the moment or after it, the newest one when the moment is still
+    // to come, on its first line
+    for (index = lines.size() - 1; (index > 0) && (lines[index].realtime < realtime); index --)
+    {
+      // Older than the moment
+    }
+
+    for ( ; (index > 0) && (lines[index].continued); index --)
+    {
+      // Up to the first line of the entry
+    }
+
+    for (later = index + 1; (later < lines.size()) && (lines[later].continued); later ++)
+    {
+      // The entry under it is the one just before
+    }
+
+    if (nearest &&
+        (later < lines.size()) &&
+        (lines[index].realtime >= realtime) &&
+        ((realtime - lines[later].realtime) < (lines[index].realtime - realtime)))
+    {
+      // The one just before is closer to the moment
+      index = later;
+    }
+
+    select(index, false);
+    return;
   }
 
   for (index = 0; (index < lines.size() - 1) && (lines[index].realtime < realtime); index ++)
@@ -1758,6 +1989,12 @@ const char* JournalView::sign()
   // Every window tells whether it follows and what has come while it is paused, without going there
   badge = GetSign(follow, unseen);
   return badge.c_str();
+}
+
+const char* JournalView::order()
+{
+  // Like the order of a column of a table by time, rising or falling
+  return reversed() ? "\xe2\x96\xbc" : "\xe2\x96\xb2";
 }
 
 const char* JournalView::name()
@@ -1891,10 +2128,16 @@ void JournalView::chooseColumns()
 
   if (TProgram::application->executeDialog(new ColumnsDialog(), &value) == cmOK)
   {
-    // Lines keep every field, nothing to read again
-    filter.columns = value;
+    // Lines keep every field, nothing to read again; the order is changed by turning the lines round
+    filter.columns = (value & ~JOURNAL_COLUMN_REVERSE) | (filter.columns & JOURNAL_COLUMN_REVERSE);
     layout         = 0;
     arrange();
+
+    if ((value ^ filter.columns) & JOURNAL_COLUMN_REVERSE)
+    {
+      reverse();
+    }
+
     refresh();
   }
 }
@@ -1956,8 +2199,8 @@ void JournalView::chooseFind()
 
     if (!finder.empty())
     {
-      // The newest one from the selection or the bottom of the screen, then on into the history
-      find(-1);
+      // The newest one from the selection or the newest end of the screen, then on into the history
+      find(reversed() ? 1 : -1);
     }
   }
 }

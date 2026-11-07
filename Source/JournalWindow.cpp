@@ -70,12 +70,14 @@ void JournalWindow::attach(TRect extent)
 const char* JournalWindow::getTitle(short size)
 {
   const char* name;
+  std::string order;
 
-  // The sign goes first, a long filter would cut it off at the end
+  // The sign goes first, the order last; a long filter is cut in front of the order so that it stays
   caption  = view->sign();
   caption += ' ';
   caption += title;
   name     = view->name();
+  order    = std::string(" ") + view->order();
 
   if (*name != '\0')
   {
@@ -83,5 +85,18 @@ const char* JournalWindow::getTitle(short size)
     caption += name;
   }
 
+  while ((!caption.empty()) &&
+         (strwidth(caption) + strwidth(order) > size))
+  {
+    // A character at a time, its continuation bytes first
+    while ((caption.size() > 1) && ((caption.back() & 0xc0) == 0x80))
+    {
+      caption.pop_back();
+    }
+
+    caption.pop_back();
+  }
+
+  caption += order;
   return caption.c_str();
 }
