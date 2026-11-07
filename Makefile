@@ -99,8 +99,11 @@ EXTRA = $(if $(shell grep -s '^GPM:FILEPATH=/' $(TURBOVISION)/build/CMakeCache.t
 
 all: build
 
-$(TURBOVISION)/build/libtvision.a:
-	cmake -S $(TURBOVISION) -B $(TURBOVISION)/build $(CMAKEFLAGS) -D CMAKE_BUILD_TYPE=Release -D CMAKE_POSITION_INDEPENDENT_CODE=ON -D TV_BUILD_EXAMPLES=OFF -D TV_BUILD_USING_GPM=ON
+# Configured once, built by its own make every time: it knows what a move of the submodule has changed and does nothing
+# otherwise
+$(TURBOVISION)/build/libtvision.a: FORCE
+	@[ -f $(TURBOVISION)/build/CMakeCache.txt ] || \
+	 cmake -S $(TURBOVISION) -B $(TURBOVISION)/build $(CMAKEFLAGS) -D CMAKE_BUILD_TYPE=Release -D CMAKE_POSITION_INDEPENDENT_CODE=ON -D TV_BUILD_EXAMPLES=OFF -D TV_BUILD_USING_GPM=ON
 	+make -C $(TURBOVISION)/build tvision
 
 # Rewritten only when the version changes, so that only its users are built again

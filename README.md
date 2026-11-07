@@ -77,9 +77,18 @@ make
 sudo make install
 ```
 
-`make` builds tvision in `Import/tvision/build` first. `make install` puts the executable to `/usr/local/bin`
-and the manual page to `/usr/local/share/man/man1`, `PREFIX` and `DESTDIR` move them. Without libgpm the build
-goes on, with the mouse in terminal emulators only; the mouse of the Linux console needs the `gpm` service running.
+A clone is updated with its submodule, a plain `git pull` leaves tvision where it was until
+`git submodule update --init`:
+
+```
+git pull --recurse-submodules
+make
+```
+
+`make` builds tvision in `Import/tvision/build` first, and again what has changed in it after the submodule has
+moved. `make install` puts the executable to `/usr/local/bin` and the manual page to `/usr/local/share/man/man1`,
+`PREFIX` and `DESTDIR` move them. Without libgpm the build goes on, with the mouse in terminal emulators only; the mouse
+of the Linux console needs the `gpm` service running.
 Without libcurl the Help menu has no Check for updates.
 
 About, `--help` and Check for updates link to the repository on GitHub the clone comes from, its `origin`, so a fork links
