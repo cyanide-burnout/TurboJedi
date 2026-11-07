@@ -15,10 +15,11 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd and
   levels, source (unit, identifier, command, transport, boot, user, machine, PID,
   any `FIELD=VALUE`), time range, and text, plain or a regular expression of PCRE2, to show or to leave out
 - Follows the tail, Space pauses; scrolling past the oldest line brings the older entries in. The title of every
-  window tells it: ► follows, ‖ is paused, ‖ +12 has 12 entries come meanwhile. A paused window that is full keeps
+  window tells it: ► follows, ‖ is paused, ‖ +12 has 12 entries come meanwhile; a click on the sign pauses or follows.
+  A paused window that is full keeps
   its lines and marks, the new entries are counted and come in when it follows again
 - The newest entries at the bottom or on top, like `journalctl --reverse`, for every window of its own; the lines of
-  a message stay under it, the title ends with ▲ or ▼
+  a message stay under it, the title ends with ▲ or ▼ and a click on it turns the order
 - Columns to choose: date, time, level, host, unit, identifier, PID; UTC, milliseconds, wrapped messages, hidden heading,
   the newest on top
 - Highlighting of messages by rules: built-in ones for times, addresses, identifiers, paths, quoted text, key=value
@@ -238,7 +239,7 @@ window to the time of the selected line, and a layout keeps their directories fo
 | Ctrl-T | time range |
 | Ctrl-K | columns |
 | Ctrl-W | wrap long messages |
-| Ctrl-R | the newest entries on top or at the bottom; the title ends with ▲ when they are at the bottom, ▼ when on top |
+| Ctrl-R | the newest entries on top or at the bottom; the title ends with ▲ when they are at the bottom, ▼ when on top, a click on it turns the order too |
 | Ctrl-L | highlighting rules |
 | Ctrl-F, Ctrl-N, Ctrl-P | find, next, previous |
 | Ctrl-G | go to a time |
@@ -247,7 +248,7 @@ window to the time of the selected line, and a layout keeps their directories fo
 | Alt-T | timeline: entries of the filter of the window by intervals of time; Left and Right move, Enter takes every journal window to the interval, `+` and `-` change the step, `L` the scale |
 | Up, Down, PgUp, PgDn, Home, End | move the cursor, it comes on the newest row of the screen first; on the newest line the window follows, anywhere else it pauses |
 | Enter, double click | details of the entry under the cursor, Enter on a field there opens a window with it added to the filter |
-| Space | pause or follow |
+| Space | pause or follow, also a click on ► or ‖ in the title |
 | Shift+arrows, mouse | select lines from the cursor, Esc drops the cursor, the selection and the marks |
 | M, Insert | begin marking from the cursor, the keys mark the lines they pass; M again ends it and they stay marked, so lines apart are marked one stroke after another. Begun on a marked line it takes the marks off instead. No Shift is needed, which Terminal of macOS and some others keep for themselves |
 | Click | put the cursor on a line, the marks stay; in a stroke of M the click goes on with it as the keys do. Ctrl+click marks a line or takes its mark off, Shift+click and dragging select |

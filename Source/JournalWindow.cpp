@@ -4,8 +4,12 @@
 
 #define Uses_TScrollBar
 #define Uses_TFrame
+#define Uses_TEvent
 #include "JournalWindow.h"
 #include "JournalHeader.h"
+#include "Commands.h"
+
+#include <algorithm>
 
 // JournalWindow
 
@@ -99,4 +103,47 @@ const char* JournalWindow::getTitle(short size)
 
   caption += order;
   return caption.c_str();
+}
+
+void JournalWindow::handleEvent(TEvent& event)
+{
+  int x;
+  int room;
+  int span;
+  int start;
+  TPoint mouse;
+
+  if ((event.what == evMouseDown) &&
+      (state & sfSelected) &&
+      (frame != nullptr) &&
+      ((mouse = frame->makeLocal(event.mouse.where)).y == 0))
+  {
+    // The frame centers the title in the room its icons and the number leave, the same way here; a window that is not
+    // focused yet takes the click to be focused as any other
+    room  = size.x - 10 - ((flags & (wfClose | wfZoom)) ? 6 : 0) - (((number != wnNoNumber) && (number < 10)) ? 4 : 0);
+    span  = std::max(std::min(strwidth(getTitle(room)), size.x - 10), 0);
+    start = (size.x - span) >> 1;
+    x     = mouse.x - start;
+
+    if ((x >= 0) &&
+        (x < strwidth(view->sign())))
+    {
+      // ► or ‖ with its count, as Space
+      message(view, evCommand, cmJournalPause, nullptr);
+      clearEvent(event);
+      return;
+    }
+
+    if ((x < span) &&
+        (x >= span - strwidth(view->order())))
+    {
+      // ▲ or ▼, as Ctrl-R
+      message(view, evCommand, cmJournalReverse, nullptr);
+      clearEvent(event);
+      return;
+    }
+  }
+
+  // The rest of the title moves the window, a double click zooms it
+  TWindow::handleEvent(event);
 }

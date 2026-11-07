@@ -12,7 +12,8 @@
 
 #include "JournalView.h"
 
-// Lines of the journal with the heading above them, the title tells the filter
+// Lines of the journal with the heading above them, the title tells the filter. The signs at its ends are buttons
+// of the focused window: the one of following pauses or follows, the one of the order turns it
 
 class JournalWindow : public TWindow
 {
@@ -24,6 +25,7 @@ class JournalWindow : public TWindow
     JournalView* view;
 
     const char* getTitle(short size) override;
+    void handleEvent(TEvent& event) override;
 
   private:
 
