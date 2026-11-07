@@ -71,8 +71,11 @@ const char* JournalWindow::getTitle(short size)
 {
   const char* name;
 
-  name    = view->name();
-  caption = title;
+  // The sign goes first, a long filter would cut it off at the end
+  caption  = view->sign();
+  caption += ' ';
+  caption += title;
+  name     = view->name();
 
   if (*name != '\0')
   {

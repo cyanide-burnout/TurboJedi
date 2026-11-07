@@ -90,6 +90,12 @@ static void PaintText(TDrawBuffer& buffer, int x, const std::string& text, size_
   }
 }
 
+static std::string GetSign(bool follow, uint64_t unseen)
+{
+  // Following plays on, a pause tells what has come meanwhile
+  return follow ? "\xe2\x96\xba" : (unseen ? ("\xe2\x80\x96 +" + std::to_string(unseen)) : "\xe2\x80\x96");
+}
+
 static size_t GetLineSize(const JournalLine& line)
 {
   // Near enough to tell a few huge messages from many short ones
@@ -1143,6 +1149,13 @@ void JournalView::refresh()
   moving = false;
   drawView();
 
+  if ((owner != nullptr) &&
+      (badge != GetSign(follow, unseen)))
+  {
+    // The title takes the sign of following or of the pause anew
+    static_cast<TWindow*>(owner)->frame->drawView();
+  }
+
   if (header != nullptr)
   {
     // Columns may have changed or grown
@@ -1545,6 +1558,13 @@ const char* JournalView::describe()
 
   status = buffer;
   return status.c_str();
+}
+
+const char* JournalView::sign()
+{
+  // Every window tells whether it follows and what has come while it is paused, without going there
+  badge = GetSign(follow, unseen);
+  return badge.c_str();
 }
 
 const char* JournalView::name()

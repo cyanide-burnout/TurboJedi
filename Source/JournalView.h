@@ -69,6 +69,7 @@ class JournalView : public TScroller
     const JournalFilter& getFilter() const;
     const char* describe();
     const char* name();
+    const char* sign();  // Of the title: ► following, ‖ paused, with +N entries come meanwhile
     std::string heading();
     void arrange();  // Shows or hides the heading as the columns say, the lines take its row
 
@@ -123,6 +124,7 @@ class JournalView : public TScroller
 
     std::string status;
     std::string caption;
+    std::string badge;   // Sign the title has been drawn with, a new one draws the frame again
 
     void attach();
     void open();
