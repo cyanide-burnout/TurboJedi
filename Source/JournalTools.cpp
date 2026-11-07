@@ -227,6 +227,17 @@ bool IsJournalBlind(sd_journal* journal, const JournalFilter& filter)
           (information.f_type == FUSE_SUPER_MAGIC));
 }
 
+void SeekJournalEnd(sd_journal* journal)
+{
+  sd_journal_seek_tail(journal);
+
+  if (sd_journal_previous(journal) <= 0)
+  {
+    // An identifier that has written nothing yet, for one
+    sd_journal_seek_head(journal);
+  }
+}
+
 static void SeekJournalCursor(sd_journal* journal, const char* position)
 {
   // Whether the entry has passed a text filter or not
@@ -362,8 +373,7 @@ bool ReopenJournal(sd_journal** journal, const JournalFilter& filter, const std:
   else if (!SeekJournalPlace(fresh, *journal))
   {
     // Nothing read yet, what comes after the tail is next
-    sd_journal_seek_tail(fresh);
-    sd_journal_previous(fresh);
+    SeekJournalEnd(fresh);
   }
 
   sd_journal_close(*journal);

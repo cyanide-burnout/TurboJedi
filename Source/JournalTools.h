@@ -95,6 +95,10 @@ bool ReopenJournal(sd_journal** journal, const JournalFilter& filter, const std:
 void SetJournalFaultHandler();
 unsigned GetJournalFaults();  // Faults so far, a journal opened before one of them is opened again
 
+// Puts the journal on its last entry of the filter, so next() goes on with the newest ones. Without any entry of the filter yet
+// it goes to the head: libsystemd never finds anything after a bare tail, from the head the first entry to come is next
+void SeekJournalEnd(sd_journal* journal);
+
 // Puts the journal on the entry another one has read last, so next() goes on after it; false when the other has read nothing
 bool SeekJournalPlace(sd_journal* journal, sd_journal* source);
 

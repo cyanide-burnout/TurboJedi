@@ -190,8 +190,7 @@ JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar
     if (!SeekJournalPlace(journal, source.journal))
     {
       // Nothing has been read there yet, the tail the way open() takes it without history
-      sd_journal_seek_tail(journal);
-      sd_journal_previous(journal);
+      SeekJournalEnd(journal);
     }
   }
 
@@ -715,9 +714,14 @@ void JournalView::open()
     if (until != 0) sd_journal_seek_realtime_usec(journal, until + 1);
     else            sd_journal_seek_tail(journal);
 
-    if ((sd_journal_previous_skip(journal, (history > 0) ? history : 1) > 0) &&
-        (history > 0) &&
-        (parse(journal, model, buffer)))
+    if (sd_journal_previous_skip(journal, (history > 0) ? history : 1) <= 0)
+    {
+      // Nothing of the filter yet, an identifier that has written nothing for one: libsystemd never finds anything
+      // after a bare tail, from the head the first entry to come is next
+      sd_journal_seek_head(journal);
+    }
+    else if ((history > 0) &&
+             (parse(journal, model, buffer)))
     {
       // Show the entry the cursor is on before moving forward
       split(model, buffer, parts);
