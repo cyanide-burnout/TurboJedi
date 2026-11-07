@@ -610,9 +610,9 @@ void JournalView::handleEvent(TEvent& event)
 
       if ((event.message.command == cmJournalPoll) &&
           (journal != nullptr) &&
-          (pending || (sd_journal_process(journal) != SD_JOURNAL_NOP) || blind || (held && (follow || !full()))))
+          (pending || (sd_journal_process(journal) != SD_JOURNAL_NOP) || blind || (held && follow)))
       {
-        // Never clear the poll, every window has to get it; held entries come once the window follows or has room again
+        // Never clear the poll, every window has to get it; held entries come once the window follows again
         count   = first + lines.size();
         waiting = held;
         unread  = unseen;
@@ -810,9 +810,9 @@ void JournalView::read()
   std::vector<JournalLine> parts;
 
   if ((held) &&
-      (follow || !full()))
+      (follow))
   {
-    // Following again or room again: the entries only counted meanwhile are read for real after the last line kept
+    // Following again: the entries only counted meanwhile are read for real after the last line kept
     held    = false;
     counted = 0;
 
@@ -834,13 +834,14 @@ void JournalView::read()
       break;
     }
 
-    // Paused and full: the oldest lines and their marks stay, what comes is counted and read again when the window follows
-    held = held || ((!follow) && full());
-
     if (parse(journal, model, buffer))
     {
       // Whatever has been appended meanwhile
       split(model, buffer, parts);
+
+      // Paused, an entry whose lines do not go in whole is counted, and so is everything after it to keep the order:
+      // the oldest lines and their marks stay, the entries come in for real when the window follows again
+      held = held || ((!follow) && (!fits(parts)));
 
       if (held)
       {
@@ -1266,9 +1267,19 @@ void JournalView::refresh()
   }
 }
 
-bool JournalView::full()
+bool JournalView::fits(const std::vector<JournalLine>& parts)
 {
-  return (lines.size() >= capacity) || (bytes >= BYTE_CAPACITY);
+  size_t size;
+
+  size = 0;
+
+  for (const JournalLine& part : parts)
+  {
+    size += GetLineSize(part);
+  }
+
+  // An entry larger than the whole window goes into an empty one anyway, it could never be seen otherwise
+  return lines.empty() || ((lines.size() + parts.size() <= capacity) && (bytes + size <= BYTE_CAPACITY));
 }
 
 void JournalView::select(int64_t index, bool extend)

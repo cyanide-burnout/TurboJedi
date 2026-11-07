@@ -115,7 +115,7 @@ class JournalView : public TScroller
     uint64_t unseen;
     bool follow;
     bool moving;
-    bool held;        // Paused with a full window: what comes is counted, not kept, nothing on the screen or marked is dropped
+    bool held;        // Paused with no room for an entry: what comes is counted, not kept, nothing on the screen or marked is dropped
     uint64_t counted; // Of unseen, the entries only counted while held, read again after the last line
 
     // Absolute line numbers, so selection survives trimming: the cursor, a range from the anchor to it made by Shift
@@ -153,7 +153,7 @@ class JournalView : public TScroller
     void clear();
     void pause();
     void refresh();
-    bool full();
+    bool fits(const std::vector<JournalLine>& parts);  // The lines of an entry go in whole without dropping any
     void select(int64_t index, bool extend);
     void mark();
     bool ranging();                  // The range from the anchor to the cursor is a part of the selection
