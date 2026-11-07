@@ -587,6 +587,8 @@ void JediApplication::showHelp()
     "  PgDn, Home, End the window follows the tail, anywhere else it pauses.",
     "                  Above the first line the older entries come in",
     "  Shift+arrows    Select lines from the cursor, also with the mouse",
+    "  M, Insert       Mark: the keys select from the cursor without Shift, which some",
+    "                  terminals keep for themselves; M again goes back to the cursor",
     "  Esc             Drop the cursor and the selection",
     "  Enter           All fields of the entry under the cursor, also double click,",
     "                  Enter on a field there opens a window with the filter of this one and the field",

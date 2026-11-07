@@ -126,6 +126,7 @@ JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar
   moving   = false;
   anchor   = NO_SELECTION;
   cursor   = NO_SELECTION;
+  marking  = false;
 
   open();
 }
@@ -153,6 +154,7 @@ JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar
   follow      = source.follow;
   anchor      = source.anchor;
   cursor      = source.cursor;
+  marking     = source.marking;
   places      = source.places;
 
   growMode  = gfGrowHiX | gfGrowHiY;
@@ -405,11 +407,21 @@ void JournalView::handleEvent(TEvent& event)
       return;
     }
 
+    if ((event.keyDown.keyCode == kbIns) ||
+        (event.keyDown.charScan.charCode == 'm') ||
+        (event.keyDown.charScan.charCode == 'M'))
+    {
+      mark();
+      clearEvent(event);
+      return;
+    }
+
     if ((event.keyDown.keyCode == kbEsc) &&
         (anchor != NO_SELECTION))
     {
-      anchor = NO_SELECTION;
-      cursor = NO_SELECTION;
+      anchor  = NO_SELECTION;
+      cursor  = NO_SELECTION;
+      marking = false;
       refresh();
       clearEvent(event);
       return;
@@ -433,8 +445,8 @@ void JournalView::handleEvent(TEvent& event)
         (event.keyDown.keyCode == kbHome) ||
         (event.keyDown.keyCode == kbEnd))
     {
-      // The keys move the cursor, a line selected by itself, Shift extends the selection from it
-      extend = (event.keyDown.controlKeyState & kbShift) != 0;
+      // The keys move the cursor, a line selected by itself, Shift or a mark extends the selection from it
+      extend = ((event.keyDown.controlKeyState & kbShift) != 0) || marking;
 
       if (anchor == NO_SELECTION)
       {
@@ -474,8 +486,9 @@ void JournalView::handleEvent(TEvent& event)
       return;
     }
 
-    // Click selects a row, Shift+click and dragging extend, dragging past an edge scrolls
-    extend = (event.mouse.controlKeyState & kbShift) != 0;
+    // Click selects a row, Shift+click and dragging extend, dragging past an edge scrolls; the mouse ends a mark
+    extend  = (event.mouse.controlKeyState & kbShift) != 0;
+    marking = false;
 
     do
     {
@@ -1084,8 +1097,9 @@ void JournalView::clear()
   width  = 0;
   unseen = 0;
   layout = 0;
-  anchor = NO_SELECTION;
-  cursor = NO_SELECTION;
+  anchor  = NO_SELECTION;
+  cursor  = NO_SELECTION;
+  marking = false;
 
   lines.clear();
   bytes = 0;
@@ -1156,6 +1170,28 @@ void JournalView::select(int64_t index, bool extend)
     reveal(index);
     refresh();
   }
+}
+
+void JournalView::mark()
+{
+  if (marking)
+  {
+    // Back to the cursor alone
+    marking = false;
+    select((cursor > first) ? (cursor - first) : 0, false);
+    return;
+  }
+
+  if (anchor == NO_SELECTION)
+  {
+    // The cursor comes on the last row of the window, as the keys bring it
+    select(lineOf(std::min<uint64_t>(delta.y + size.y, total()) - 1), false);
+  }
+
+  // The selection begins on the cursor, the keys extend it from now on
+  marking = (anchor != NO_SELECTION);
+  anchor  = cursor;
+  refresh();
 }
 
 void JournalView::reveal(size_t index)
@@ -1444,10 +1480,11 @@ void JournalView::restore()
       place.cursor = NO_SELECTION;
     }
 
-    anchor = place.anchor;
-    cursor = place.cursor;
-    follow = place.follow;
-    unseen = 0;
+    anchor  = place.anchor;
+    cursor  = place.cursor;
+    marking = false;
+    follow  = place.follow;
+    unseen  = 0;
     moving = true;
     scrollTo(delta.x, rowOf(place.top - first));
     moving = false;
@@ -1491,6 +1528,12 @@ const char* JournalView::describe()
   {
     // Nothing else on the screen tells wrapped lines from long ones cut at the edge
     length += snprintf(buffer + length, sizeof(buffer) - length, " \xe2\x94\x82 WRAP");
+  }
+
+  if (marking)
+  {
+    // The keys extend the selection
+    length += snprintf(buffer + length, sizeof(buffer) - length, " \xe2\x94\x82 MARK");
   }
 
   if (anchor != NO_SELECTION)

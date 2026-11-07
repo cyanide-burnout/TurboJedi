@@ -117,6 +117,7 @@ class JournalView : public TScroller
     // Absolute line numbers, so selection survives trimming
     uint64_t anchor;
     uint64_t cursor;
+    bool marking;    // Set by M or Insert: the keys extend the selection from the cursor without Shift, which some terminals keep
 
     std::vector<JournalPlace> places;  // Where the window has been before its jumps, the last one on top
 
@@ -145,6 +146,7 @@ class JournalView : public TScroller
     void pause();
     void refresh();
     void select(int64_t index, bool extend);
+    void mark();
     void reveal(size_t index);
     void copy();
     void save();
