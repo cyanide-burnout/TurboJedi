@@ -124,12 +124,13 @@ Go to a time, given the way \fB\-\-since\fR takes it.
 Every other window goes to the time of the selected line, their filters stay as they are.
 .TP
 .B Ctrl-Z
-Back along the history of the window, also \fBAlt-Left\fR and \fBAlt-Backspace\fR. Every move of the cursor by the keys
-or the mouse, \fBCtrl-G\fR, \fBAlt-G\fR and a find are its steps, the last 64 of them.
+Undo navigation: back along the moves of the window, also \fBAlt-Left\fR and \fBAlt-Backspace\fR. Every move of the
+cursor by the keys or the mouse, \fBCtrl-G\fR, \fBAlt-G\fR and a find is one, the last 64 of them; marks and lines are
+not undone.
 .TP
 .B Ctrl-Y
-Forward again where \fBCtrl-Z\fR has come from, also \fBAlt-Right\fR. A new step after going back drops the way ahead,
-as in a browser.
+Redo navigation: forward again where \fBCtrl-Z\fR has come from, also \fBAlt-Right\fR. A new move after \fBCtrl-Z\fR
+drops the way ahead.
 .TP
 .B Alt-T
 Timeline: entries of the filter of the window by intervals of time, errors, warnings and the rest stacked

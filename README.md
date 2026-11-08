@@ -253,8 +253,8 @@ window to the time of the selected line, and a layout keeps their directories fo
 | Ctrl-F, Ctrl-N, Ctrl-P | find, next, previous |
 | Ctrl-G | go to a time |
 | Alt-G | every other window goes to the time of the selected line |
-| Ctrl-Z | back along the history of the window: every move of the cursor by the keys or the mouse, Ctrl-G, Alt-G and a find are its steps, the last 64 of them; also Alt-Left and Alt-Backspace |
-| Ctrl-Y | forward again where Back has come from, also Alt-Right; a new step after Back drops the way ahead, as in a browser |
+| Ctrl-Z | undo navigation: back along the moves of the window, every move of the cursor by the keys or the mouse, Ctrl-G, Alt-G and a find, the last 64 of them; marks and lines are not undone; also Alt-Left and Alt-Backspace |
+| Ctrl-Y | redo navigation: forward again where Ctrl-Z has come from, also Alt-Right; a new move after Ctrl-Z drops the way ahead |
 | Alt-T | timeline: entries of the filter of the window by intervals of time; Left and Right move, Enter takes every journal window to the interval, `+` and `-` change the step, `L` the scale |
 | Up, Down, PgUp, PgDn, Home, End | move the cursor, it comes on the newest row of the screen first; on the newest line the window follows, anywhere else it pauses |
 | Enter, double click | details of the entry under the cursor, Enter on a field there opens a window with it added to the filter |

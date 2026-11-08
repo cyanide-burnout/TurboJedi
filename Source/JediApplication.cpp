@@ -128,8 +128,8 @@ TMenuBar* JediApplication::initMenuBar(TRect bounds)
       *new TMenuItem("~G~o to time...", cmJournalGoTo,         kbCtrlG,   hcNoContext, "Ctrl-G") +
       *new TMenuItem("S~y~nc windows",  cmJournalSync,         kbAltG,    hcNoContext, "Alt-G") +
       *new TMenuItem("Ti~m~eline",      cmJournalTimeline,     kbAltT,    hcNoContext, "Alt-T") +
-      *new TMenuItem("~B~ack",          cmJournalBack,         kbCtrlZ,   hcNoContext, "Ctrl-Z") +
-      *new TMenuItem("Forw~a~rd",       cmJournalForward,      kbCtrlY,   hcNoContext, "Ctrl-Y") +
+      *new TMenuItem("Undo na~v~igation", cmJournalBack,       kbCtrlZ,   hcNoContext, "Ctrl-Z") +
+      *new TMenuItem("Redo n~a~vigation", cmJournalForward,    kbCtrlY,   hcNoContext, "Ctrl-Y") +
       newLine() +
       *new TMenuItem("~P~ause",         cmJournalPause,        kbNoKey,   hcNoContext, "Space") +
       *new TMenuItem("C~o~py",          cmJournalCopy,         kbCtrlIns, hcNoContext, "Ctrl-Ins") +
@@ -608,11 +608,12 @@ void JediApplication::showHelp()
     "                  the search goes on into the older entries past the oldest line",
     "  Ctrl-G          Go to a time",
     "  Alt-G           Every other window goes to the time of the selected line",
-    "  Ctrl-Z          Back along the history of the window: every move of the cursor",
-    "                  by the keys or the mouse, Ctrl-G, Alt-G and a find are its",
-    "                  steps, the last 64 of them; also Alt-Left, Alt-Backspace",
-    "  Ctrl-Y          Forward again where Back has come from, also Alt-Right; a new",
-    "                  step after Back drops the way ahead, as in a browser",
+    "  Ctrl-Z          Undo navigation: back along the moves of the window, every move",
+    "                  of the cursor by the keys or the mouse, Ctrl-G, Alt-G and a find,",
+    "                  the last 64 of them; marks and lines are not undone. Also",
+    "                  Alt-Left and Alt-Backspace",
+    "  Ctrl-Y          Redo navigation: forward again where Ctrl-Z has come from, also",
+    "                  Alt-Right; a new move after Ctrl-Z drops the way ahead",
     "  Alt-T           Timeline: entries of the filter of the window by intervals of time,",
     "                  errors, warnings and the rest stacked in a column per interval",
     "  Ctrl-Ins        Copy the selected lines, the line under the cursor or the screen",
