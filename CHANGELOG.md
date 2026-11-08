@@ -3,6 +3,23 @@
 Every release has a theme of its own, the patch releases after it finish the same one. Packages of every release are on
 the [releases page](https://github.com/cyanide-burnout/TurboJedi/releases).
 
+## 0.13 — 2026-11-08
+
+Navigation and the order of a window: the newest on top, the signs of the title as buttons, undo and redo of the moves.
+
+- Newest on top by Ctrl-R, the Journal menu, Columns, `-r` or `reverse` in layouts, for every window of its own: the
+  lines of a message stay under it, the history comes under the last line, the cursor and the marks stay on their lines
+  when the order turns; the title ends with ▲ or ▼
+- The signs of the title are buttons: a click on ► or ‖ pauses or follows, on ▲ or ▼ turns the order
+- Undo navigation by Ctrl-Z and Redo navigation by Ctrl-Y: every move of the cursor by the keys or the mouse, Ctrl-G,
+  Alt-G and a find, the last 64 of them; a new move after Ctrl-Z drops the way ahead, marks and lines are not undone;
+  Alt-Left, Alt-Backspace and Alt-Right go as well
+- Exit of the status line with a menu open quits instead of hanging
+- tvision at the head of upstream; `make` builds what has changed in it after the submodule has moved, and
+  `git pull --recurse-submodules` updates a clone with it
+
+Thanks to icelord.
+
 ## 0.12 — 2026-11-07
 
 Selections: marks of lines apart, the state of a window in its title, a paused window that holds.
