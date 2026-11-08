@@ -39,6 +39,8 @@ struct JournalLine
 
 class JournalView;
 
+#define JOURNAL_PLACE_DEPTH  16  // Jumps the history of a window remembers
+
 struct JournalPlace
 {
   uint64_t top;     // Absolute numbers of lines like the selection
@@ -129,8 +131,14 @@ class JournalView : public TScroller
     bool unmark;                // The stroke has begun on a marked line, it takes the marks off the lines it passes
     std::set<uint64_t> marks;
 
-    std::vector<JournalPlace> places;  // Where the window has been before its jumps, the last one on top
-    std::vector<JournalPlace> ahead;   // Where Back has come from, Forward goes there until a new jump
+    // Places of the jumps as in a browser, in a ring from the tail, the oldest, to the head, past the newest: Back and
+    // Forward move the step between them, a new jump drops the ones after the step and goes on from there, a full ring
+    // forgets its oldest; the place of the step is taken anew whenever the window leaves it. The numbers only grow,
+    // the ring is indexed by them modulo its size
+    JournalPlace trail[JOURNAL_PLACE_DEPTH];
+    size_t tail;
+    size_t head;
+    size_t step;
 
     std::string status;
     std::string caption;
@@ -178,8 +186,8 @@ class JournalView : public TScroller
     void remember();  // Before a jump
     void restore();   // Back
     void advance();   // Forward
-    void travel(std::vector<JournalPlace>& from, std::vector<JournalPlace>& to);
-    void remap(JournalPlace& place, const std::vector<size_t>& numbers);  // To the lines of the other order
+    void travel(int direction);
+    void remap(JournalPlace& place, const std::vector<size_t>& numbers, const std::vector<size_t>& bottoms);  // To the other order
     void synchronize();
     void chooseLevels();
     void chooseText();

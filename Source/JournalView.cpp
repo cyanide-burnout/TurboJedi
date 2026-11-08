@@ -37,7 +37,6 @@
 #define READ_STEP     5000          // Entries read at once, the rest comes with the next polls
 #define BYTE_CAPACITY (64 << 20)    // Text a window keeps whatever the count of its lines, one huge message stays
 #define HISTORY_STEP  1000          // Entries brought in front when scrolling above the first line
-#define PLACE_DEPTH   16            // Jumps Back remembers
 
 #define HOST_WIDTH        24  // Limits of the columns as wide as their longest values
 #define UNIT_WIDTH        32
@@ -94,17 +93,6 @@ static std::string GetSign(bool follow, uint64_t unseen)
 {
   // Following plays on, a pause tells what has come meanwhile
   return follow ? "\xe2\x96\xba" : (unseen ? ("\xe2\x80\x96 +" + std::to_string(unseen)) : "\xe2\x80\x96");
-}
-
-static void KeepPlace(std::vector<JournalPlace>& list, const JournalPlace& place)
-{
-  list.push_back(place);
-
-  if (list.size() > PLACE_DEPTH)
-  {
-    // The farthest one is forgotten
-    list.erase(list.begin());
-  }
 }
 
 static size_t GetLineSize(const JournalLine& line)
@@ -179,8 +167,10 @@ JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar
   marking     = source.marking;
   unmark      = source.unmark;
   marks       = source.marks;
-  places      = source.places;
-  ahead       = source.ahead;
+  tail        = source.tail;
+  head        = source.head;
+  step        = source.step;
+  std::copy(source.trail, source.trail + JOURNAL_PLACE_DEPTH, trail);
 
   growMode  = gfGrowHiX | gfGrowHiY;
   options  |= ofFirstClick;
@@ -754,8 +744,9 @@ void JournalView::open()
   older   = true;
 
   // Lines of another query
-  places.clear();
-  ahead.clear();
+  tail = 0;
+  head = 0;
+  step = 0;
 
   if (!matcher.set(filter.text, filter.mode))
   {
@@ -1238,12 +1229,15 @@ void JournalView::reverse()
 {
   size_t top;
   size_t end;
+  size_t entry;
+  int64_t row;
   size_t index;
   size_t start;
   size_t block;
   std::set<uint64_t> chosen;
   std::vector<size_t> starts;
   std::vector<size_t> numbers;  // New index of every line
+  std::vector<size_t> bottoms;  // New index of the last line of the entry of every line
   std::deque<JournalLine> other;
 
   // An entry is a line with the next lines of its message under it, or what trimming has left of one
@@ -1257,10 +1251,24 @@ void JournalView::reverse()
     }
   }
 
-  // The entries go the other way, the lines of every one stay in their order; the top line of the screen is taken
-  // while the rows still tell it
-  top = (total() > 0) ? lineOf(delta.y) : 0;
+  // The entries go the other way, the lines of every one stay in their order; the top line of the screen and the row
+  // of the cursor on it are taken while the rows still tell them
+  top   = (total() > 0) ? lineOf(delta.y) : 0;
+  row   = -1;
+  entry = 0;
+
+  if ((anchor != NO_SELECTION) &&
+      (cursor >= first) &&
+      (cursor < first + lines.size()))
+  {
+    // The entry of the cursor and the last row of it on the screen
+    block = std::upper_bound(starts.begin(), starts.end(), cursor - first) - starts.begin();
+    entry = starts[block - 1];
+    row   = (int64_t)rowOf((block < starts.size()) ? starts[block] : lines.size()) - 1 - delta.y;
+  }
+
   numbers.resize(lines.size());
+  bottoms.resize(lines.size());
 
   for (block = starts.size(); block > 0; block --)
   {
@@ -1271,6 +1279,11 @@ void JournalView::reverse()
     {
       numbers[index] = other.size();
       other.push_back(std::move(lines[index]));
+    }
+
+    for (index = start; index < end; index ++)
+    {
+      bottoms[index] = other.size() - 1;
     }
   }
 
@@ -1303,14 +1316,9 @@ void JournalView::reverse()
   lines   = std::move(other);
   layout  = 0;
 
-  for (JournalPlace& place : places)
+  for (index = tail; index < head; index ++)
   {
-    remap(place, numbers);
-  }
-
-  for (JournalPlace& place : ahead)
-  {
-    remap(place, numbers);
+    remap(trail[index % JOURNAL_PLACE_DEPTH], numbers, bottoms);
   }
 
   filter.columns ^= JOURNAL_COLUMN_REVERSE;
@@ -1324,10 +1332,22 @@ void JournalView::reverse()
   if ((!follow) &&
       (!lines.empty()))
   {
-    // Paused, the lines of the screen stay on it the other way round: the top one goes to the bottom, the cursor stays seen
+    // Paused, the lines of the screen stay on it the other way round: the entry of the cursor on the screen goes to the
+    // rows mirrored from its own with the entries around it, the selection and the marks near it; without one the entry
+    // of the top line goes to the bottom whole
     moving = true;
     setLimit(limit.x, total());
-    scrollTo(delta.x, std::max<int64_t>(0, (int64_t)rowOf(numbers[top]) - size.y + 1));
+
+    if ((row >= 0) &&
+        (row < size.y))
+    {
+      scrollTo(delta.x, std::max<int64_t>(0, (int64_t)rowOf(numbers[entry]) - (size.y - 1 - row)));
+    }
+    else
+    {
+      scrollTo(delta.x, std::max<int64_t>(0, (int64_t)rowOf(bottoms[top] + 1) - size.y));
+    }
+
     moving = false;
 
     if (anchor != NO_SELECTION)
@@ -1339,7 +1359,7 @@ void JournalView::reverse()
   refresh();
 }
 
-void JournalView::remap(JournalPlace& place, const std::vector<size_t>& numbers)
+void JournalView::remap(JournalPlace& place, const std::vector<size_t>& numbers, const std::vector<size_t>& bottoms)
 {
   if ((place.top < first) ||
       (place.top >= first + numbers.size()))
@@ -1348,9 +1368,9 @@ void JournalView::remap(JournalPlace& place, const std::vector<size_t>& numbers)
     return;
   }
 
-  // The lines of that screen the other way round as well, its top line at the bottom; a range goes to its cursor
-  // the way the selection of the window does
-  place.top = first + lineOf(std::max<int64_t>(0, (int64_t)rowOf(numbers[place.top - first]) - size.y + 1));
+  // The lines of that screen the other way round as well, the entry of its top line at the bottom whole; a range goes
+  // to its cursor the way the selection of the window does
+  place.top = first + lineOf(std::max<int64_t>(0, (int64_t)rowOf(bottoms[place.top - first] + 1) - size.y));
 
   if ((place.anchor != NO_SELECTION) &&
       (place.cursor >= first) &&
@@ -1441,8 +1461,9 @@ void JournalView::clear()
 
   // The numbers of the newest on top go on in front, places of the lines gone could get them again
   marks.clear();
-  places.clear();
-  ahead.clear();
+  tail = 0;
+  head = 0;
+  step = 0;
   lines.clear();
   bytes = 0;
   rows.clear();
@@ -1935,34 +1956,50 @@ JournalPlace JournalView::here()
 
 void JournalView::remember()
 {
-  // A new jump is the end of the way, the places ahead of it are gone as in a browser
-  KeepPlace(places, here());
-  ahead.clear();
+  // The places after the step are gone and the step takes where the window is; the place the jump lands on comes next,
+  // it is taken anew when the window leaves it
+  step = (head > tail) ? step : head;
+  head = step + 1;
+
+  trail[step % JOURNAL_PLACE_DEPTH] = here();
+  trail[head % JOURNAL_PLACE_DEPTH] = here();
+
+  step = head ++;
+  tail = std::max(tail, head - std::min<size_t>(head, JOURNAL_PLACE_DEPTH));
 }
 
 void JournalView::restore()
 {
-  travel(places, ahead);
+  travel(-1);
 }
 
 void JournalView::advance()
 {
-  travel(ahead, places);
+  travel(1);
 }
 
-void JournalView::travel(std::vector<JournalPlace>& from, std::vector<JournalPlace>& to)
+void JournalView::travel(int direction)
 {
+  size_t next;
   JournalPlace place;
 
-  while (!from.empty())
+  if (head == tail)
   {
-    place = from.back();
-    from.pop_back();
+    // No jump yet
+    return;
+  }
+
+  // The place of the step is where the window is now, it may have moved since it came there
+  trail[step % JOURNAL_PLACE_DEPTH] = here();
+
+  for (next = step + direction; (next >= tail) && (next < head); next += direction)
+  {
+    place = trail[next % JOURNAL_PLACE_DEPTH];
 
     if ((place.top < first) ||
         (place.top >= (first + lines.size())))
     {
-      // Trimmed away meanwhile
+      // Trimmed away meanwhile, passed by
       continue;
     }
 
@@ -1975,9 +2012,7 @@ void JournalView::travel(std::vector<JournalPlace>& from, std::vector<JournalPla
       place.cursor = NO_SELECTION;
     }
 
-    // Where the window is now is the way back from there
-    KeepPlace(to, here());
-
+    step    = next;
     anchor  = place.anchor;
     cursor  = place.cursor;
     marking = false;
