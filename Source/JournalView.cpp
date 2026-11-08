@@ -142,6 +142,8 @@ JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar
 JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar* vertical, const JournalView& source) :
   TScroller(bounds, horizontal, vertical)
 {
+  size_t index;
+
   memcpy(counts, source.counts, sizeof(counts));
   memcpy(widths, source.widths, sizeof(widths));
 
@@ -170,7 +172,12 @@ JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar
   tail        = source.tail;
   head        = source.head;
   step        = source.step;
-  std::copy(source.trail, source.trail + JOURNAL_PLACE_DEPTH, trail);
+
+  for (index = tail; index < head; index ++)
+  {
+    // Only the places there are, the rest of the ring has never been written
+    trail[index % JOURNAL_PLACE_DEPTH] = source.trail[index % JOURNAL_PLACE_DEPTH];
+  }
 
   growMode  = gfGrowHiX | gfGrowHiY;
   options  |= ofFirstClick;
@@ -1992,8 +1999,12 @@ void JournalView::travel(int direction)
   // The place of the step is where the window is now, it may have moved since it came there
   trail[step % JOURNAL_PLACE_DEPTH] = here();
 
-  for (next = step + direction; (next >= tail) && (next < head); next += direction)
+  next = step;
+
+  while ((direction < 0) ? (next > tail) : (next + 1 < head))
   {
+    // One place farther, the bound is checked first so that the numbers never go below the tail
+    next  = (direction < 0) ? (next - 1) : (next + 1);
     place = trail[next % JOURNAL_PLACE_DEPTH];
 
     if ((place.top < first) ||
@@ -2021,6 +2032,12 @@ void JournalView::travel(int direction)
     moving = true;
     scrollTo(delta.x, rowOf(place.top - first));
     moving = false;
+
+    if (anchor != NO_SELECTION)
+    {
+      // A window of another size since then, a clone or a tiled one, still shows the cursor
+      reveal(cursor - first);
+    }
 
     // Following goes to the tail again
     refresh();
