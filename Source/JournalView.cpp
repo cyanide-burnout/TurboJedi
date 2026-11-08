@@ -439,10 +439,19 @@ void JournalView::handleEvent(TEvent& event)
       return;
     }
 
-    if (event.keyDown.keyCode == kbAltBack)
+    if ((event.keyDown.keyCode == kbAltLeft) ||
+        (event.keyDown.keyCode == kbAltBack))
     {
-      // Terminals that keep Alt-Left for themselves
+      // Back the way browsers have it as well, Ctrl-Z of the menu is the main one
       restore();
+      clearEvent(event);
+      return;
+    }
+
+    if (event.keyDown.keyCode == kbAltRight)
+    {
+      // Forward the way browsers have it, Ctrl-Y of the menu is the main one
+      advance();
       clearEvent(event);
       return;
     }
@@ -497,13 +506,8 @@ void JournalView::handleEvent(TEvent& event)
       // The keys move the cursor, a line selected by itself, Shift or a mark extends the selection from it
       extend = ((event.keyDown.controlKeyState & kbShift) != 0) || marking;
 
-      if (anchor == NO_SELECTION)
-      {
-        // The cursor comes on the row of the window nearest to the newest end, the newest line while following
-        select(latest(), false);
-      }
-
-      index = (cursor > first) ? (cursor - first) : 0;
+      // The cursor comes on the row of the window nearest to the newest end, the newest line while following
+      index = (anchor == NO_SELECTION) ? (int64_t)latest() : (int64_t)((cursor > first) ? (cursor - first) : 0);
 
       switch (event.keyDown.keyCode)
       {
@@ -515,7 +519,7 @@ void JournalView::handleEvent(TEvent& event)
         case kbEnd:  index  = (int64_t)lines.size() - 1; break;
       }
 
-      select(index, extend);
+      walk(index, extend);
       clearEvent(event);
       return;
     }
@@ -529,7 +533,7 @@ void JournalView::handleEvent(TEvent& event)
     if (event.mouse.eventFlags & meDoubleClick)
     {
       // Double click opens the entry under the mouse, a stroke of M goes on to it
-      select(lineOf(delta.y + makeLocal(event.mouse.where).y), marking);
+      walk(lineOf(delta.y + makeLocal(event.mouse.where).y), marking);
       details();
       clearEvent(event);
       return;
@@ -545,7 +549,7 @@ void JournalView::handleEvent(TEvent& event)
     if (event.mouse.controlKeyState & kbCtrlShift)
     {
       // Ctrl+click puts the cursor on a line and marks it or takes its mark off, the other marks stay
-      select(lineOf(std::max<int64_t>(0, delta.y + makeLocal(event.mouse.where).y)), false);
+      walk(lineOf(std::max<int64_t>(0, delta.y + makeLocal(event.mouse.where).y)), false);
 
       if ((anchor != NO_SELECTION) &&
           (marks.erase(cursor) == 0))
@@ -562,12 +566,13 @@ void JournalView::handleEvent(TEvent& event)
     // dragging past an edge scrolls; in a stroke of M a click goes on with it as the keys do; Esc drops the marks
     extend = ((event.mouse.controlKeyState & kbShift) != 0) || marking;
 
-    do
+    // The click is a step of the history, dragging after it is not
+    walk(lineOf(std::max<int64_t>(0, delta.y + makeLocal(event.mouse.where).y)), extend);
+
+    while (mouseEvent(event, evMouseMove | evMouseAuto))
     {
-      select(lineOf(std::max<int64_t>(0, delta.y + makeLocal(event.mouse.where).y)), extend);
-      extend = true;
+      select(lineOf(std::max<int64_t>(0, delta.y + makeLocal(event.mouse.where).y)), true);
     }
-    while (mouseEvent(event, evMouseMove | evMouseAuto));
 
     clearEvent(event);
     return;
@@ -1563,6 +1568,33 @@ void JournalView::select(int64_t index, bool extend)
     reveal(index);
     refresh();
   }
+}
+
+void JournalView::walk(int64_t index, bool extend)
+{
+  if (lines.empty())
+  {
+    return;
+  }
+
+  index = std::clamp<int64_t>(index, 0, (int64_t)lines.size() - 1);
+
+  if ((anchor == NO_SELECTION) ||
+      (cursor != first + index) ||
+      ((!extend) && (anchor != cursor)))
+  {
+    // A step of the cursor by the keys or the mouse is a place of the history as a jump is, one that goes nowhere is not
+    remember();
+  }
+
+  if ((anchor == NO_SELECTION) &&
+      (extend))
+  {
+    // A range by Shift begins where the cursor comes first
+    select(latest(), false);
+  }
+
+  select(index, extend);
 }
 
 void JournalView::mark()

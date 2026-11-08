@@ -128,8 +128,8 @@ TMenuBar* JediApplication::initMenuBar(TRect bounds)
       *new TMenuItem("~G~o to time...", cmJournalGoTo,         kbCtrlG,   hcNoContext, "Ctrl-G") +
       *new TMenuItem("S~y~nc windows",  cmJournalSync,         kbAltG,    hcNoContext, "Alt-G") +
       *new TMenuItem("Ti~m~eline",      cmJournalTimeline,     kbAltT,    hcNoContext, "Alt-T") +
-      *new TMenuItem("~B~ack",          cmJournalBack,         kbAltLeft,  hcNoContext, "Alt-Left") +
-      *new TMenuItem("Forw~a~rd",       cmJournalForward,      kbAltRight, hcNoContext, "Alt-Right") +
+      *new TMenuItem("~B~ack",          cmJournalBack,         kbCtrlZ,   hcNoContext, "Ctrl-Z") +
+      *new TMenuItem("Forw~a~rd",       cmJournalForward,      kbCtrlY,   hcNoContext, "Ctrl-Y") +
       newLine() +
       *new TMenuItem("~P~ause",         cmJournalPause,        kbNoKey,   hcNoContext, "Space") +
       *new TMenuItem("C~o~py",          cmJournalCopy,         kbCtrlIns, hcNoContext, "Ctrl-Ins") +
@@ -608,10 +608,11 @@ void JediApplication::showHelp()
     "                  the search goes on into the older entries past the oldest line",
     "  Ctrl-G          Go to a time",
     "  Alt-G           Every other window goes to the time of the selected line",
-    "  Alt-Left        Back to where the window was before Ctrl-G, Alt-G or a find,",
-    "                  also Alt-Backspace",
-    "  Alt-Right       Forward again where Back has come from; a new jump after Back",
-    "                  drops the way ahead, as in a browser",
+    "  Ctrl-Z          Back along the history of the window: every move of the cursor",
+    "                  by the keys or the mouse, Ctrl-G, Alt-G and a find are its",
+    "                  steps, the last 64 of them; also Alt-Left, Alt-Backspace",
+    "  Ctrl-Y          Forward again where Back has come from, also Alt-Right; a new",
+    "                  step after Back drops the way ahead, as in a browser",
     "  Alt-T           Timeline: entries of the filter of the window by intervals of time,",
     "                  errors, warnings and the rest stacked in a column per interval",
     "  Ctrl-Ins        Copy the selected lines, the line under the cursor or the screen",

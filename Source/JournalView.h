@@ -39,7 +39,7 @@ struct JournalLine
 
 class JournalView;
 
-#define JOURNAL_PLACE_DEPTH  16  // Jumps the history of a window remembers
+#define JOURNAL_PLACE_DEPTH  64  // Steps the history of a window remembers, every move of the cursor is one
 
 struct JournalPlace
 {
@@ -172,6 +172,7 @@ class JournalView : public TScroller
     void refresh();
     bool fits(const std::vector<JournalLine>& parts);  // The lines of an entry go in whole without dropping any
     void select(int64_t index, bool extend);
+    void walk(int64_t index, bool extend);  // select() by the keys or the mouse, a step of the history
     void mark();
     bool ranging();                  // The range from the anchor to the cursor is a part of the selection
     bool picked(uint64_t number);    // A line of the selection
