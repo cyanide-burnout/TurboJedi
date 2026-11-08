@@ -96,6 +96,17 @@ static std::string GetSign(bool follow, uint64_t unseen)
   return follow ? "\xe2\x96\xba" : (unseen ? ("\xe2\x80\x96 +" + std::to_string(unseen)) : "\xe2\x80\x96");
 }
 
+static void KeepPlace(std::vector<JournalPlace>& list, const JournalPlace& place)
+{
+  list.push_back(place);
+
+  if (list.size() > PLACE_DEPTH)
+  {
+    // The farthest one is forgotten
+    list.erase(list.begin());
+  }
+}
+
 static size_t GetLineSize(const JournalLine& line)
 {
   // Near enough to tell a few huge messages from many short ones
@@ -169,6 +180,7 @@ JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar
   unmark      = source.unmark;
   marks       = source.marks;
   places      = source.places;
+  ahead       = source.ahead;
 
   growMode  = gfGrowHiX | gfGrowHiY;
   options  |= ofFirstClick;
@@ -582,6 +594,7 @@ void JournalView::handleEvent(TEvent& event)
         case cmJournalGoTo:          chooseMoment();   break;
         case cmJournalSync:          synchronize();    break;
         case cmJournalBack:          restore();        break;
+        case cmJournalForward:       advance();        break;
         case cmJournalDetails:       details();        break;
         case cmJournalExport:        save();           break;
         case cmJournalPause:         pause();          break;
@@ -742,6 +755,7 @@ void JournalView::open()
 
   // Lines of another query
   places.clear();
+  ahead.clear();
 
   if (!matcher.set(filter.text, filter.mode))
   {
@@ -1291,29 +1305,12 @@ void JournalView::reverse()
 
   for (JournalPlace& place : places)
   {
-    if ((place.top < first) ||
-        (place.top >= first + numbers.size()))
-    {
-      // Trimmed away meanwhile, Back passes it by
-      continue;
-    }
+    remap(place, numbers);
+  }
 
-    // Back goes to the lines of that screen the other way round as well, its top line at the bottom;
-    // a range goes to its cursor the way the selection of the window does
-    place.top = first + lineOf(std::max<int64_t>(0, (int64_t)rowOf(numbers[place.top - first]) - size.y + 1));
-
-    if ((place.anchor != NO_SELECTION) &&
-        (place.cursor >= first) &&
-        (place.cursor < first + numbers.size()))
-    {
-      place.cursor = first + numbers[place.cursor - first];
-      place.anchor = place.cursor;
-    }
-    else
-    {
-      place.anchor = NO_SELECTION;
-      place.cursor = NO_SELECTION;
-    }
+  for (JournalPlace& place : ahead)
+  {
+    remap(place, numbers);
   }
 
   filter.columns ^= JOURNAL_COLUMN_REVERSE;
@@ -1340,6 +1337,32 @@ void JournalView::reverse()
   }
 
   refresh();
+}
+
+void JournalView::remap(JournalPlace& place, const std::vector<size_t>& numbers)
+{
+  if ((place.top < first) ||
+      (place.top >= first + numbers.size()))
+  {
+    // Trimmed away meanwhile, Back and Forward pass it by
+    return;
+  }
+
+  // The lines of that screen the other way round as well, its top line at the bottom; a range goes to its cursor
+  // the way the selection of the window does
+  place.top = first + lineOf(std::max<int64_t>(0, (int64_t)rowOf(numbers[place.top - first]) - size.y + 1));
+
+  if ((place.anchor != NO_SELECTION) &&
+      (place.cursor >= first) &&
+      (place.cursor < first + numbers.size()))
+  {
+    place.cursor = first + numbers[place.cursor - first];
+    place.anchor = place.cursor;
+    return;
+  }
+
+  place.anchor = NO_SELECTION;
+  place.cursor = NO_SELECTION;
 }
 
 void JournalView::format(uint64_t realtime, char* date, char* clock)
@@ -1419,6 +1442,7 @@ void JournalView::clear()
   // The numbers of the newest on top go on in front, places of the lines gone could get them again
   marks.clear();
   places.clear();
+  ahead.clear();
   lines.clear();
   bytes = 0;
   rows.clear();
@@ -1904,25 +1928,36 @@ void JournalView::seek(uint64_t realtime, bool nearest)
   select(index, false);
 }
 
+JournalPlace JournalView::here()
+{
+  return { first + ((total() > 0) ? lineOf(delta.y) : 0), anchor, cursor, follow };
+}
+
 void JournalView::remember()
 {
-  places.push_back({ first + ((total() > 0) ? lineOf(delta.y) : 0), anchor, cursor, follow });
-
-  if (places.size() > PLACE_DEPTH)
-  {
-    // The oldest jump is forgotten
-    places.erase(places.begin());
-  }
+  // A new jump is the end of the way, the places ahead of it are gone as in a browser
+  KeepPlace(places, here());
+  ahead.clear();
 }
 
 void JournalView::restore()
 {
+  travel(places, ahead);
+}
+
+void JournalView::advance()
+{
+  travel(ahead, places);
+}
+
+void JournalView::travel(std::vector<JournalPlace>& from, std::vector<JournalPlace>& to)
+{
   JournalPlace place;
 
-  while (!places.empty())
+  while (!from.empty())
   {
-    place = places.back();
-    places.pop_back();
+    place = from.back();
+    from.pop_back();
 
     if ((place.top < first) ||
         (place.top >= (first + lines.size())))
@@ -1932,12 +1967,16 @@ void JournalView::restore()
     }
 
     if ((place.anchor != NO_SELECTION) &&
-        (std::min(place.anchor, place.cursor) < first))
+        ((std::min(place.anchor, place.cursor) < first) ||
+         (std::max(place.anchor, place.cursor) >= (first + lines.size()))))
     {
-      // The selection has lost its beginning
+      // The selection has lost a part of it
       place.anchor = NO_SELECTION;
       place.cursor = NO_SELECTION;
     }
+
+    // Where the window is now is the way back from there
+    KeepPlace(to, here());
 
     anchor  = place.anchor;
     cursor  = place.cursor;

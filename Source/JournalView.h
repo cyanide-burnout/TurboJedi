@@ -130,6 +130,7 @@ class JournalView : public TScroller
     std::set<uint64_t> marks;
 
     std::vector<JournalPlace> places;  // Where the window has been before its jumps, the last one on top
+    std::vector<JournalPlace> ahead;   // Where Back has come from, Forward goes there until a new jump
 
     std::string status;
     std::string caption;
@@ -173,8 +174,12 @@ class JournalView : public TScroller
     void details();
     void find(int direction);
     void seek(uint64_t realtime, bool nearest);
-    void remember();
-    void restore();  // The first line at the moment or after it, or the closest one
+    JournalPlace here();
+    void remember();  // Before a jump
+    void restore();   // Back
+    void advance();   // Forward
+    void travel(std::vector<JournalPlace>& from, std::vector<JournalPlace>& to);
+    void remap(JournalPlace& place, const std::vector<size_t>& numbers);  // To the lines of the other order
     void synchronize();
     void chooseLevels();
     void chooseText();
