@@ -60,6 +60,7 @@ class JediApplication : public TApplication
     void showHelp();
     void showAbout();
 #ifdef USE_UPDATE
+    void askUpdate();
     void checkUpdate();
     void showUpdate();
 #endif

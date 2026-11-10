@@ -28,6 +28,7 @@ enum
   cmJournalAbout,
   cmJournalUpdate,
   cmJournalUpdated,            // The check for a newer release is over
+  cmJournalUpdateAsk,          // Nobody has chosen or declined the check on start yet
   cmUpdateCopyLink,
   cmUpdateCopyCommand,
   cmJournalGoTo,

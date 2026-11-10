@@ -74,6 +74,18 @@ JediApplication::JediApplication(const JournalFilter& filter, int history, const
 #ifdef USE_UPDATE
   update.load(settings);
   automatic = update.due() && update.start();
+
+  if ((!update.chosen) &&
+      (!settings.empty()))
+  {
+    // The first start asks after the windows are up, a user of an older release without the file is asked as well
+    TEvent event;
+
+    event.what            = evCommand;
+    event.message.command = cmJournalUpdateAsk;
+    event.message.infoPtr = nullptr;
+    putEvent(event);
+  }
 #endif
 }
 
@@ -224,6 +236,7 @@ void JediApplication::handleEvent(TEvent& event)
       case cmJournalTimeline:  timeline(current);  break;
       case cmJournalAbout:     showAbout();        break;
 #ifdef USE_UPDATE
+      case cmJournalUpdateAsk: askUpdate();        break;
       case cmJournalUpdate:    checkUpdate();      break;
       case cmJournalUpdated:   showUpdate();       break;
 #endif
@@ -660,6 +673,26 @@ void JediApplication::showAbout()
 }
 
 #ifdef USE_UPDATE
+
+void JediApplication::askUpdate()
+{
+  TRect bounds;
+  ushort answer;
+
+  // Rows of the text and an empty one above the buttons
+  bounds = TRect(0, 0, 54, 12);
+  bounds.move((deskTop->size.x - bounds.b.x) / 2, (deskTop->size.y - bounds.b.y) / 2);
+  answer = messageBoxRect(bounds,
+    "Check for updates on start, once a day?\n\n"
+    "TurboJedi asks GitHub for the latest release and tells about a newer one, nothing is installed.\n\n"
+    "Help \xe2\x86\x92 Check for updates changes it later.",
+    mfConfirmation | mfYesButton | mfNoButton);
+
+  // Asked once: a refusal is kept as well, Esc counts as one; the check begins at once when chosen
+  update.startup = (answer == cmYes);
+  update.save();
+  automatic = update.due() && update.start();
+}
 
 void JediApplication::checkUpdate()
 {

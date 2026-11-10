@@ -36,6 +36,7 @@ class JediUpdate
     std::string tag;    // Of the latest release, such as v0.10
     std::string error;  // Empty when the tag has been found
 
+    bool chosen;        // The file has been read: the check on start has been chosen or declined
     bool startup;       // Checks on start, off unless chosen
     time_t checked;     // When a check has been over the last time, whatever its answer
     std::string shown;  // Release and system told about by a check on start, they are not told again

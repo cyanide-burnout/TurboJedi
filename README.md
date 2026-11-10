@@ -38,7 +38,8 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd and
   the last one comes back on the next start
 - Check for updates in the Help menu: asks GitHub for the latest release only when chosen, shows it
   with the command of the install script; nothing goes to the network otherwise. Its answer has the choice
-  of a check on start, once a day and only about a newer release, kept in `$XDG_CONFIG_HOME/turbojedi/update.ini`
+  of a check on start, once a day and only about a newer release, kept in `$XDG_CONFIG_HOME/turbojedi/update.ini`;
+  the first start without that file asks for the choice once, Yes or No
 
 ## Installation
 

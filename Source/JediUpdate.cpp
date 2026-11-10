@@ -124,6 +124,7 @@ JediUpdate::JediUpdate()
   ready   = false;
   multi   = nullptr;
   easy    = nullptr;
+  chosen  = false;
   startup = false;
   checked = 0;
 }
@@ -261,6 +262,8 @@ void JediUpdate::load(const std::string& path)
     // Nothing chosen yet
     return;
   }
+
+  chosen = true;
 
   while (fgets(line, sizeof(line), file) != nullptr)
   {
