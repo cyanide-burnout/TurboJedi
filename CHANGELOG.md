@@ -3,6 +3,11 @@
 Every release has a theme of its own, the patch releases after it finish the same one. Packages of every release are on
 the [releases page](https://github.com/cyanide-burnout/TurboJedi/releases).
 
+## 0.13.1 — 2026-11-10
+
+- The first start asks once whether to check for updates on start: Yes or No, Esc counts as No, the answer is kept in
+  `update.ini`; a user of an older release without that file is asked as well
+
 ## 0.13 — 2026-11-08
 
 Navigation and the order of a window: the newest on top, the signs of the title as buttons, undo and redo of the moves.
