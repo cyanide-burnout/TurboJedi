@@ -6,7 +6,7 @@ entries, while other windows follow the whole system next to it.
 
 Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd and PCRE2.
 
-![Two windows: the whole journal and its warnings and errors with found text highlighted](screenshot.png)
+![Three windows: the whole journal following, its warnings and errors paused with marked lines and 7 entries come meanwhile, and their timeline](screenshot.png)
 
 ## Features
 
