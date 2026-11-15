@@ -31,7 +31,7 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd and
 - List of the windows to go to, narrowed down by a filter
 - Go to a time, and every other window to the time of the selected line: what happened elsewhere at that moment
 - Details of an entry with all its fields, a field there opens a window narrowed to it
-- Actions of an entry by plugins in Lua 5.4: Alt-F10, F11, Shift-F10 or a right click opens the menu of what the
+- Actions of an entry by plugins in Lua 5.4: Alt-F10, A, F11, Shift-F10 or a right click opens the menu of what the
   plugins offer for it, each item named with its plugin. The package brings one that only looks: the status and the
   unit file of the unit of the entry, its process in top while it runs; fail2ban in the examples bans an address of
   the entry. Plugins ask with dialogs and run commands in the background, in a window or on the terminal, see
@@ -266,7 +266,7 @@ window to the time of the selected line, and a layout keeps their directories fo
 | Alt-T | timeline: entries of the filter of the window by intervals of time; Left and Right move, Enter takes every journal window to the interval, `+` and `-` change the step, `L` the scale |
 | Up, Down, PgUp, PgDn, Home, End | move the cursor, it starts on the newest line of the screen; on the newest line the window follows, anywhere else it pauses |
 | Enter, double click | details of the entry under the cursor, Enter on a field there opens a window with it added to the filter |
-| Alt-F10, F11, Shift-F10, right click | actions of the plugins for the entry under the cursor, see [PLUGINS.md](PLUGINS.md) |
+| Alt-F10, A, F11, Shift-F10, right click | actions of the plugins for the entry under the cursor, see [PLUGINS.md](PLUGINS.md); A is for Terminal of macOS, which keeps F10 and F11 for itself |
 | Space | pause or follow, also a click on ► or ‖ in the title |
 | Shift+arrows, mouse | select lines from the cursor, Esc drops the selection and the marks, the cursor stays |
 | M, Insert | begin marking from the cursor, the keys mark the lines they pass; M again ends it and they stay marked, so lines apart are marked one stroke after another. Begun on a marked line it takes the marks off instead. No Shift is needed, which Terminal of macOS and some others keep for themselves |
@@ -321,7 +321,7 @@ written the same way in `Source/JournalHighlighter.cpp`.
 
 ## Plugins
 
-The Actions menu of an entry, Alt-F10, F11, Shift-F10 or a right click, is made by plugins in Lua 5.4 from
+The Actions menu of an entry, Alt-F10, A, F11, Shift-F10 or a right click, is made by plugins in Lua 5.4 from
 `/usr/share/turbojedi/plugins`, `/usr/local/share/turbojedi/plugins` and `~/.config/turbojedi/plugins`. The package
 brings `010-systemd.lua`, which only looks: the status and the unit file of the unit of the entry, its process in top.
 Plugins that change things come as examples in `/usr/share/turbojedi/examples` and are not run by themselves.

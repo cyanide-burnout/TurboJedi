@@ -682,7 +682,7 @@ void JediApplication::showHelp()
     "  Esc             Drop the selection and the marks, the cursor stays",
     "  Enter           All fields of the entry under the cursor, also double click,",
     "                  Enter on a field there opens a window with the filter of this one and the field",
-    "  Alt-F10         Actions of the plugins for the entry under the cursor, also F11, Shift-F10",
+    "  Alt-F10, A      Actions of the plugins for the entry under the cursor, also F11, Shift-F10",
     "                  and a right click on a line; see PLUGINS.md",
     "  Ctrl-F          Find and highlight, Ctrl-N and Ctrl-P go to the next and previous one,",
     "                  the search goes on into the older entries past the oldest line",

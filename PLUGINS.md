@@ -6,7 +6,8 @@ value of one of its fields. TurboJedi itself knows nothing of the services: it g
 dialogs and ways to run commands.
 
 Alt-F10 opens the menu, as the local menu of the IDEs of Borland, also F11 as in Far, Shift-F10 and a right click on a
-line; Journal → Actions... is in the menu bar. Every item shows the plugin it comes from on its right, the items of two
+line; Journal → Actions... is in the menu bar. A plain A opens it as well, as M marks: Terminal of macOS keeps F10 and
+F11 for itself and has no Alt unless Option is set to be Meta. Every item shows the plugin it comes from on its right, the items of two
 plugins are parted by a line.
 
 ## Where plugins are

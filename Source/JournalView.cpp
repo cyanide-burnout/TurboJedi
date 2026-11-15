@@ -470,6 +470,15 @@ void JournalView::handleEvent(TEvent& event)
       return;
     }
 
+    if ((event.keyDown.charScan.charCode == 'a') ||
+        (event.keyDown.charScan.charCode == 'A'))
+    {
+      // Actions by a plain key as M marks: Terminal of macOS takes F10 and F11, Option is not Alt there by default
+      actions(TPoint { -1, -1 });
+      clearEvent(event);
+      return;
+    }
+
     if ((event.keyDown.keyCode == kbEsc) &&
         (anchor != NO_SELECTION))
     {
