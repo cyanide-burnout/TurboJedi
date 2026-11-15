@@ -79,7 +79,7 @@ OBJECTS := \
 	$(SOURCE)/PageDialog.o \
 	$(SOURCE)/JournalExpression.o \
 	$(SOURCE)/JournalHighlighter.o \
-	$(SOURCE)/JournalEscapes.o \
+	$(SOURCE)/JournalTinter.o \
 	$(SOURCE)/JournalMatcher.o \
 	$(SOURCE)/TextDialog.o \
 	$(SOURCE)/LevelsDialog.o \

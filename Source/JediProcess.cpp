@@ -18,7 +18,7 @@
 #include "JediProcess.h"
 #include "JediClipboard.h"
 #include "JournalSource.h"
-#include "JournalEscapes.h"
+#include "JournalTinter.h"
 #include "PageView.h"
 #include "Commands.h"
 

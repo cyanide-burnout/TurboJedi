@@ -2,7 +2,7 @@
 // https://github.com/cyanide-burnout/TurboJedi
 // Artem Prilutskiy, 2026
 
-#include "JournalEscapes.h"
+#include "JournalTinter.h"
 
 #include <stdlib.h>
 

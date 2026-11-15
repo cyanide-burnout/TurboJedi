@@ -19,7 +19,7 @@
 #include "JournalSource.h"
 #include "JournalMatcher.h"
 #include "JournalHighlighter.h"
-#include "JournalEscapes.h"
+#include "JournalTinter.h"
 
 #include <memory>
 

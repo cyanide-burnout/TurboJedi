@@ -1,5 +1,5 @@
-#ifndef JOURNALESCAPES_H
-#define JOURNALESCAPES_H
+#ifndef JOURNALTINTER_H
+#define JOURNALTINTER_H
 
 // TurboJedi, Turbo Journald Interface
 // https://github.com/cyanide-burnout/TurboJedi
