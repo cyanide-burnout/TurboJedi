@@ -54,6 +54,13 @@ bool TakePluginWatchChanges();
 // A watch a line has raised the list of watches for, zero for none
 int TakePluginWatchRaise();
 
+// Watches of a layout: the ones of the layout that goes are removed when another one opens, the global ones of the plugins
+// stay. Lines of a [watches] section are given to the functions of registerRestore() of their plugins, a window of the
+// layout by its number among the journals; the lines of the plugins not there are kept as they are
+void DropWorkspaceWatches();
+std::vector<std::string> SavePluginWatches(const std::vector<JournalView*>& windows);
+void RestorePluginWatches(const std::vector<std::string>& lines, const std::vector<JournalView*>& windows, std::vector<std::string>& errors);
+
 // What a watch asks the application for with cmJournalOpenWatch: a new window of its filter, the view of it back
 struct JournalWindowRequest
 {

@@ -22,8 +22,9 @@ struct JournalLayout
   bool logarithmic;
 };
 
-// Takes a whole file or nothing, the error tells the line and what is wrong there
-bool LoadJournalLayout(const std::string& path, std::vector<JournalLayout>& windows, std::string& error);
-bool SaveJournalLayout(const std::string& path, const std::vector<JournalLayout>& windows);
+// Takes a whole file or nothing, the error tells the line and what is wrong there. The watches of plugins come from the
+// lines of a [watches] section as they are, the engine of the plugins reads them
+bool LoadJournalLayout(const std::string& path, std::vector<JournalLayout>& windows, std::vector<std::string>& watches, std::string& error);
+bool SaveJournalLayout(const std::string& path, const std::vector<JournalLayout>& windows, const std::vector<std::string>& watches);
 
 #endif

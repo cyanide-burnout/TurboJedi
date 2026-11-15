@@ -19,6 +19,7 @@
 #include "JournalView.h"
 #include "JournalQuery.h"
 #include "JournalWatch.h"
+#include "ScriptNotation.h"
 #include "Commands.h"
 
 extern "C"
@@ -90,6 +91,7 @@ extern "C"
 #define TIMER     "TurboJedi.timer"
 #define FETCH     "TurboJedi.fetch"
 #define NAMES     "TurboJedi.names"     // Of the plugin of every handler, by the same index
+#define RESTORERS "TurboJedi.restorers" // Functions of registerRestore() by the names of their plugins
 #define MENU      "TurboJedi.menu"
 
 static const char* const SystemDirectories[] = { "/usr/share/turbojedi/plugins", "/usr/local/share/turbojedi/plugins" };
@@ -141,6 +143,7 @@ static int dispatching;   // Rounds of events going on, nested by the dialogs of
 static int turn;          // The watch the next round of reading or calling starts after, so that every one gets its share
 static bool changed;      // Watches have changed, their windows and the status line are told
 static int raising;       // A watch a line has raised the list of watches for, zero for none
+static JournalFilter kept;  // The journal of a watch a layout restores, its function takes it as the base of watch()
 static int serial;
 static std::vector<std::string> directories;  // In the order a file of the same name takes the place: the user last
 static std::map<std::string, JournalExpression> expressions;
@@ -408,6 +411,22 @@ static int RegisterHandler(lua_State* state)
   lua_pushlstring(state, plugin.data(), plugin.size());
   lua_rawseti(state, -2, lua_rawlen(state, -2) + 1);
   lua_pop(state, 2);
+
+  return 0;
+}
+
+// registerRestore(func): func(context, position) for every watch of the plugin a layout keeps
+static int RegisterRestore(lua_State* state)
+{
+  if (lua_type(state, 1) != LUA_TFUNCTION)
+  {
+    return Fail(state, "registerRestore() takes a function");
+  }
+
+  lua_getfield(state, LUA_REGISTRYINDEX, RESTORERS);
+  lua_pushvalue(state, 1);
+  lua_setfield(state, -2, plugin.c_str());
+  lua_pop(state, 1);
 
   return 0;
 }
@@ -1765,8 +1784,10 @@ static int AddJournalWatch(lua_State* state)
   std::string title;
   std::string value;
   std::string error;
+  std::string context;
   JournalFilter base;
   JournalFilter filter;
+  JournalPosition from;
   JournalWatch* parent;
   std::unique_ptr<JournalWatch> watch;
 
@@ -1815,12 +1836,54 @@ static int AddJournalWatch(lua_State* state)
     return Fail(state, "watch() starts at the end of the journal, it takes neither since nor until");
   }
 
+  // What a layout keeps for the plugin, checked now: a watch never drops out of a layout for its context
+  context.clear();
+  lua_pushliteral(state, "context");
+
+  if ((lua_rawget(state, 1) != LUA_TNIL) &&
+      ((lua_type(state, -1) != LUA_TTABLE) || (!WriteNotation(state, -1, context, error))))
+  {
+    lua_pop(state, 1);
+    return Fail(state, "context of watch() is a table a layout can keep: %s", error.empty() ? "it is not a table" : error.c_str());
+  }
+
+  lua_pop(state, 1);
+
+  // The place a layout has kept, given by registerRestore()
+  from = { std::string(), 0 };
+  lua_pushliteral(state, "from");
+
+  if (lua_rawget(state, 1) == LUA_TTABLE)
+  {
+    lua_pushliteral(state, "cursor");
+    lua_rawget(state, -2);
+    GetString(state, -1, from.cursor);
+    lua_pushliteral(state, "time");
+    lua_rawget(state, -3);
+    from.realtime = lua_tointeger(state, -1);
+    lua_pop(state, 2);
+  }
+  else if (!lua_isnil(state, -1))
+  {
+    lua_pop(state, 1);
+    return Fail(state, "from of watch() is the position registerRestore() gives");
+  }
+
+  lua_pop(state, 1);
+
   // The journal of the window of an action, of the watch whose callback this is, or of this machine
   parent           = (phase == PHASE_ENTRY) ? FindJournalWatch(watching) : nullptr;
   base             = JournalFilter { };
   base.columns     = JOURNAL_COLUMN_DEFAULT;
   base.highlight   = JOURNAL_HIGHLIGHT_BUILTIN;
   base             = (origin != nullptr) ? origin->getFilter() : (parent != nullptr) ? parent->filter : base;
+
+  if (phase == PHASE_RESTORE)
+  {
+    // The journal the watch has had, whatever window it comes back with
+    base.directory = kept.directory;
+    base.merge     = kept.merge;
+  }
 
   if (!MakeFilter(state, 1, base, filter, error))
   {
@@ -1829,7 +1892,7 @@ static int AddJournalWatch(lua_State* state)
 
   watch = std::make_unique<JournalWatch>();
 
-  if (!watch->start(filter, nullptr, error))
+  if (!watch->start(filter, from.cursor.empty() ? nullptr : &from, error))
   {
     // The journal refuses, not the plugin
     lua_pushnil(state);
@@ -1843,6 +1906,7 @@ static int AddJournalWatch(lua_State* state)
   watch->title  = title;
   watch->global = (phase == PHASE_LOAD);
   watch->window = current ? origin : nullptr;
+  watch->context = context;
 
   // The function and the values after it, the callback of the gaps along with them
   watch->callback = KeepCallback(state, 2, 3);
@@ -1952,6 +2016,27 @@ static int DeleteWatchLine(lua_State* state)
   return 0;
 }
 
+// watch:context(table): what a layout keeps for the plugin from now on
+static int SetWatchContext(lua_State* state)
+{
+  std::string text;
+  std::string error;
+  JournalWatch* watch;
+
+  if ((lua_type(state, 2) != LUA_TTABLE) ||
+      (!WriteNotation(state, 2, text, error)))
+  {
+    return Fail(state, "context() takes a table a layout can keep: %s", error.empty() ? "it is not a table" : error.c_str());
+  }
+
+  if ((watch = FindJournalWatch(GetHandle(state))) != nullptr)
+  {
+    watch->context = text;
+  }
+
+  return 0;
+}
+
 static int ClearWatchLines(lua_State* state)
 {
   JournalWatch* watch;
@@ -2011,6 +2096,7 @@ static void CollectJournalWatches()
 static const luaL_Reg functions[] =
 {
   { "registerHandler", Call<RegisterHandler, PHASE_LOAD>   },
+  { "registerRestore", Call<RegisterRestore, PHASE_LOAD>   },
   { "message",         Call<ShowMessage,     PHASE_DO>     },
   { "confirm",         Call<AskConfirm,      PHASE_DO>     },
   { "input",           Call<AskInput,        PHASE_DO>     },
@@ -2200,6 +2286,8 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
   lua_setfield(state, LUA_REGISTRYINDEX, HANDLERS);
   lua_newtable(state);
   lua_setfield(state, LUA_REGISTRYINDEX, NAMES);
+  lua_newtable(state);
+  lua_setfield(state, LUA_REGISTRYINDEX, RESTORERS);
 
   // The menu a handler gets: menu:add(title, func, ...)
   luaL_newmetatable(state, MENU);
@@ -2237,6 +2325,8 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
   lua_setfield(state, -2, "delete");
   lua_pushcfunction(state, (Call<ClearWatchLines, PHASE_ANY>));
   lua_setfield(state, -2, "clear");
+  lua_pushcfunction(state, (Call<SetWatchContext, PHASE_ANY>));
+  lua_setfield(state, -2, "context");
   lua_pushcfunction(state, (Call<RemoveJournalWatch, PHASE_ANY>));
   lua_setfield(state, -2, "remove");
   lua_setfield(state, -2, "__index");
@@ -3079,4 +3169,186 @@ int TakePluginWatchRaise()
   number  = raising;
   raising = 0;
   return number;
+}
+
+void DropWorkspaceWatches()
+{
+  for (std::pair<const int, std::unique_ptr<JournalWatch>>& watch : journals)
+  {
+    if ((!watch.second->global) &&
+        (watch.second->state != WATCH_REMOVED))
+    {
+      // Of the layout that goes, with their lines
+      DropJournalWatch(watch.first);
+    }
+  }
+}
+
+std::vector<std::string> SavePluginWatches(const std::vector<JournalView*>& windows)
+{
+  std::string line;
+  std::vector<std::string> parts;
+  std::vector<JournalWatch*> list;
+  std::vector<std::string> lines;
+  std::vector<JournalView*>::const_iterator window;
+
+  for (std::pair<const int, std::unique_ptr<JournalWatch>>& watch : journals)
+  {
+    if (watch.second->state != WATCH_REMOVED)
+    {
+      list.push_back(watch.second.get());
+    }
+  }
+
+  // In the order they have been set, as they come back
+  std::sort(list.begin(), list.end(), [] (const JournalWatch* one, const JournalWatch* other) { return one->order < other->order; });
+
+  for (JournalWatch* watch : list)
+  {
+    if (!watch->saved.empty())
+    {
+      // Of a plugin not there, kept as it has come
+      lines.push_back(watch->saved);
+      continue;
+    }
+
+    if (watch->context.empty())
+    {
+      // Lives until the exit
+      continue;
+    }
+
+    // The part of TurboJedi: its journal, the window by the number of its section among the journals, the place by the cursor
+    // and the time of the entry given last
+    parts.clear();
+    window = std::find(windows.begin(), windows.end(), GetWatchWindow(watch));
+
+    if (!watch->filter.directory.empty()) parts.push_back("directory = " + QuoteNotation(watch->filter.directory));
+    if (watch->filter.merge)              parts.push_back("merge = true");
+
+    if ((watch->window != nullptr) &&
+        (window != windows.end()))
+    {
+      parts.push_back("window = " + std::to_string(window - windows.begin() + 1));
+    }
+
+    if (!watch->delivered.cursor.empty())
+    {
+      parts.push_back("cursor = " + QuoteNotation(watch->delivered.cursor));
+      parts.push_back("time = " + std::to_string(watch->delivered.realtime));
+    }
+
+    line = watch->plugin + " {";
+
+    for (size_t index = 0; index < parts.size(); index ++)
+    {
+      line += ((index > 0) ? ", " : " ") + parts[index];
+    }
+
+    line += parts.empty() ? "} " : " } ";
+    line += watch->context;
+    lines.push_back(line);
+  }
+
+  return lines;
+}
+
+// A watch of a layout whose plugin is not there or cannot take it: kept in the list as it has come, until it is removed
+static void KeepPluginWatch(const std::string& name, const std::string& line, const std::string& reason)
+{
+  std::unique_ptr<JournalWatch> watch;
+
+  watch = std::make_unique<JournalWatch>();
+  watch->number = ++ serial;
+  watch->order  = serial;
+  watch->plugin = name;
+  watch->title  = "saved watch";
+  watch->saved  = line;
+  watch->stop(WATCH_STOPPED, reason);
+
+  journals[watch->number] = std::move(watch);
+  changed = true;
+}
+
+void RestorePluginWatches(const std::vector<std::string>& lines, const std::vector<JournalView*>& windows, std::vector<std::string>& errors)
+{
+  int base;
+  int number;
+  size_t position;
+  std::string name;
+  std::string error;
+
+  if ((state == nullptr) ||
+      (phase != PHASE_IDLE))
+  {
+    return;
+  }
+
+  for (const std::string& line : lines)
+  {
+    base     = lua_gettop(state);
+    position = line.find(' ');
+    name     = line.substr(0, position);
+    position = (position == std::string::npos) ? line.size() : position;
+
+    // The part of TurboJedi, then the context of the plugin, both data only
+    if (!ReadNotation(state, line, position, error))
+    {
+      errors.push_back("A watch of " + name + " in the layout cannot be read: " + error);
+      lua_settop(state, base);
+      continue;
+    }
+
+    if ((lua_type(state, -1) != LUA_TTABLE) ||
+        (!ReadNotation(state, line, position, error)) ||
+        (lua_type(state, -1) != LUA_TTABLE))
+    {
+      errors.push_back("A watch of " + name + " in the layout cannot be read: " + (error.empty() ? std::string("two tables are expected") : error));
+      lua_settop(state, base);
+      continue;
+    }
+
+    lua_getfield(state, LUA_REGISTRYINDEX, RESTORERS);
+    lua_getfield(state, -1, name.c_str());
+    lua_remove(state, -2);
+
+    if (lua_type(state, -1) != LUA_TFUNCTION)
+    {
+      KeepPluginWatch(name, line, "plugin " + name + " is not loaded or does not restore watches");
+      lua_settop(state, base);
+      continue;
+    }
+
+    // Trace, the function, the context, the position: { cursor, time } of the part of TurboJedi
+    lua_pushcfunction(state, Trace);
+    lua_insert(state, -2);
+    lua_pushvalue(state, base + 2);
+    lua_createtable(state, 0, 2);
+    lua_getfield(state, base + 1, "cursor");
+    lua_setfield(state, -2, "cursor");
+    lua_getfield(state, base + 1, "time");
+    lua_setfield(state, -2, "time");
+
+    // The window the watch has gone to its entries in, by the number of its journal in the layout, and its own journal
+    lua_getfield(state, base + 1, "window");
+    number = lua_tointeger(state, -1);
+    lua_getfield(state, base + 1, "directory");
+    kept.directory = (lua_type(state, -1) == LUA_TSTRING) ? lua_tostring(state, -1) : "";
+    lua_getfield(state, base + 1, "merge");
+    kept.merge = lua_toboolean(state, -1);
+    lua_pop(state, 3);
+
+    phase  = PHASE_RESTORE;
+    plugin = name;
+    origin = ((number >= 1) && (number <= (int)windows.size())) ? windows[number - 1] : nullptr;
+
+    if (lua_pcall(state, 2, 0, base + 3) != LUA_OK)
+    {
+      errors.push_back(name + ": " + GetError(state));
+    }
+
+    phase  = PHASE_IDLE;
+    origin = nullptr;
+    lua_settop(state, base);
+  }
 }

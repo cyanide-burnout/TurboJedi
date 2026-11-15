@@ -214,9 +214,10 @@ static bool CheckExpression(const JournalFilter& filter)
   return expression.compile(filter.text, !(filter.mode & JOURNAL_TEXT_SENSITIVE));
 }
 
-bool LoadJournalLayout(const std::string& path, std::vector<JournalLayout>& windows, std::string& error)
+bool LoadJournalLayout(const std::string& path, std::vector<JournalLayout>& windows, std::vector<std::string>& watches, std::string& error)
 {
   int number;
+  bool watching;
   size_t index;
   size_t equal;
   std::string line;
@@ -232,6 +233,8 @@ bool LoadJournalLayout(const std::string& path, std::vector<JournalLayout>& wind
   }
 
   windows.clear();
+  watches.clear();
+  watching = false;
 
   for (number = 1; std::getline(file, line); number ++)
   {
@@ -242,6 +245,35 @@ bool LoadJournalLayout(const std::string& path, std::vector<JournalLayout>& wind
       // Blank line or comment
       continue;
     }
+
+    if (line == "[watches]")
+    {
+      // Watches of plugins after the windows, a line each
+      watching = true;
+      continue;
+    }
+
+    if ((watching) &&
+        (line[0] != '['))
+    {
+      equal   = line.find('=');
+      problem =
+        (equal == std::string::npos)               ? "neither a section nor key = value" :
+        (Trim(line.substr(0, equal)) != "watch")   ? "a [watches] section takes watch = lines" :
+        nullptr;
+
+      if (problem != nullptr)
+      {
+        snprintf(buffer, sizeof(buffer), "line %d: %s", number, problem);
+        error = buffer;
+        return false;
+      }
+
+      watches.push_back(Trim(line.substr(equal + 1)));
+      continue;
+    }
+
+    watching = false;
 
     if ((line == "[journal]") ||
         (line == "[window]")  ||
@@ -295,7 +327,7 @@ bool LoadJournalLayout(const std::string& path, std::vector<JournalLayout>& wind
   return !windows.empty();
 }
 
-bool SaveJournalLayout(const std::string& path, const std::vector<JournalLayout>& windows)
+bool SaveJournalLayout(const std::string& path, const std::vector<JournalLayout>& windows, const std::vector<std::string>& watches)
 {
   int index;
   bool first;
@@ -366,6 +398,17 @@ bool SaveJournalLayout(const std::string& path, const std::vector<JournalLayout>
     }
 
     file << "\n\n";
+  }
+
+  if (!watches.empty())
+  {
+    // The engine of the plugins has written them, the plugins read them back
+    file << "[watches]\n";
+
+    for (const std::string& watch : watches)
+    {
+      file << "watch = " << watch << '\n';
+    }
   }
 
   return file.good();

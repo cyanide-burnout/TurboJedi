@@ -522,6 +522,17 @@ static void CollectWindow(TView* view, void* argument)
   }
 }
 
+static void CollectView(TView* view, void* argument)
+{
+  JournalWindow* window;
+
+  if ((window = dynamic_cast<JournalWindow*>(view)) != nullptr)
+  {
+    // In the order of the [journal] sections, which watches go by
+    static_cast<std::vector<JournalView*>*>(argument)->insert(static_cast<std::vector<JournalView*>*>(argument)->begin(), window->view);
+  }
+}
+
 static void CloseWindow(TView* view, void* argument)
 {
   if ((dynamic_cast<JournalWindow*>(view) != nullptr) ||
@@ -538,10 +549,13 @@ bool JediApplication::load(const std::string& path, std::string& error)
   TRect extent;
   bool fitting;
   TWindow* window;
+  JournalWindow* journal;
   std::vector<TView*> windows;
+  std::vector<JournalView*> views;
+  std::vector<std::string> watches;
   std::vector<JournalLayout> layout;
 
-  if (!LoadJournalLayout(path, layout, error))
+  if (!LoadJournalLayout(path, layout, watches, error))
   {
     // Windows there are stay as they are
     return false;
@@ -554,6 +568,9 @@ bool JediApplication::load(const std::string& path, std::string& error)
     // The layout replaces the windows there are
     TObject::destroy(view);
   }
+
+  // And the watches of plugins it has had, the global ones stay
+  DropWorkspaceWatches();
 
   extent  = deskTop->getExtent();
   fitting = true;
@@ -573,9 +590,10 @@ bool JediApplication::load(const std::string& path, std::string& error)
     }
 
     number  = std::min<short>(number + 1, 10);
-    window  = new JournalWindow(fitting ? bounds : extent, (number < 10) ? number : wnNoNumber, item.filter, history, DEFAULT_CAPACITY);
+    journal = new JournalWindow(fitting ? bounds : extent, (number < 10) ? number : wnNoNumber, item.filter, history, DEFAULT_CAPACITY);
 
-    deskTop->insert(window);
+    deskTop->insert(journal);
+    views.push_back(journal->view);
   }
 
   if (!fitting)
@@ -584,22 +602,26 @@ bool JediApplication::load(const std::string& path, std::string& error)
     tile();
   }
 
+  // Their plugins take the watches back, the problems are told once nothing modal is open
+  RestorePluginWatches(watches, views, problems);
   return true;
 }
 
 void JediApplication::tell(const std::vector<std::string>& problems)
 {
-  // getEvent() tells them once the windows are up and nothing modal is open
-  this->problems = problems;
+  // getEvent() tells them once the windows are up and nothing modal is open, after the ones of the layout
+  this->problems.insert(this->problems.begin(), problems.begin(), problems.end());
 }
 
 bool JediApplication::save(const std::string& path)
 {
+  std::vector<JournalView*> views;
   std::vector<JournalLayout> layout;
 
   deskTop->forEach(CollectWindow, &layout);
+  deskTop->forEach(CollectView, &views);
 
-  return SaveJournalLayout(path, layout);
+  return SaveJournalLayout(path, layout, SavePluginWatches(views));
 }
 
 void JediApplication::recall(TFileDialog* dialog, bool named)
