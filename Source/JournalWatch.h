@@ -92,7 +92,8 @@ class JournalWatch
     // Gives up the journal and keeps the lines with the reason
     void stop(JournalWatchState state, const std::string& reason);
 
-    uint64_t add(const std::string& text, const JournalPosition& entry);
+    // A line, unread unless quiet: a list of a state changes all the time and is not news
+    uint64_t add(const std::string& text, const JournalPosition& entry, bool quiet);
     void erase(uint64_t number);
     void clear();
     size_t unread() const;

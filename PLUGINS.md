@@ -610,7 +610,7 @@ monitoring of the server: closed TurboJedi or a broken SSH connection watch noth
 | Method | |
 |---|---|
 | `watch:status(text)` | the status of the watch in the list |
-| `watch:add(text, entry, options)` | a line of the watch with its time, of one or several lines of text; with an entry, Enter on it goes to the entry in the window of the watch. `{ raise = true }` brings the list up with a bell, the watch red and blinking until its lines are read. The number of the line |
+| `watch:add(text, entry, options)` | a line of the watch with its time, of one or several lines of text; with an entry, Enter on it goes to the entry in the window of the watch. `{ raise = true }` brings the list up with a bell, the watch red and blinking until its lines are read; `{ quiet = true }` adds it read, for a list of a state that changes all the time and is not news. The number of the line |
 | `watch:delete(line)` | the line of a number `add` has given |
 | `watch:clear()` | all its lines |
 | `watch:context(table)` | the data a layout keeps from now on |

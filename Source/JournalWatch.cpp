@@ -414,7 +414,7 @@ void JournalWatch::stop(JournalWatchState state, const std::string& reason)
   this->reason = reason;
 }
 
-uint64_t JournalWatch::add(const std::string& text, const JournalPosition& entry)
+uint64_t JournalWatch::add(const std::string& text, const JournalPosition& entry, bool quiet)
 {
   JournalWatchLine line;
 
@@ -422,7 +422,7 @@ uint64_t JournalWatch::add(const std::string& text, const JournalPosition& entry
   line.moment = GetRealTime();
   line.text   = text;
   line.entry  = entry;
-  line.unread = true;
+  line.unread = !quiet;
 
   lines.push_back(line);
 
@@ -433,7 +433,7 @@ uint64_t JournalWatch::add(const std::string& text, const JournalPosition& entry
   }
 
   latest = line.moment;
-  fresh  = true;
+  fresh  = fresh || !quiet;
   return line.number;
 }
 

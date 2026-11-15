@@ -1981,7 +1981,7 @@ static int AddWatchLine(lua_State* state)
     return 0;
   }
 
-  lua_pushinteger(state, watch->add(text, entry));
+  lua_pushinteger(state, watch->add(text, entry, GetFlag(state, 4, "quiet")));
   changed = true;
 
   if (GetFlag(state, 4, "raise"))
