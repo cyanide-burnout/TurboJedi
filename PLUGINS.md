@@ -171,6 +171,36 @@ argument whatever it holds, no shell sees it.
 
 Called at the wrong time, a function is an error.
 
+### Errors
+
+The functions tell two kinds of trouble apart, the way `io.open` of Lua does:
+
+- **A mistake of the plugin is raised** as an error of Lua: a wrong argument (`copy() takes a text`), a call at the
+  wrong time, a regular expression or a filter that cannot be taken. It is the same as an error in the code of the
+  plugin itself, and goes the same way.
+- **A refusal of the world is given back** as a value, the plugin decides what to do with it: a command that has not
+  started, a network that does not answer, a text not found, a reading stopped by its limit. Nothing is raised, and
+  nothing is hidden either:
+
+| Function | When it has not worked |
+|---|---|
+| `execute`, `output` | `nil` and the reason the command has not started |
+| `capture`, `terminal` | `how` is `'error'`, `'timeout'` or `'cancel'` instead of `'exit'` or `'signal'` |
+| `fetch` | `nil, how, text`; an answer of 404 or 500 is an answer, its code tells it |
+| `find` | `false` when nothing more is found |
+| `query` | the entries read, and why the reading has stopped: `'limit'`, `'scan'`, `'time'` or `'cancel'` |
+| `mark` | the count marked, fewer than given when some are not in the window |
+
+An error raised goes to the window of the plugins with the name of the plugin and the place in it:
+
+- in a handler, the items it has added go and the other plugins make the menu;
+- in an action, the action ends there;
+- in a callback of `poll` or `timeout`, the watch or the timer goes and is not called again; a callback of `fetch` is
+  called once anyway.
+
+`pcall` catches an error raised as anywhere in Lua, when a plugin would rather go on. `remove()` of a watch and
+`cancel()` of a timer or a request that are gone already do nothing: that is not a failure.
+
 ### Version
 
 `turbojedi.version` is the version of TurboJedi as git tells it: `v0.15` of a release, `v0.15-3-gabcdef` of a build
