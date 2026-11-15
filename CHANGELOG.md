@@ -3,6 +3,29 @@
 Every release has a theme of its own, the patch releases after it finish the same one. Packages of every release are on
 the [releases page](https://github.com/cyanide-burnout/TurboJedi/releases).
 
+## 0.14 — 2026-11-15
+
+Actions on entries: plugins in Lua 5.4 make the menu of what can be done with the entry under the cursor.
+
+- Alt-F10, A, F11, Shift-F10, a right click or Journal → Actions... opens the Actions menu of the entry under the
+  cursor; every item names its plugin, the items of two plugins are parted by a line
+- Plugins in Lua 5.4 come from `/usr/share/turbojedi/plugins`, `/usr/local/share/turbojedi/plugins` and
+  `~/.config/turbojedi/plugins`: a file of the same name takes the place of one above, an empty one or a link to
+  `/dev/null` leaves it out; root runs only the ones nobody but root, or the groups root and staff, can change. How to
+  write them is in [PLUGINS.md](PLUGINS.md)
+- Plugins ask with dialogs, copy to the clipboard and run commands in the background, in a window of their output or on
+  the terminal, always as lists of arguments, never through a shell
+- Plugins open windows with a filter, find and go to a time in the window, read the journal for the entries before or
+  after one and mark them; the selected and marked entries of the window come to them as well
+- The package brings plugins that only look: the status, unit file and process of the unit of an entry; the route,
+  lookup, whois, ping and path of an address; a core dump in coredumpctl and gdb. fail2ban, block devices and Asterisk
+  come as examples to link
+- The cursor is shown from the start on the newest line of the screen, in the window in front; the arrows move it at
+  once, Esc keeps it and drops the selection and the marks, Ctrl-Ins copies its line
+- Lua 5.4 is needed to build: `liblua5.4-dev`, `lua-devel`, `lua54-devel` or `lua54`
+
+Thanks to select26.
+
 ## 0.13.1 — 2026-11-10
 
 - The first start asks once whether to check for updates on start: Yes or No, Esc counts as No, the answer is kept in
