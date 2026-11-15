@@ -34,7 +34,8 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd and
 - Actions of an entry by plugins in Lua 5.4: Alt-F10, A, F11, Shift-F10 or a right click opens the menu of what the
   plugins offer for it, each item named with its plugin. The plugins of the package only look: the status and the
   unit file of the unit of the entry and its process in top, the route, lookup, whois, ping and path of an address,
-  a core dump in coredumpctl and gdb; fail2ban, block devices, Asterisk and a chat are in the examples. Plugins ask
+  a core dump in coredumpctl and gdb, the attacks on the SSH server in a watch; fail2ban, block devices, Asterisk, alerts
+  and a chat are in the examples. Plugins ask
   with dialogs, run commands in the background, in a window or on the terminal, ask web services over HTTP and keep
   sockets and timers going, see [PLUGINS.md](PLUGINS.md)
 - Watches of plugins: entries of a filter as they come, a status and lines of each in a list, F12; Watch 1/3 * in the
@@ -351,6 +352,9 @@ brings plugins that only look:
   there, the ones whose programs are installed
 - `030-coredump.lua`: for an entry of systemd-coredump, what coredumpctl knows of that dump, a copy of it, its stack in
   gdb
+- `040-ssh.lua`: a watch of the attacks on the SSH server of this machine while TurboJedi is open, an address a line
+  with its failures and the user names it has tried; a login after failures or a flood of tries brings the list of
+  watches up with a bell
 
 Plugins that change things, or that would come up by chance, are examples in `/usr/share/turbojedi/examples` and are not
 run by themselves: `100-fail2ban.lua`; `100-storage.lua`, the device, mounts, udev and SMART of a block device an

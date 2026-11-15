@@ -720,6 +720,21 @@ alone, a PID alone may stand for several: Core dump shows `coredumpctl info` in 
 Debug runs `coredumpctl debug` on the terminal when gdb is installed and the journal is of this machine, where the core
 file is.
 
+### SSH attacks
+
+`040-ssh.lua` of the package watches the SSH server of this machine, where there is one, while TurboJedi is open: what
+no single entry tells, an attack put together from many. Every address that fails to log in has a line in the watch
+SSH attacks, the busiest on top: its failures in the last minute and in all, the user names it has tried, the time of
+its last try; Enter goes to that entry. An address silent for ten minutes leaves the list. The status tells the
+addresses, the failures of the last minute and the busiest one.
+
+Two things bring the list of watches up with a bell: a login after failures of the same address, and an address that
+tries more than 30 times a minute, once for it. A login from an address without failures is nobody's business. It only
+looks: banning is the business of fail2ban, among the examples.
+
+One try may come in several lines, `Invalid user` and `Failed password for invalid user` of the same connection count
+once; sshd of OpenSSH 9.8 and later logs as `sshd-session` and `sshd-auth`, all of them are watched.
+
 ### Block devices
 
 `/usr/share/turbojedi/examples/100-storage.lua` gives an item to every block device an entry of the kernel or smartd
