@@ -698,7 +698,7 @@ OutputWindow::OutputWindow(const TRect& bounds, const std::string& line, pid_t p
 
   insert(view);
   insert(new TButton(TRect(extent.b.x / 2 - 13, extent.b.y + 1, extent.b.x / 2 - 1, extent.b.y + 3), "~C~opy",  cmPageCopy, bfNormal));
-  insert(new TButton(TRect(extent.b.x / 2 + 1,  extent.b.y + 1, extent.b.x / 2 + 13, extent.b.y + 3), "C~l~ose", cmClose,    bfDefault));
+  insert(new TButton(TRect(extent.b.x / 2 + 1,  extent.b.y + 1, extent.b.x / 2 + 13, extent.b.y + 3), "C~l~ose", cmOK,       bfDefault));
 
   view->select();
 }
@@ -816,7 +816,7 @@ void OutputWindow::handleEvent(TEvent& event)
   if (((event.what == evCommand) && ((event.message.command == cmCancel) || (event.message.command == cmOK))) ||
       ((event.what == evKeyDown) && (event.keyDown.keyCode == kbEsc)))
   {
-    // Not modal, it closes like a window
+    // Not modal, it closes like a window; cmClose of a button would carry the button and a window takes it only from itself
     clearEvent(event);
     close();
     return;
