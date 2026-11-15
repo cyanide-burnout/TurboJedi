@@ -32,9 +32,9 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd and
 - Go to a time, and every other window to the time of the selected line: what happened elsewhere at that moment
 - Details of an entry with all its fields, a field there opens a window narrowed to it
 - Actions of an entry by plugins in Lua 5.4: Alt-F10, A, F11, Shift-F10 or a right click opens the menu of what the
-  plugins offer for it, each item named with its plugin. The package brings one that only looks: the status and the
-  unit file of the unit of the entry, its process in top while it runs; fail2ban in the examples bans an address of
-  the entry. Plugins ask with dialogs and run commands in the background, in a window or on the terminal, see
+  plugins offer for it, each item named with its plugin. The plugins of the package only look: the status and the
+  unit file of the unit of the entry and its process in top, the route, name, whois, ping and path of an address,
+  a core dump in coredumpctl and gdb; fail2ban and block devices are in the examples. Plugins ask with dialogs and run commands in the background, in a window or on the terminal, see
   [PLUGINS.md](PLUGINS.md)
 - Selection with the keyboard or the mouse, copy to the clipboard (OSC 52 over SSH), export to a file
 - Timeline: entries of the filter of a window by intervals of time, errors, warnings and the rest stacked
@@ -323,9 +323,18 @@ written the same way in `Source/JournalHighlighter.cpp`.
 
 The Actions menu of an entry, Alt-F10, A, F11, Shift-F10 or a right click, is made by plugins in Lua 5.4 from
 `/usr/share/turbojedi/plugins`, `/usr/local/share/turbojedi/plugins` and `~/.config/turbojedi/plugins`. The package
-brings `010-systemd.lua`, which only looks: the status of the unit of the entry in a window or to the clipboard, its
-unit file, its process in top.
-Plugins that change things come as examples in `/usr/share/turbojedi/examples` and are not run by themselves.
+brings plugins that only look:
+
+- `010-systemd.lua`: the status of the unit of the entry in a window or to the clipboard, its unit file, its process
+  in top
+- `020-network.lua`: an item for every address of the message, its route, name, whois, ping, path or a copy are chosen
+  there, the ones whose programs are installed
+- `030-coredump.lua`: for an entry of systemd-coredump, what coredumpctl knows of that dump, a copy of it, its stack in
+  gdb
+
+Plugins that change things, or that would come up by chance, are examples in `/usr/share/turbojedi/examples` and are not
+run by themselves: `100-fail2ban.lua`, and `100-storage.lua`, the device, mounts, udev and SMART of a block device an
+entry of the kernel or smartd names.
 
 The fail2ban example bans or unbans an address of the entry, after asking for the jail and a confirmation; it needs
 root. A link to it turns it on and follows the updates of the package, for the whole machine:

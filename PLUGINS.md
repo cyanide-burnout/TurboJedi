@@ -293,6 +293,27 @@ turbojedi.registerHandler(function(entry, menu, context)
 end)
 ```
 
+### Addresses
+
+`020-network.lua` of the package gives one item to every address of the message, IPv4 or IPv6, and the actions are
+chosen in a list there: Route (`ip route get`), Name (`getent hosts`), Whois, Ping (four of them), Trace path
+(`tracepath -n`) and Copy. Only the actions whose programs are installed are in the list, so the menu stays short when
+an entry has several addresses.
+
+### Core dumps
+
+`030-coredump.lua` of the package acts on an entry of systemd-coredump. The PID and the time of the dump pick that dump
+alone, a PID alone may stand for several: Core dump shows `coredumpctl info` in a window, Copy puts it to the clipboard,
+Debug runs `coredumpctl debug` on the terminal when gdb is installed and the journal is of this machine, where the core
+file is.
+
+### Block devices
+
+`/usr/share/turbojedi/examples/100-storage.lua` gives an item to every block device an entry of the kernel or smartd
+names, `[sda]`, `dev nvme0n1`, `(sda1)`, when the system has it: Device (`lsblk`), Mounts (`findmnt`), udev
+(`udevadm info`), SMART (`smartctl -a` of the disk, root) and Copy. It is an example since a name of a device comes up
+in messages that tell nothing about it.
+
 ### fail2ban
 
 `/usr/share/turbojedi/examples/100-fail2ban.lua` offers Ban and Unban for every address in the message. Ban asks for
