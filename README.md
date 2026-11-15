@@ -34,8 +34,9 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd and
 - Actions of an entry by plugins in Lua 5.4: Alt-F10, A, F11, Shift-F10 or a right click opens the menu of what the
   plugins offer for it, each item named with its plugin. The plugins of the package only look: the status and the
   unit file of the unit of the entry and its process in top, the route, lookup, whois, ping and path of an address,
-  a core dump in coredumpctl and gdb; fail2ban and block devices are in the examples. Plugins ask with dialogs and run commands in the background, in a window or on the terminal, see
-  [PLUGINS.md](PLUGINS.md)
+  a core dump in coredumpctl and gdb; fail2ban, block devices, Asterisk and a chat are in the examples. Plugins ask
+  with dialogs, run commands in the background, in a window or on the terminal, ask web services over HTTP and keep
+  sockets and timers going, see [PLUGINS.md](PLUGINS.md)
 - Selection with the keyboard or the mouse, copy to the clipboard (OSC 52 over SSH), export to a file
 - Timeline: entries of the filter of a window by intervals of time, errors, warnings and the rest stacked
   in a column per interval; a column takes every journal window to its time
@@ -335,7 +336,9 @@ brings plugins that only look:
 Plugins that change things, or that would come up by chance, are examples in `/usr/share/turbojedi/examples` and are not
 run by themselves: `100-fail2ban.lua`; `100-storage.lua`, the device, mounts, udev and SMART of a block device an
 entry of the kernel or smartd names; `100-asterisk.lua`, the calls, channels, endpoints, AORs, modules and dialplan of an entry
-of Asterisk, shown, traced in the journal, hung up or reloaded through `asterisk -rx`.
+of Asterisk, shown, traced in the journal, hung up or reloaded through `asterisk -rx`; `100-chat.lua`, the entry or the
+marked ones sent to Slack, Mattermost, Rocket.Chat, Discord, Telegram or ntfy through a webhook told in
+`~/.config/turbojedi/chat.conf`.
 
 The fail2ban example bans or unbans an address of the entry, after asking for the jail and a confirmation; it needs
 root. A link to it turns it on and follows the updates of the package, for the whole machine:

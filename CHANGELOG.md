@@ -3,6 +3,23 @@
 Every release has a theme of its own, the patch releases after it finish the same one. Packages of every release are on
 the [releases page](https://github.com/cyanide-burnout/TurboJedi/releases).
 
+## 0.14.1 — 2026-11-15
+
+- A window of output shows the lines of a command as it writes them, `tracepath` and `whois` among them, which kept
+  everything until they ended; left of the buttons it tells that the command runs and for how long, then how it has
+  ended and after how long
+- Plugins ask web services over HTTP and HTTPS by `fetch()`: an action waits for the answer with Cancel, or the answer
+  comes to a function later; the token of a header is on no command line
+- Plugins keep a descriptor watched and a timer going between the events by `poll()` and `timeout()`, for a socket of
+  luasocket, a subscription or a look now and then
+- The values after the function of `poll()`, `timeout()` and `fetch()` go to it, as the ones of `menu:add()` go to an
+  action; `turbojedi.version` tells a plugin the version of TurboJedi
+- The example `100-chat.lua` sends the entry or the marked ones to Slack, Mattermost, Rocket.Chat, Discord, Telegram or
+  ntfy
+- The example of fail2ban offers no Ban for an address of the machine itself, such as the one sshd tells as `to`
+- PLUGINS.md tells about the modules of Lua such as luasocket and their timeouts, and `fetch()` step by step
+- libcurl is needed to build: `libcurl4-openssl-dev`, `libcurl-devel` or `curl`
+
 ## 0.14 — 2026-11-15
 
 Actions on entries: plugins in Lua 5.4 make the menu of what can be done with the entry under the cursor.
