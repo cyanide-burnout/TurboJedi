@@ -24,7 +24,7 @@ Actions on entries: plugins in Lua 5.4 make the menu of what can be done with th
   once, Esc keeps it and drops the selection and the marks, Ctrl-Ins copies its line
 - Lua 5.4 is needed to build: `liblua5.4-dev`, `lua-devel`, `lua54-devel` or `lua54`
 
-Thanks to select26.
+Thanks to select26 on Habr.
 
 ## 0.13.1 — 2026-11-10
 
