@@ -26,13 +26,6 @@ AUTHOR  := Artem Prilutskiy <cyanide.burnout@gmail.com>
 # tvision has no releases, a snapshot is told by the date and the commit of the submodule the way Fedora writes it
 BUNDLED := $(or $(shell git -C $(TURBOVISION) log -1 --format='0^%cdgit%h' --date=format:%Y%m%d 2>/dev/null),0)
 
-LIBRARIES := \
-	ncursesw
-
-DEPENDENCIES := \
-	libsystemd \
-	libpcre2-8
-
 # dpkg-buildpackage -a gives the cross compilers and pkg-config, tvision has to be built with them as well
 PKG_CONFIG ?= pkg-config
 CMAKEFLAGS := -D CMAKE_C_COMPILER=$(CC) -D CMAKE_CXX_COMPILER=$(CXX)
@@ -40,6 +33,23 @@ CMAKEFLAGS := -D CMAKE_C_COMPILER=$(CC) -D CMAKE_CXX_COMPILER=$(CXX)
 ifneq ($(DEB_HOST_GNU_TYPE), $(DEB_BUILD_GNU_TYPE))
 	CMAKEFLAGS += -D CMAKE_SYSTEM_NAME=Linux -D CMAKE_SYSTEM_PROCESSOR=$(DEB_HOST_GNU_CPU) -D CMAKE_LIBRARY_ARCHITECTURE=$(DEB_HOST_MULTIARCH)
 endif
+
+# Lua 5.4 runs the plugins of the Actions menu, distributions name its pkg-config module in their own ways
+LUA := $(firstword $(foreach module, lua5.4 lua-5.4 lua54 lua, $(shell $(PKG_CONFIG) --exists '$(module) >= 5.4' '$(module) < 5.5' && echo $(module))))
+
+ifeq ($(LUA), )
+ifeq ($(filter clean,$(MAKECMDGOALS)), )
+$(error Lua 5.4 is needed: liblua5.4-dev, lua-devel, lua54-devel or lua54 of the distribution)
+endif
+endif
+
+LIBRARIES := \
+	ncursesw
+
+DEPENDENCIES := \
+	libsystemd \
+	libpcre2-8 \
+	$(LUA)
 
 OBJECTS := \
 	$(SOURCE)/TurboJedi.o \
@@ -84,17 +94,6 @@ ifeq ($(shell $(PKG_CONFIG) --exists libcurl && echo yes), yes)
 	FLAGS        += -DUSE_UPDATE
 endif
 endif
-
-# Lua 5.4 runs the plugins of the Actions menu, distributions name its pkg-config module in their own ways
-LUA := $(firstword $(foreach module, lua5.4 lua-5.4 lua54 lua, $(shell $(PKG_CONFIG) --exists '$(module) >= 5.4' '$(module) < 5.5' && echo $(module))))
-
-ifeq ($(LUA), )
-ifeq ($(filter clean,$(MAKECMDGOALS)), )
-$(error Lua 5.4 is needed: liblua5.4-dev, lua-devel, lua54-devel or lua54 of the distribution)
-endif
-endif
-
-DEPENDENCIES += $(LUA)
 
 # The linker takes from an archive only what the objects in front of it need, it goes after all of them
 OBJECTS += $(TURBOVISION)/build/libtvision.a
