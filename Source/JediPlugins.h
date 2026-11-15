@@ -13,6 +13,8 @@
 
 #include "JournalTools.h"
 
+class JournalView;
+
 // Plugins in Lua 5.4 make the Actions menu of an entry, see PLUGINS.md. The *.lua files of /usr/share/turbojedi/plugins,
 // /usr/local/share/turbojedi/plugins and the directory of the user are run in the order of their names once at start, a file
 // of the same name in a later directory takes the place of an earlier one and an empty one leaves it out. Each file registers
@@ -22,9 +24,10 @@
 // Runs the plugins, problems of the files go to errors; the user directory may be empty
 void LoadPlugins(const std::string& directory, std::vector<std::string>& errors);
 
-// Menu of the actions for the entry of a cursor at a point of the screen, the chosen one is run; the window tells where its
-// journal comes from. Opened by the keys it starts on its first item, by the mouse on none
-void ShowActions(const JournalFilter& filter, const std::string& cursor, TPoint where, bool keyboard);
+// Menu of the actions for the entry of a cursor in a window at a point of the screen, the chosen one is run: the window
+// tells where its journal comes from, opens windows like itself and finds and goes to times for the action. Opened by the
+// keys it starts on its first item, by the mouse on none
+void ShowActions(JournalView* view, const std::string& cursor, TPoint where, bool keyboard);
 
 void ClosePlugins();
 

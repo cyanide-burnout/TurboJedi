@@ -136,6 +136,9 @@ argument whatever it holds, no shell sees it.
 | `input(prompt, value)` | action | a line to edit, starting with the value: the line, or `nil` when cancelled |
 | `choose(title, items, initial)` | action | one of a list of strings: the item and its index, or `nil` when cancelled. `initial` is an item or an index to start on |
 | `copy(text)` | action | puts the text to the clipboard the way Ctrl-Ins does |
+| `open(options)` | action | a new window with a filter, like the one the menu has been opened in |
+| `find(text, options)` | action | the previous match in the window of the menu, as Find: `true` when found |
+| `seek(time)` | action | the window of the menu goes to a time, as Go to time |
 | `execute(argv)` | action | runs a command in the background: `true`, or `nil` and the reason when it has not started |
 | `output(argv)` | action | runs a command in a window of its own: `true`, or `nil` and the reason |
 | `terminal(argv)` | action | runs a command on the terminal: `how, code` |
@@ -170,6 +173,36 @@ local text, how, code = turbojedi.capture { 'systemctl', 'show', unit }
 if (how == 'exit') and (code == 0) then
   turbojedi.copy(text)
 end
+```
+
+### Windows
+
+An action may take the user to where the journal tells more: a new window with a filter, or a find or a time in the
+window the menu has been opened in. Lua does not read the journal itself, the windows do, with their filters, history
+and Undo navigation.
+
+`open` makes a window the way Enter on a field of Details does: its journals, columns and highlighting are of the window
+of the menu, its filter is of the options.
+
+| Option | |
+|---|---|
+| `matches` | `{ FIELD = value }`, `{ FIELD = { value, ... } }` or `{ 'FIELD=VALUE', ... }`: the journal finds them, the values of one field are ORed, different fields ANDed |
+| `text` | the text filter, plain by default; with `regex = true` an expression of PCRE2, `exclude = true` leaves the matching entries out, `case = true` minds the case |
+| `since`, `until` | times as `-S` takes them: `2026-10-23 19:00`, `-10m`, `today` |
+| `priority` | up to the level, as `-p`: `err`, `warning` or `0` to `7` |
+
+```lua
+turbojedi.open { matches = { _SYSTEMD_UNIT = entry._SYSTEMD_UNIT }, text = identifier, since = '-1h' }
+```
+
+`find` looks for the text the way Find does, from the entry of the menu on into the older entries, `newer = true` the
+other way; `regex` and `case` as for `open`. The match is highlighted and becomes a step of Undo navigation, Ctrl-N and
+Ctrl-P go on with it. It gives `false` when nothing more is found, saying nothing: the action tells it as it sees fit.
+
+`seek` takes microseconds, `__REALTIME_TIMESTAMP` of an entry for one, or a time as Go to time takes it:
+
+```lua
+turbojedi.seek(entry.__REALTIME_TIMESTAMP - 60 * 1000000)  -- a minute before the entry
 ```
 
 ### Commands

@@ -14,6 +14,8 @@
 #include "ActionDialogs.h"
 #include "JediClipboard.h"
 #include "JournalExpression.h"
+#include "JournalView.h"
+#include "Commands.h"
 
 extern "C"
 {
@@ -60,6 +62,7 @@ static const char* const SystemDirectories[] = { "/usr/share/turbojedi/plugins",
 static lua_State* state;
 static int phase;
 static std::string plugin;  // Name of the plugin being loaded
+static JournalView* origin; // Window the menu has been opened in, for open(), find() and seek() of its action
 static std::vector<std::string> directories;  // In the order a file of the same name takes the place: the user last
 static std::map<std::string, JournalExpression> expressions;
 
@@ -584,6 +587,238 @@ static int Capture(lua_State* state)
   return 4;
 }
 
+// A field of an options table without its metamethods, false when it is not there or not a string or a number
+static bool GetOption(lua_State* state, int index, const char* name, std::string& value)
+{
+  bool found;
+
+  if (lua_type(state, index) != LUA_TTABLE)
+  {
+    return false;
+  }
+
+  lua_pushstring(state, name);
+  lua_rawget(state, index);
+  found = GetString(state, -1, value);
+  lua_pop(state, 1);
+  return found;
+}
+
+static bool GetFlag(lua_State* state, int index, const char* name)
+{
+  bool flag;
+
+  if (lua_type(state, index) != LUA_TTABLE)
+  {
+    return false;
+  }
+
+  lua_pushstring(state, name);
+  lua_rawget(state, index);
+  flag = lua_toboolean(state, -1);
+  lua_pop(state, 1);
+  return flag;
+}
+
+// The way the text filter and Find take a text: plain or an expression, case or not, to show or to leave out
+static uint16_t GetTextMode(lua_State* state, int index)
+{
+  return (GetFlag(state, index, "regex")   ? JOURNAL_TEXT_EXPRESSION : 0) |
+         (GetFlag(state, index, "exclude") ? JOURNAL_TEXT_EXCLUDE    : 0) |
+         (GetFlag(state, index, "case")    ? JOURNAL_TEXT_SENSITIVE  : 0);
+}
+
+static int GetPriority(const std::string& value)
+{
+  static const char* const names[] = { "emerg", "alert", "crit", "err", "warning", "notice", "info", "debug" };
+
+  for (int level = 0; level < 8; level ++)
+  {
+    if ((value == names[level]) || (value == std::to_string(level)))
+    {
+      return level;
+    }
+  }
+
+  return -1;
+}
+
+// A match FIELD=VALUE of a value or of the values of a list, checked the way the command line checks it
+static bool AddMatch(JournalFilter& filter, const std::string& field, const std::string& value, std::string& error)
+{
+  std::string match;
+
+  match = field + "=" + value;
+
+  if (!CheckJournalMatch(match))
+  {
+    error = match + " is not a FIELD=VALUE match";
+    return false;
+  }
+
+  filter.matches.push_back(match);
+  return true;
+}
+
+// A new window like the one of the menu: its journals, columns and highlighting, the filter of the options
+static int Open(lua_State* state)
+{
+  int level;
+  uint64_t stamp;
+  size_t equal;
+  std::string key;
+  std::string value;
+  std::string error;
+  JournalFilter filter;
+
+  if (lua_type(state, 1) != LUA_TTABLE)
+  {
+    return Fail(state, "open() takes a table of options");
+  }
+
+  filter           = JournalFilter { };
+  filter.directory = origin->getFilter().directory;
+  filter.merge     = origin->getFilter().merge;
+  filter.columns   = origin->getFilter().columns;
+  filter.highlight = origin->getFilter().highlight;
+  filter.levels    = 0xff;
+
+  lua_pushliteral(state, "matches");
+  lua_rawget(state, 1);
+
+  if (lua_type(state, -1) == LUA_TTABLE)
+  {
+    // { FIELD = value or a list of values } or { 'FIELD=VALUE', ... }, one field ORed, different ones ANDed
+    for (lua_pushnil(state); lua_next(state, -2) != 0; lua_pop(state, 1))
+    {
+      if (lua_type(state, -2) == LUA_TNUMBER)
+      {
+        GetString(state, -1, value);
+        equal = value.find('=');
+
+        if ((equal == std::string::npos) || !AddMatch(filter, value.substr(0, equal), value.substr(equal + 1), error))
+        {
+          lua_pop(state, 3);
+          return Fail(state, "open(): %s", (error.empty() ? value + " is not a FIELD=VALUE match" : error).c_str());
+        }
+
+        continue;
+      }
+
+      GetString(state, -2, key);
+
+      if (lua_type(state, -1) == LUA_TTABLE)
+      {
+        for (lua_Integer number = 1; number <= (lua_Integer)lua_rawlen(state, -1); number ++)
+        {
+          lua_rawgeti(state, -1, number);
+          GetString(state, -1, value);
+          lua_pop(state, 1);
+
+          if (!AddMatch(filter, key, value, error))
+          {
+            lua_pop(state, 3);
+            return Fail(state, "open(): %s", error.c_str());
+          }
+        }
+
+        continue;
+      }
+
+      if ((!GetString(state, -1, value)) ||
+          (!AddMatch(filter, key, value, error)))
+      {
+        lua_pop(state, 3);
+        return Fail(state, "open(): %s", (error.empty() ? "a value of " + key + " is not a string" : error).c_str());
+      }
+    }
+  }
+
+  lua_pop(state, 1);
+
+  if (GetOption(state, 1, "text", filter.text))
+  {
+    filter.mode = GetTextMode(state, 1);
+
+    if ((filter.mode & JOURNAL_TEXT_EXPRESSION) &&
+        (!JournalExpression().compile(filter.text, !(filter.mode & JOURNAL_TEXT_SENSITIVE), &error)))
+    {
+      return Fail(state, "open(): %s", error.c_str());
+    }
+  }
+
+  if (GetOption(state, 1, "since", filter.since) && !ParseJournalTime(filter.since, &stamp))
+  {
+    return Fail(state, "open(): unknown time %s", filter.since.c_str());
+  }
+
+  if (GetOption(state, 1, "until", filter.until) && !ParseJournalTime(filter.until, &stamp))
+  {
+    return Fail(state, "open(): unknown time %s", filter.until.c_str());
+  }
+
+  if (GetOption(state, 1, "priority", value))
+  {
+    // Up to the level, like -p
+    if ((level = GetPriority(value)) < 0)
+    {
+      return Fail(state, "open(): unknown priority %s", value.c_str());
+    }
+
+    filter.levels = (2 << level) - 1;
+  }
+
+  // The application makes the window as for a field of Details
+  message(TProgram::application, evBroadcast, cmJournalOpenFilter, &filter);
+  return 0;
+}
+
+// Find in the window of the menu: highlighted, on into the older entries, a step of its history
+static int Find(lua_State* state)
+{
+  std::string text;
+  std::string error;
+  uint16_t mode;
+
+  if ((!GetString(state, 1, text)) ||
+      (text.empty()))
+  {
+    return Fail(state, "find() takes a text");
+  }
+
+  mode = GetTextMode(state, 2);
+
+  if ((mode & JOURNAL_TEXT_EXPRESSION) &&
+      (!JournalExpression().compile(text, !(mode & JOURNAL_TEXT_SENSITIVE), &error)))
+  {
+    return Fail(state, "find(): %s", error.c_str());
+  }
+
+  // Older by default, the way the first Find goes
+  lua_pushboolean(state, origin->search(text, mode & ~JOURNAL_TEXT_EXCLUDE, !GetFlag(state, 2, "newer")));
+  return 1;
+}
+
+// Go to a time in the window of the menu: microseconds such as __REALTIME_TIMESTAMP, or a time as Go to time takes it
+static int Seek(lua_State* state)
+{
+  uint64_t stamp;
+  std::string text;
+
+  if (lua_isinteger(state, 1))
+  {
+    stamp = lua_tointeger(state, 1);
+  }
+  else if ((!GetString(state, 1, text)) ||
+           (!ParseJournalTime(text, &stamp)))
+  {
+    return Fail(state, "seek() takes microseconds or a time such as 2026-10-23 19:00, -10m");
+  }
+
+  origin->jump(stamp);
+  return 0;
+}
+
 static int Quote(lua_State* state)
 {
   std::string line;
@@ -784,6 +1019,9 @@ static const luaL_Reg functions[] =
   { "output",          Call<Output,          PHASE_ACTION> },
   { "terminal",        Call<Terminal,        PHASE_ACTION> },
   { "capture",         Call<Capture,         PHASE_ACTION> },
+  { "open",            Call<Open,            PHASE_ACTION> },
+  { "find",            Call<Find,            PHASE_ACTION> },
+  { "seek",            Call<Seek,            PHASE_ACTION> },
   { "quote",           Call<Quote,           PHASE_ANY>    },
   { "regex",           Call<Match,           PHASE_ANY>    },
   { "matches",         Call<Matches,         PHASE_ANY>    },
@@ -1033,8 +1271,9 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
   phase = PHASE_IDLE;
 }
 
-void ShowActions(const JournalFilter& filter, const std::string& cursor, TPoint where, bool keyboard)
+void ShowActions(JournalView* view, const std::string& cursor, TPoint where, bool keyboard)
 {
+  const JournalFilter& filter = view->getFilter();
   int base;
   int count;
   int width;
@@ -1194,15 +1433,18 @@ void ShowActions(const JournalFilter& filter, const std::string& cursor, TPoint 
       lua_rawgeti(state, -1 - index, index);
     }
 
-    phase = PHASE_ACTION;
+    phase  = PHASE_ACTION;
+    origin = view;
 
     if (lua_pcall(state, arguments, 0, base + 1) != LUA_OK)
     {
-      phase = PHASE_IDLE;
+      phase  = PHASE_IDLE;
+      origin = nullptr;
       ShowErrors({ name + ": " + GetError(state) });
     }
 
-    phase = PHASE_IDLE;
+    phase  = PHASE_IDLE;
+    origin = nullptr;
   }
 
   lua_settop(state, base);

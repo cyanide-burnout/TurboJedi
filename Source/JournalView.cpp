@@ -1825,7 +1825,7 @@ void JournalView::actions(TPoint where)
     where = makeGlobal(TPoint { 2, (int)row });
   }
 
-  ShowActions(filter, lines[index].cursor, where, keyboard);
+  ShowActions(this, lines[index].cursor, where, keyboard);
 }
 
 void JournalView::details()
@@ -1915,7 +1915,31 @@ void JournalView::details()
   message(TProgram::application, evBroadcast, cmJournalOpenFilter, &other);
 }
 
-void JournalView::find(int direction)
+bool JournalView::search(const std::string& text, uint16_t mode, bool older)
+{
+  if (!finder.set(text, mode))
+  {
+    return false;
+  }
+
+  if ((anchor == NO_SELECTION) &&
+      (focus() < lines.size()))
+  {
+    // From the entry of the menu, not from the edge of the screen where that very entry may be found
+    select(focus(), false);
+  }
+
+  // Highlighted as a find of the user is, Ctrl-N and Ctrl-P go on with it
+  drawView();
+  return find((older != reversed()) ? -1 : 1, false);
+}
+
+void JournalView::jump(uint64_t realtime)
+{
+  seek(realtime, false);
+}
+
+bool JournalView::find(int direction, bool tell)
 {
   size_t added;
   int64_t index;
@@ -1924,12 +1948,12 @@ void JournalView::find(int direction)
   {
     // Nothing to look for yet
     chooseFind();
-    return;
+    return false;
   }
 
   if (lines.empty())
   {
-    return;
+    return false;
   }
 
   // From the selection, or from the edge of the screen the search goes away from
@@ -1965,11 +1989,16 @@ void JournalView::find(int direction)
     {
       remember();
       select(index, false);
-      return;
+      return true;
     }
   }
 
-  messageBox("Nothing more is found", mfInformation | mfOKButton);
+  if (tell)
+  {
+    messageBox("Nothing more is found", mfInformation | mfOKButton);
+  }
+
+  return false;
 }
 
 void JournalView::seek(uint64_t realtime, bool nearest)

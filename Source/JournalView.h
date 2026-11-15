@@ -71,6 +71,11 @@ class JournalView : public TScroller
     void setState(ushort state, Boolean enable) override;
 
     const JournalFilter& getFilter() const;
+
+    // For the actions of plugins, what Find and Go to time do: false when the text is a broken expression or is not
+    // found, older goes towards the older entries whatever the order of the window
+    bool search(const std::string& text, uint16_t mode, bool older);
+    void jump(uint64_t realtime);
     const char* describe();
     const char* name();
     const char* sign();  // Of the title: ► following, ‖ paused, with +N entries come meanwhile
@@ -183,7 +188,7 @@ class JournalView : public TScroller
     void save();
     void details();
     void actions(TPoint where);  // Of the plugins for the entry under the cursor, the menu there on the screen
-    void find(int direction);
+    bool find(int direction, bool tell = true);  // False when nothing more is found, told unless asked not to
     void seek(uint64_t realtime, bool nearest);
     JournalPlace here();
     void remember();  // Before a jump
