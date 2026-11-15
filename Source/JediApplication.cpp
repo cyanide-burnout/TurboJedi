@@ -30,6 +30,7 @@
 #include "UpdateDialog.h"
 #endif
 #include "JediProcess.h"
+#include "JediPlugins.h"
 #include "ActionDialogs.h"
 
 #include <time.h>
@@ -198,13 +199,13 @@ void JediApplication::getEvent(TEvent& event)
   }
 
   if ((event.what == evNothing) &&
-      ((!problems.empty()) || (!reports.empty())) &&
+      ((!problems.empty()) || (!reports.empty()) || HasPluginEvents()) &&
       (TopView() == this))
   {
-    // Problems of the plugins at start, commands of actions in the background that have ended badly: told when nothing
-    // modal would swallow the command
+    // Problems of the plugins at start, commands of actions in the background that have ended badly, descriptors and
+    // timers of plugins that are due: told when nothing modal would swallow the command, nor Lua run meanwhile
     event.what            = evCommand;
-    event.message.command = (!problems.empty()) ? cmJournalPlugins : cmJournalReports;
+    event.message.command = (!problems.empty()) ? cmJournalPlugins : (!reports.empty()) ? cmJournalReports : cmJournalPluginEvents;
     event.message.infoPtr = nullptr;
   }
 
@@ -273,6 +274,10 @@ void JediApplication::handleEvent(TEvent& event)
         }
         break;
 
+      case cmJournalPluginEvents:
+        DispatchPluginEvents();
+        break;
+
       case cmJournalReports:
         while (!reports.empty())
         {
@@ -296,6 +301,7 @@ void JediApplication::handleEvent(TEvent& event)
 
 void JediApplication::idle()
 {
+  int wait;
   JournalPoll poll;
   struct timespec now;
   uint64_t ticks;
@@ -327,6 +333,12 @@ void JediApplication::idle()
   {
     // getEvent() tells them once no dialog is open
     poll.timeout = std::min(poll.timeout, 200);
+  }
+
+  if ((wait = PollPlugins()) >= 0)
+  {
+    // Descriptors and timers of plugins
+    poll.timeout = std::min(poll.timeout, wait);
   }
 
 #ifdef USE_UPDATE

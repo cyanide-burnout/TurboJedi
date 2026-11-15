@@ -30,6 +30,7 @@ extern "C"
 #endif
 
 #include <grp.h>
+#include <poll.h>
 #include <errno.h>
 #include <limits.h>
 #include <dirent.h>
@@ -47,7 +48,11 @@ extern "C"
 #define PHASE_IDLE    0
 #define PHASE_LOAD    1  // The files run, handlers are registered
 #define PHASE_MENU    2  // Handlers add items to the menu
-#define PHASE_ACTION  3  // The chosen item runs
+#define PHASE_ACTION  4  // The chosen item runs
+#define PHASE_EVENT   8  // A callback of poll() or timeout() runs
+#define PHASE_DO      (PHASE_ACTION | PHASE_EVENT)                // Dialogs and commands
+#define PHASE_WATCH   (PHASE_LOAD | PHASE_ACTION | PHASE_EVENT)  // Watches and timers are set
+#define PHASE_READ    (PHASE_MENU | PHASE_ACTION)                // The journal is read for the plugin
 
 #define ACTION_LIMIT       100  // Items of a menu
 #define CAPTURE_TIMEOUT    30   // Seconds capture() waits by default
@@ -62,7 +67,11 @@ extern "C"
 #define MENU_SCAN          10000   // Entries they may look at together
 #define MARKED_LIMIT       1000    // Entries of the selection a handler gets in context.marked
 
+#define POLL_INTERVAL      50      // Milliseconds between the looks at the descriptors plugins watch
+
 #define HANDLERS  "TurboJedi.handlers"
+#define WATCH     "TurboJedi.watch"
+#define TIMER     "TurboJedi.timer"
 #define NAMES     "TurboJedi.names"     // Of the plugin of every handler, by the same index
 #define MENU      "TurboJedi.menu"
 
@@ -76,6 +85,31 @@ static int64_t deadline;    // Of the queries of the handlers making the menu, s
 static size_t budget;       // Entries they may look at yet
 
 static void PushEntry(lua_State* state, const std::vector<std::pair<std::string, std::string>>& fields);
+
+// A descriptor a plugin watches, a timer it has set: the callback in the registry of Lua, the plugin for its errors; pending
+// when it is due and waits for no dialog being open
+struct Watch
+{
+  int handle;
+  short events;
+  short revents;
+  int callback;
+  std::string plugin;
+  bool pending;
+};
+
+struct Timer
+{
+  int64_t due;
+  int64_t period;  // Milliseconds of a periodic one, zero for one shot
+  int callback;
+  std::string plugin;
+  bool pending;
+};
+
+static std::map<int, Watch> watches;
+static std::map<int, Timer> timers;
+static int serial;
 static std::vector<std::string> directories;  // In the order a file of the same name takes the place: the user last
 static std::map<std::string, JournalExpression> expressions;
 
@@ -90,13 +124,16 @@ template <Body body, int needed> static int Call(lua_State* state)
   int result;
 
   if ((needed != PHASE_ANY) &&
-      (phase != needed))
+      ((phase & needed) == 0))
   {
     switch (needed)
     {
-      case PHASE_LOAD: return luaL_error(state, "handlers are registered only while the plugin is loaded");
-      case PHASE_MENU: return luaL_error(state, "items are added only by a handler while it makes the menu");
-      default:         return luaL_error(state, "dialogs and commands are used only by an action chosen from the menu");
+      case PHASE_LOAD:   return luaL_error(state, "handlers are registered only while the plugin is loaded");
+      case PHASE_MENU:   return luaL_error(state, "items are added only by a handler while it makes the menu");
+      case PHASE_ACTION: return luaL_error(state, "the window of the menu is there only for an action chosen from it");
+      case PHASE_WATCH:  return luaL_error(state, "watches and timers are set by a plugin loaded, an action or a callback");
+      case PHASE_READ:   return luaL_error(state, "the journal is read for a handler or an action");
+      default:           return luaL_error(state, "dialogs and commands are used only by an action or a callback");
     }
   }
 
@@ -1225,27 +1262,185 @@ static int Search(lua_State* state)
   return 1;
 }
 
+// A handle of a watch or a timer: a table with its number and the methods of its kind
+static void PushHandle(lua_State* state, int number, const char* kind)
+{
+  lua_createtable(state, 0, 1);
+  lua_pushinteger(state, number);
+  lua_setfield(state, -2, "id");
+  luaL_setmetatable(state, kind);
+}
+
+static int GetHandle(lua_State* state)
+{
+  int number;
+
+  if (lua_type(state, 1) != LUA_TTABLE)
+  {
+    return 0;
+  }
+
+  lua_pushliteral(state, "id");
+  lua_rawget(state, 1);
+  number = lua_tointeger(state, -1);
+  lua_pop(state, 1);
+  return number;
+}
+
+static short GetEvents(const std::string& mode)
+{
+  return ((mode.find('r') != std::string::npos) ? POLLIN : 0) | ((mode.find('w') != std::string::npos) ? POLLOUT : 0);
+}
+
+// poll(handle, 'r' | 'w' | 'rw', callback): the callback gets 'r', 'w', 'rw', with 'e' for an error or a hang-up
+static int AddWatch(lua_State* state)
+{
+  int whole;
+  lua_Integer handle;
+  std::string mode;
+  Watch watch;
+
+  // getfd() of luasocket gives a float, a whole one is taken
+  handle = lua_tointegerx(state, 1, &whole);
+
+  if ((!whole) ||
+      (handle < 0))
+  {
+    return Fail(state, "poll() takes a descriptor");
+  }
+
+  if ((!GetString(state, 2, mode)) ||
+      ((watch.events = GetEvents(mode)) == 0))
+  {
+    return Fail(state, "poll() takes 'r', 'w' or 'rw' after the descriptor");
+  }
+
+  if (lua_type(state, 3) != LUA_TFUNCTION)
+  {
+    return Fail(state, "poll() takes a function after the events");
+  }
+
+  lua_pushvalue(state, 3);
+  watch.callback = luaL_ref(state, LUA_REGISTRYINDEX);
+  watch.handle   = handle;
+  watch.revents  = 0;
+  watch.plugin   = plugin;
+  watch.pending  = false;
+
+  watches[++ serial] = watch;
+  PushHandle(state, serial, WATCH);
+  return 1;
+}
+
+static int UpdateWatch(lua_State* state)
+{
+  short events;
+  std::string mode;
+  std::map<int, Watch>::iterator watch;
+
+  if ((!GetString(state, 2, mode)) ||
+      ((events = GetEvents(mode)) == 0))
+  {
+    return Fail(state, "update() takes 'r', 'w' or 'rw'");
+  }
+
+  if ((watch = watches.find(GetHandle(state))) != watches.end())
+  {
+    watch->second.events = events;
+  }
+
+  return 0;
+}
+
+static void DropWatch(lua_State* state, int number)
+{
+  std::map<int, Watch>::iterator watch;
+
+  if ((watch = watches.find(number)) != watches.end())
+  {
+    luaL_unref(state, LUA_REGISTRYINDEX, watch->second.callback);
+    watches.erase(watch);
+  }
+}
+
+static int RemoveWatch(lua_State* state)
+{
+  DropWatch(state, GetHandle(state));
+  return 0;
+}
+
+// timeout(milliseconds, callback, periodic)
+static int AddTimer(lua_State* state)
+{
+  int whole;
+  lua_Integer interval;
+  Timer timer;
+
+  interval = lua_tointegerx(state, 1, &whole);
+
+  if ((!whole) ||
+      (interval < 0))
+  {
+    return Fail(state, "timeout() takes whole milliseconds");
+  }
+
+  if (lua_type(state, 2) != LUA_TFUNCTION)
+  {
+    return Fail(state, "timeout() takes a function after the milliseconds");
+  }
+
+  lua_pushvalue(state, 2);
+  timer.callback = luaL_ref(state, LUA_REGISTRYINDEX);
+  timer.period   = lua_toboolean(state, 3) ? std::max<int64_t>(1, interval) : 0;
+  timer.due      = GetQueryMilliseconds() + interval;
+  timer.plugin   = plugin;
+  timer.pending  = false;
+
+  timers[++ serial] = timer;
+  PushHandle(state, serial, TIMER);
+  return 1;
+}
+
+static void DropTimer(lua_State* state, int number)
+{
+  std::map<int, Timer>::iterator timer;
+
+  if ((timer = timers.find(number)) != timers.end())
+  {
+    luaL_unref(state, LUA_REGISTRYINDEX, timer->second.callback);
+    timers.erase(timer);
+  }
+}
+
+static int CancelTimer(lua_State* state)
+{
+  DropTimer(state, GetHandle(state));
+  return 0;
+}
+
 static const luaL_Reg functions[] =
 {
   { "registerHandler", Call<RegisterHandler, PHASE_LOAD>   },
-  { "message",         Call<ShowMessage,     PHASE_ACTION> },
-  { "confirm",         Call<AskConfirm,      PHASE_ACTION> },
-  { "input",           Call<AskInput,        PHASE_ACTION> },
-  { "choose",          Call<AskChoice,       PHASE_ACTION> },
-  { "copy",            Call<Copy,            PHASE_ACTION> },
-  { "execute",         Call<Execute,         PHASE_ACTION> },
-  { "output",          Call<Output,          PHASE_ACTION> },
-  { "terminal",        Call<Terminal,        PHASE_ACTION> },
-  { "capture",         Call<Capture,         PHASE_ACTION> },
+  { "message",         Call<ShowMessage,     PHASE_DO>     },
+  { "confirm",         Call<AskConfirm,      PHASE_DO>     },
+  { "input",           Call<AskInput,        PHASE_DO>     },
+  { "choose",          Call<AskChoice,       PHASE_DO>     },
+  { "copy",            Call<Copy,            PHASE_DO>     },
+  { "execute",         Call<Execute,         PHASE_DO>     },
+  { "output",          Call<Output,          PHASE_DO>     },
+  { "terminal",        Call<Terminal,        PHASE_DO>     },
+  { "capture",         Call<Capture,         PHASE_DO>     },
   { "open",            Call<Open,            PHASE_ACTION> },
   { "find",            Call<Find,            PHASE_ACTION> },
   { "seek",            Call<Seek,            PHASE_ACTION> },
-  { "query",           Call<Query,           PHASE_ANY>    },
+  { "query",           Call<Query,           PHASE_READ>   },
   { "mark",            Call<Mark,            PHASE_ACTION> },
   { "quote",           Call<Quote,           PHASE_ANY>    },
   { "regex",           Call<Match,           PHASE_ANY>    },
   { "matches",         Call<Matches,         PHASE_ANY>    },
   { "which",           Call<Which,           PHASE_ANY>    },
+  { "poll",            Call<AddWatch,        PHASE_WATCH>  },
+  { "timeout",         Call<AddTimer,        PHASE_WATCH>  },
   { nullptr,           nullptr                             }
 };
 
@@ -1416,6 +1611,23 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
   lua_newtable(state);
   lua_pushcfunction(state, (Call<AddItem, PHASE_MENU>));
   lua_setfield(state, -2, "add");
+  lua_setfield(state, -2, "__index");
+  lua_pop(state, 1);
+
+  // watch:update(mode), watch:remove(), timer:cancel()
+  luaL_newmetatable(state, WATCH);
+  lua_newtable(state);
+  lua_pushcfunction(state, (Call<UpdateWatch, PHASE_ANY>));
+  lua_setfield(state, -2, "update");
+  lua_pushcfunction(state, (Call<RemoveWatch, PHASE_ANY>));
+  lua_setfield(state, -2, "remove");
+  lua_setfield(state, -2, "__index");
+  lua_pop(state, 1);
+
+  luaL_newmetatable(state, TIMER);
+  lua_newtable(state);
+  lua_pushcfunction(state, (Call<CancelTimer, PHASE_ANY>));
+  lua_setfield(state, -2, "cancel");
   lua_setfield(state, -2, "__index");
   lua_pop(state, 1);
 
@@ -1683,6 +1895,7 @@ void ShowActions(JournalView* view, const std::string& cursor, TPoint where, boo
 
     phase  = PHASE_ACTION;
     origin = view;
+    plugin = name;  // Watches and timers the action sets are of its plugin
 
     if (lua_pcall(state, arguments, 0, base + 1) != LUA_OK)
     {
@@ -1698,8 +1911,209 @@ void ShowActions(JournalView* view, const std::string& cursor, TPoint where, boo
   lua_settop(state, base);
 }
 
+int PollPlugins()
+{
+  int64_t now;
+  int64_t wait;
+  std::vector<int> numbers;
+  std::vector<struct pollfd> pollers;
+
+  wait = -1;
+
+  for (std::pair<const int, Watch>& watch : watches)
+  {
+    if (!watch.second.pending)
+    {
+      pollers.push_back({ watch.second.handle, watch.second.events, 0 });
+      numbers.push_back(watch.first);
+    }
+  }
+
+  if ((!pollers.empty()) &&
+      (poll(pollers.data(), pollers.size(), 0) > 0))
+  {
+    for (size_t index = 0; index < pollers.size(); index ++)
+    {
+      if (pollers[index].revents != 0)
+      {
+        // Told once no dialog is open, not looked at meanwhile
+        watches[numbers[index]].pending = true;
+        watches[numbers[index]].revents = pollers[index].revents;
+      }
+    }
+  }
+
+  if (!watches.empty())
+  {
+    // Looked at again before long, nothing wakes the loop for them
+    wait = POLL_INTERVAL;
+  }
+
+  now = GetQueryMilliseconds();
+
+  for (std::pair<const int, Timer>& timer : timers)
+  {
+    if (timer.second.pending)
+    {
+      continue;
+    }
+
+    if (timer.second.due <= now)
+    {
+      timer.second.pending = true;
+      continue;
+    }
+
+    wait = (wait < 0) ? (timer.second.due - now) : std::min(wait, timer.second.due - now);
+  }
+
+  return (int)wait;
+}
+
+bool HasPluginEvents()
+{
+  for (const std::pair<const int, Watch>& watch : watches)
+  {
+    if (watch.second.pending) return true;
+  }
+
+  for (const std::pair<const int, Timer>& timer : timers)
+  {
+    if (timer.second.pending) return true;
+  }
+
+  return false;
+}
+
+// A callback in the phase of events, its error goes to the errors with its plugin; false when it has failed
+static bool RunCallback(int callback, const std::string& name, const char* argument, std::vector<std::string>& errors)
+{
+  int base;
+  bool done;
+
+  base = lua_gettop(state);
+
+  lua_pushcfunction(state, Trace);
+  lua_rawgeti(state, LUA_REGISTRYINDEX, callback);
+
+  if (argument != nullptr)
+  {
+    lua_pushstring(state, argument);
+  }
+
+  phase  = PHASE_EVENT;
+  plugin = name;
+  done   = (lua_pcall(state, (argument != nullptr) ? 1 : 0, 0, base + 1) == LUA_OK);
+  phase  = PHASE_IDLE;
+
+  if (!done)
+  {
+    errors.push_back(name + ": " + GetError(state));
+  }
+
+  lua_settop(state, base);
+  return done;
+}
+
+void DispatchPluginEvents()
+{
+  int callback;
+  char flags[4];
+  size_t length;
+  std::string name;
+  std::vector<int> numbers;
+  std::vector<std::string> errors;
+  std::map<int, Watch>::iterator watch;
+  std::map<int, Timer>::iterator timer;
+
+  if ((state == nullptr) ||
+      (phase != PHASE_IDLE))
+  {
+    // Lua is not entered twice
+    return;
+  }
+
+  for (const std::pair<const int, Watch>& item : watches)
+  {
+    if (item.second.pending) numbers.push_back(item.first);
+  }
+
+  for (int number : numbers)
+  {
+    // A callback before may have removed it
+    if ((watch = watches.find(number)) == watches.end())
+    {
+      continue;
+    }
+
+    watch->second.pending = false;
+
+    if (watch->second.revents & POLLNVAL)
+    {
+      errors.push_back(watch->second.plugin + ": descriptor " + std::to_string(watch->second.handle) + " has been closed without remove()");
+      DropWatch(state, number);
+      continue;
+    }
+
+    length = 0;
+    if (watch->second.revents & POLLIN)              flags[length ++] = 'r';
+    if (watch->second.revents & POLLOUT)             flags[length ++] = 'w';
+    if (watch->second.revents & (POLLERR | POLLHUP)) flags[length ++] = 'e';
+    flags[length] = '\0';
+
+    if (!RunCallback(watch->second.callback, watch->second.plugin, flags, errors))
+    {
+      // A callback that fails is not called again
+      DropWatch(state, number);
+    }
+  }
+
+  numbers.clear();
+
+  for (const std::pair<const int, Timer>& item : timers)
+  {
+    if (item.second.pending) numbers.push_back(item.first);
+  }
+
+  for (int number : numbers)
+  {
+    if ((timer = timers.find(number)) == timers.end())
+    {
+      continue;
+    }
+
+    timer->second.pending = false;
+    callback = timer->second.callback;
+    name     = timer->second.plugin;
+
+    if (timer->second.period == 0)
+    {
+      // One shot is gone before it runs, the callback is kept until it has run
+      timers.erase(timer);
+      RunCallback(callback, name, nullptr, errors);
+      luaL_unref(state, LUA_REGISTRYINDEX, callback);
+      continue;
+    }
+
+    timer->second.due = GetQueryMilliseconds() + timer->second.period;
+
+    if (!RunCallback(callback, name, nullptr, errors))
+    {
+      DropTimer(state, number);
+    }
+  }
+
+  if (!errors.empty())
+  {
+    ShowErrors(errors);
+  }
+}
+
 void ClosePlugins()
 {
+  watches.clear();
+  timers.clear();
+
   if (state != nullptr)
   {
     lua_close(state);

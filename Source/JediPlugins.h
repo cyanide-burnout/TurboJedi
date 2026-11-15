@@ -29,6 +29,12 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
 // keys it starts on its first item, by the mouse on none
 void ShowActions(JournalView* view, const std::string& cursor, TPoint where, bool keyboard);
 
+// Descriptors and timers of plugins, looked at between the events: milliseconds until the next look, -1 when there is
+// nothing to look at; the ones that are due wait for HasPluginEvents() and DispatchPluginEvents() when no dialog is open
+int PollPlugins();
+bool HasPluginEvents();
+void DispatchPluginEvents();
+
 void ClosePlugins();
 
 #endif

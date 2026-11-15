@@ -147,20 +147,22 @@ argument whatever it holds, no shell sees it.
 | Function | When | |
 |---|---|---|
 | `registerHandler(func)` | loading | a handler, `func(entry, menu, context)` |
-| `message(text)` | action | a text with OK |
-| `confirm(text)` | action | Yes or No: `true` or `false`. No is the default one, Esc is No |
-| `input(prompt, value)` | action | a line to edit, starting with the value: the line, or `nil` when cancelled |
-| `choose(title, items, initial)` | action | one of a list of strings: the item and its index, or `nil` when cancelled. `initial` is an item or an index to start on |
-| `copy(text)` | action | puts the text to the clipboard the way Ctrl-Ins does |
+| `message(text)` | action, callback | a text with OK |
+| `confirm(text)` | action, callback | Yes or No: `true` or `false`. No is the default one, Esc is No |
+| `input(prompt, value)` | action, callback | a line to edit, starting with the value: the line, or `nil` when cancelled |
+| `choose(title, items, initial)` | action, callback | one of a list of strings: the item and its index, or `nil` when cancelled. `initial` is an item or an index to start on |
+| `copy(text)` | action, callback | puts the text to the clipboard the way Ctrl-Ins does |
 | `open(options)` | action | a new window with a filter, like the one the menu has been opened in |
 | `find(text, options)` | action | the previous match in the window of the menu, as Find: `true` when found |
 | `seek(time)` | action | the window of the menu goes to a time, as Go to time |
 | `query(options)` | handler, action | entries of a filter for the plugin to look into: a list, and why the reading has stopped |
 | `mark(entries, options)` | action | marks the lines of entries in the window of the menu, as M does: the count marked |
-| `execute(argv)` | action | runs a command in the background: `true`, or `nil` and the reason when it has not started |
-| `output(argv)` | action | runs a command in a window of its own: `true`, or `nil` and the reason |
-| `terminal(argv)` | action | runs a command on the terminal: `how, code` |
-| `capture(argv, options)` | action | runs a command and waits for it: `output, how, code, errors` |
+| `poll(descriptor, events, func)` | loading, action, callback | calls `func(flags)` when the descriptor is ready, between the events: a watch |
+| `timeout(milliseconds, func, periodic)` | loading, action, callback | calls `func()` after the time, again and again when periodic: a timer |
+| `execute(argv)` | action, callback | runs a command in the background: `true`, or `nil` and the reason when it has not started |
+| `output(argv)` | action, callback | runs a command in a window of its own: `true`, or `nil` and the reason |
+| `terminal(argv)` | action, callback | runs a command on the terminal: `how, code` |
+| `capture(argv, options)` | action, callback | runs a command and waits for it: `output, how, code, errors` |
 | `quote(argv)` | any time | the arguments as one line of `sh`, every one quoted when it has to be |
 | `regex(text, pattern, flags)` | any time | the first match, or `nil` |
 | `matches(text, pattern, flags)` | any time | an iterator over every match |
@@ -374,6 +376,40 @@ local text, how, code = turbojedi.capture({ 'curl', '-fsS', '--max-time', '10', 
 ```
 
 A handler making the menu should not wait on the network at all: the budget of the menu bounds `query`, not a module.
+A socket that is to be read when something comes is better watched by `poll`, below.
+
+### Descriptors and timers
+
+A plugin may keep a descriptor watched and a timer going between the events, the way the windows read their journals,
+for a subscription of MQTT, a socket of a service, a look at something now and then. They are set while the plugin is
+loaded, by an action or by a callback.
+
+```lua
+local socket = require('socket')
+local udp    = socket.udp()
+
+udp:setsockname('127.0.0.1', 47474)
+udp:settimeout(0)
+
+local watch = turbojedi.poll(udp:getfd(), 'r', function(flags)
+  local data = udp:receive()
+  if data then turbojedi.copy(data) end
+end)
+
+local timer = turbojedi.timeout(5000, function() ... end, true)
+```
+
+- `poll(descriptor, events, func)` watches a descriptor, `'r'`, `'w'` or `'rw'`; `func` gets what is ready, `'r'`,
+  `'w'` or `'rw'`, with `'e'` for an error or a hang-up. `watch:update(events)` changes the events, `watch:remove()` stops
+  it. A descriptor closed without `remove()` is told about and its watch goes.
+- `timeout(milliseconds, func, periodic)` calls `func()` once after the time, or every that time when `periodic` is
+  true; `timer:cancel()` stops it.
+- The descriptors are looked at every 50 ms while there are watches, so a callback comes within that much.
+- A callback runs only when no dialog is open and Lua runs nothing else: it waits while an action asks something. It
+  may use the dialogs and the commands as an action does, but not `open`, `find`, `seek`, `mark` and `query`, which are
+  of the window of a menu.
+- A callback that fails is told about with its plugin and is not called again.
+- They stay until removed or cancelled, or until TurboJedi exits.
 
 ## Examples
 
