@@ -9,7 +9,8 @@
 
 if not turbojedi.watch then return end
 
--- Only where an SSH server runs; sshd is in sbin, out of the PATH of a user
+-- Only where an SSH server is installed, running or not: one started later is watched as well. sshd is in sbin, out of
+-- the PATH of a user
 if not (turbojedi.which('sshd') or io.open('/usr/sbin/sshd')) then return end
 
 local WINDOW = 60   -- Seconds the rate is counted over
@@ -24,6 +25,7 @@ local TOUCH   = [=[^(?:Connection closed by|Disconnected from|error: maximum aut
 local LOGIN   = [=[^Accepted \S+ for (?<user>\S+) from (?<address>\S+) port]=]
 
 local sources = { }  -- By the address: tries, the times of the recent ones, the names, the last time, its line
+local width   = 0    -- Of the column of the addresses: the longest one there is, 15 for IPv4 alone, up to 39 for IPv6
 local watch
 
 local function clock(seconds)
@@ -44,7 +46,7 @@ local function describe(address, source, now)
   local names = { }
   for index = 1, math.min(NAMES, #source.names) do names[index] = source.names[index] end
   local more = (#source.names > NAMES) and (', +' .. (#source.names - NAMES)) or ''
-  return ('%-39s %3d/min %6d total  %d user%s: %s%s, last %s'):format(address, recent(source, now), source.total,
+  return ('%-' .. width .. 's %3d/min %6d total  %d user%s: %s%s, last %s'):format(address, recent(source, now), source.total,
     #source.names, (#source.names == 1) and '' or 's', table.concat(names, ', '), more, clock(source.last))
 end
 
@@ -64,6 +66,20 @@ end
 local function show(address, source, now)
   if source.line then watch:delete(source.line) end
   source.line = watch:add(describe(address, source, now), source.entry, { quiet = true })
+end
+
+-- The column as wide as the longest address; when that changes, every line again in the order of their last tries
+local function fit(now)
+  local longest = 0
+  for address in pairs(sources) do longest = math.max(longest, #address) end
+  if longest == width then return false end
+
+  width = longest
+  local order = { }
+  for address in pairs(sources) do order[#order + 1] = address end
+  table.sort(order, function(one, other) return sources[one].last < sources[other].last end)
+  for _, address in ipairs(order) do show(address, sources[address], now) end
+  return true
 end
 
 local function source(address)
@@ -124,7 +140,7 @@ function(entry)
     end
   end
 
-  show(found.address, item, now)
+  if not fit(now) then show(found.address, item, now) end
   tell(now)
 end)
 
@@ -139,5 +155,6 @@ turbojedi.timeout(30000, function()
       sources[address] = nil
     end
   end
+  fit(now)
   tell(now)
 end, true)
