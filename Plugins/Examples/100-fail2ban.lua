@@ -24,6 +24,55 @@ local function valid(address)
   return select(2, address:gsub('%x+', '')) >= 2
 end
 
+-- An IPv6 address in 32 hex digits, so that ::1 and 0:0:0:0:0:0:0:1 are one
+local function expand(address)
+  local function split(text)
+    local list = { }
+    for group in text:gmatch('[^:]+') do list[#list + 1] = group end
+    return list
+  end
+
+  local head, tail = address:match('^(.-)::(.*)$')
+  local groups     = split(head or address)
+
+  if head then
+    local right = split(tail)
+    for _ = 1, 8 - #groups - #right do groups[#groups + 1] = '0' end
+    for _, group in ipairs(right) do groups[#groups + 1] = group end
+  end
+
+  for index, group in ipairs(groups) do groups[index] = ('0000' .. group:lower()):sub(-4) end
+  return table.concat(groups)
+end
+
+-- Addresses of this machine, a ban of one of them locks the machine out of itself: "to 149.5.8.49" of sshd is one.
+-- The kernel tells them, IPv4 in /proc/net/fib_trie as host LOCAL, IPv6 in /proc/net/if_inet6
+local function own()
+  local list = { }
+  local last
+  local file = io.open('/proc/net/fib_trie')
+
+  if file then
+    for line in file:lines() do
+      last = line:match('|%-%- ([%d.]+)') or last
+      if last and line:find('/32 host LOCAL', 1, true) then list[last] = true end
+    end
+    file:close()
+  end
+
+  file = io.open('/proc/net/if_inet6')
+
+  if file then
+    for line in file:lines() do
+      local hex = line:match('^(%x+)')
+      if hex then list[hex:lower()] = true end
+    end
+    file:close()
+  end
+
+  return list
+end
+
 -- Jails fail2ban has, nil when it does not answer: it needs root
 local function jails()
   local text, how, code, errors = turbojedi.capture { 'fail2ban-client', 'status' }
@@ -78,11 +127,12 @@ turbojedi.registerHandler(function(entry, menu, context)
   local identifier = entry.SYSLOG_IDENTIFIER
   local jail       = (type(identifier) == 'string') and identifier:match('^sshd') and 'sshd' or nil
   local seen = { }
+  local mine = own()
 
   for found in turbojedi.matches(entry.MESSAGE, ADDRESS) do
     local address = found.address
 
-    if (not seen[address]) and valid(address) then
+    if (not seen[address]) and valid(address) and not (mine[address] or (address:find(':') and mine[expand(address)])) then
       seen[address] = true
       menu:add('Ban ' .. address, ban, address, jail)
       menu:add('Unban ' .. address, unban, address)
