@@ -721,6 +721,8 @@ void JediApplication::showHelp()
     "  F6, Shift-F6    Next, previous window",
     "  Alt-0           List of the windows to go to, the filter narrows it down,",
     "                  the window used before is under the cursor",
+    "  F12             Watches of plugins: Enter shows the lines of one, Delete",
+    "                  removes it; Watch 1/3 * in the status line tells about new lines",
     "  F5, Ctrl-F5     Zoom, size or move the window",
     "  F9              Tile the windows",
     "  Alt-F3          Close the window",

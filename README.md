@@ -37,6 +37,8 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd and
   a core dump in coredumpctl and gdb; fail2ban, block devices, Asterisk and a chat are in the examples. Plugins ask
   with dialogs, run commands in the background, in a window or on the terminal, ask web services over HTTP and keep
   sockets and timers going, see [PLUGINS.md](PLUGINS.md)
+- Watches of plugins: entries of a filter as they come, a status and lines of each in a list, F12; Watch 1/3 * in the
+  status line tells about new ones, an important one brings the list up with a bell
 - Selection with the keyboard or the mouse, copy to the clipboard (OSC 52 over SSH), export to a file
 - Timeline: entries of the filter of a window by intervals of time, errors, warnings and the rest stacked
   in a column per interval; a column takes every journal window to its time
@@ -278,6 +280,7 @@ window to the time of the selected line, and a layout keeps their directories fo
 | Ctrl-O, Ctrl-S | open, save a layout; both start at the layout opened or saved last, Save offers its file again |
 | F5, Ctrl-F5, F6, F9, Alt-F3 | zoom, size, next, tile, close |
 | Alt-0 | list of the windows to go to, the one used before is under the cursor |
+| F12 | watches of plugins with their status, Enter shows the lines of one, Delete removes it |
 | Alt-X | exit |
 
 ## Layouts
@@ -336,7 +339,8 @@ brings plugins that only look:
 Plugins that change things, or that would come up by chance, are examples in `/usr/share/turbojedi/examples` and are not
 run by themselves: `100-fail2ban.lua`; `100-storage.lua`, the device, mounts, udev and SMART of a block device an
 entry of the kernel or smartd names; `100-asterisk.lua`, the calls, channels, endpoints, AORs, modules and dialplan of an entry
-of Asterisk, shown, traced in the journal, hung up or reloaded through `asterisk -rx`; `100-chat.lua`, the entry or the
+of Asterisk, shown, traced in the journal, hung up or reloaded through `asterisk -rx`; `100-alert.lua`, watches of the
+journal by rules of `~/.config/turbojedi/alert.conf`, while TurboJedi is open; `100-chat.lua`, the entry or the
 marked ones sent to Slack, Mattermost, Rocket.Chat, Discord, Telegram or ntfy through a webhook told in
 `~/.config/turbojedi/chat.conf`.
 
