@@ -109,20 +109,6 @@ static std::string DescribeWatch(const JournalWatch* watch)
 // Rows of the views go by the palette of a scroller in a blue window: normal text, then the cursor
 static const char ScrollerColors[] = "\x06\x07";
 
-// The keys of a view on its last row, so that nobody has to look them up; Backspace stands for Delete, which is fn-Delete
-// on a keyboard of a Mac
-static void DrawKeys(TView* view, const char* keys)
-{
-  TDrawBuffer buffer;
-  TColorAttr color;
-
-  color = view->mapColor(1);
-  color.setForeground(TColorBIOS(0x0b));
-  buffer.moveChar(0, ' ', color, view->size.x);
-  buffer.moveStr(0, FitText(keys, view->size.x), color);
-  view->writeLine(0, view->size.y - 1, view->size.x, 1, buffer);
-}
-
 // WatchListView
 
 WatchListView::WatchListView(const TRect& bounds) :
@@ -130,6 +116,7 @@ WatchListView::WatchListView(const TRect& bounds) :
 {
   chosen    = 0;
   top       = 0;
+  helpCtx   = hcWatchList;
   growMode  = gfGrowHiX | gfGrowHiY;
   options  |= ofSelectable;
   eventMask |= evBroadcast;
@@ -214,13 +201,13 @@ void WatchListView::draw()
   }
 
   // The cursor stays on the screen, a header row on top
-  top = std::clamp(top, std::max(0, current - (size.y - 3)), std::max(0, current));
+  top = std::clamp(top, std::max(0, current - (size.y - 2)), std::max(0, current));
 
   buffer.moveChar(0, ' ', heading, size.x);
   buffer.moveStr(0, FitText("  " + FitText("Last line", TIME_WIDTH) + "  " + FitText("Plugin", PLUGIN_WIDTH) + "  " + FitText("Watch", TITLE_WIDTH) + "  Status", size.x), heading);
   writeLine(0, 0, size.x, 1, buffer);
 
-  for (y = 1; y < size.y - 1; y ++)
+  for (y = 1; y < size.y; y ++)
   {
     index = top + y - 1;
     buffer.moveChar(0, ' ', normal, size.x);
@@ -261,8 +248,6 @@ void WatchListView::draw()
     writeLine(0, y, size.x, 1, buffer);
   }
 
-  DrawKeys(this, " Enter lines of the watch   Del or Backspace remove it   Esc close");
-
   if (fresh)
   {
     // The star of the status line goes out
@@ -279,6 +264,7 @@ TPalette& WatchListView::getPalette() const
 
 void WatchListView::handleEvent(TEvent& event)
 {
+  ushort key;
   int index;
   int count;
   std::vector<JournalWatch*> watches;
@@ -304,7 +290,6 @@ void WatchListView::handleEvent(TEvent& event)
     TPoint where = makeLocal(event.mouse.where);
 
     if ((where.y > 0) &&
-        (where.y < size.y - 1) &&
         (top + where.y - 1 < count))
     {
       move(top + where.y - 1);
@@ -326,17 +311,27 @@ void WatchListView::handleEvent(TEvent& event)
     return;
   }
 
-  if (event.what != evKeyDown)
+  // The items of the status line of these windows are commands, they do what their keys do
+  if ((event.what == evCommand) &&
+      ((event.message.command == cmWatchOpen) || (event.message.command == cmWatchRemove)))
+  {
+    key = (event.message.command == cmWatchOpen) ? kbEnter : kbDel;
+  }
+  else if (event.what == evKeyDown)
+  {
+    key = event.keyDown.keyCode;
+  }
+  else
   {
     return;
   }
 
-  switch (event.keyDown.keyCode)
+  switch (key)
   {
     case kbUp:    move(index - 1);             break;
     case kbDown:  move(index + 1);             break;
-    case kbPgUp:  move(index - (size.y - 2));  break;
-    case kbPgDn:  move(index + (size.y - 2));  break;
+    case kbPgUp:  move(index - (size.y - 1));  break;
+    case kbPgDn:  move(index + (size.y - 1));  break;
     case kbHome:  move(0);                     break;
     case kbEnd:   move(count - 1);             break;
 
@@ -373,6 +368,7 @@ WatchLogView::WatchLogView(const TRect& bounds, int number) :
   this->number = number;
   chosen       = 0;
   top          = 0;
+  helpCtx      = hcWatchLines;
   growMode     = gfGrowHiX | gfGrowHiY;
   options     |= ofSelectable;
   eventMask   |= evBroadcast;
@@ -497,9 +493,9 @@ void WatchLogView::draw()
     }
   }
 
-  top = std::clamp(top, std::max(0, last - (size.y - 2)), std::max(0, first));
+  top = std::clamp(top, std::max(0, last - (size.y - 1)), std::max(0, first));
 
-  for (y = 0; y < size.y - 1; y ++)
+  for (y = 0; y < size.y; y ++)
   {
     index = top + y;
     buffer.moveChar(0, ' ', normal, size.x);
@@ -538,8 +534,6 @@ void WatchLogView::draw()
     writeLine(0, y, size.x, 1, buffer);
   }
 
-  DrawKeys(this, " Enter to the entry   Del or Backspace delete the line   F8 clear all   Esc close");
-
   if (read)
   {
     if (watch->unread() == 0)
@@ -554,6 +548,7 @@ void WatchLogView::draw()
 
 void WatchLogView::handleEvent(TEvent& event)
 {
+  ushort key;
   int index;
   int count;
   JournalWatch* watch;
@@ -594,8 +589,7 @@ void WatchLogView::handleEvent(TEvent& event)
   {
     TPoint where = makeLocal(event.mouse.where);
 
-    if ((where.y < size.y - 1) &&
-        (top + where.y < count))
+    if (top + where.y < count)
     {
       move(top + where.y);
       line = std::find_if(watch->lines.begin(), watch->lines.end(), [this] (const JournalWatchLine& item) { return item.number == chosen; });
@@ -614,18 +608,28 @@ void WatchLogView::handleEvent(TEvent& event)
 
   if (event.what == evMouseWheel)
   {
-    top = std::clamp(top + ((event.mouse.wheel == mwDown) ? 3 : (event.mouse.wheel == mwUp) ? -3 : 0), 0, std::max(0, count - (size.y - 1)));
+    top = std::clamp(top + ((event.mouse.wheel == mwDown) ? 3 : (event.mouse.wheel == mwUp) ? -3 : 0), 0, std::max(0, count - size.y));
     drawView();
     clearEvent(event);
     return;
   }
 
-  if (event.what != evKeyDown)
+  // The items of the status line of these windows are commands, they do what their keys do
+  if ((event.what == evCommand) &&
+      ((event.message.command == cmWatchOpen) || (event.message.command == cmWatchRemove)))
+  {
+    key = (event.message.command == cmWatchOpen) ? kbEnter : kbDel;
+  }
+  else if (event.what == evKeyDown)
+  {
+    key = event.keyDown.keyCode;
+  }
+  else
   {
     return;
   }
 
-  switch (event.keyDown.keyCode)
+  switch (key)
   {
     case kbUp:
       // To the first row of the line before
@@ -638,8 +642,8 @@ void WatchLogView::handleEvent(TEvent& event)
       move(index + 1);
       break;
 
-    case kbPgUp:  move(index - (size.y - 1));  break;
-    case kbPgDn:  move(index + (size.y - 1));  break;
+    case kbPgUp:  move(index - size.y);  break;
+    case kbPgDn:  move(index + size.y);  break;
     case kbHome:  move(0);               break;
     case kbEnd:   move(count - 1);       break;
 

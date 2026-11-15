@@ -620,7 +620,7 @@ monitoring of the server: closed TurboJedi or a broken SSH connection watch noth
   with a count, several lines of text.
 - In the list, Enter shows the lines of a watch, Delete or Backspace removes it after a question. In the lines, Enter
   goes to the entry, Delete or Backspace takes a line away, F8 clears them; a line is read once it has been shown. The
-  last row of both windows tells the keys; Backspace is the key a Mac calls delete.
+  status line of both windows tells their keys, its items are clicked as well; Backspace is the key a Mac calls delete.
 - A callback that fails leaves its watch failed: it reads nothing more, its lines and the error stay in the list until
   it is removed. A watch whose journal has gone, a directory unmounted, is stopped the same way.
 - Methods of a watch removed meanwhile, by the user in the list for one, do nothing.

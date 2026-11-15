@@ -106,8 +106,24 @@ TStatusLine* JediApplication::initStatusLine(TRect bounds)
   // Actions the way Far and Windows open them, Alt-F10 of the menu as in the IDEs of Borland is the main one
   hidden = new TStatusItem(0, kbF11, cmJournalActions, new TStatusItem(0, kbShiftF10, cmJournalActions, hidden));
 
+  // The windows of watches tell their own keys, a Mac has Backspace for Delete; the items are clicked as well
   return new JediStatusLine(bounds,
-    *new TStatusDef(0, 0xffff,
+    *new TStatusDef(hcWatchList, hcWatchList,
+      new TStatusItem("~F1~ Help",           kbF1,    cmJournalHelp,
+      new TStatusItem("~Enter~ Lines",       kbNoKey, cmWatchOpen,
+      new TStatusItem("~Backspace~ Remove",  kbNoKey, cmWatchRemove,
+      new TStatusItem("~Esc~ Close",         kbNoKey, cmClose,
+      new TStatusItem("~Alt-X~ Exit",        kbAltX,  cmQuit,
+      new TStatusItem(0, kbCtrlC, cmQuit)))))),
+    new TStatusDef(hcWatchLines, hcWatchLines,
+      new TStatusItem("~F1~ Help",           kbF1,    cmJournalHelp,
+      new TStatusItem("~Enter~ Go to entry", kbNoKey, cmWatchOpen,
+      new TStatusItem("~Backspace~ Delete",  kbNoKey, cmWatchRemove,
+      new TStatusItem("~F8~ Clear",          kbNoKey, cmJournalClear,
+      new TStatusItem("~Esc~ Close",         kbNoKey, cmClose,
+      new TStatusItem("~Alt-X~ Exit",        kbAltX,  cmQuit,
+      new TStatusItem(0, kbCtrlC, cmQuit))))))),
+    new TStatusDef(0, 0xffff,
       new TStatusItem("~F1~ Help",      kbF1,    cmJournalHelp,
       new TStatusItem("~F2~ New",       kbF2,    cmJournalNew,
       new TStatusItem("~F3~ Levels",    kbF3,    cmJournalLevels,
@@ -116,7 +132,7 @@ TStatusLine* JediApplication::initStatusLine(TRect bounds)
       new TStatusItem("~Ctrl-F~ Find",  kbCtrlF, cmJournalFind,
       new TStatusItem("~Space~ Pause",  kbNoKey, cmJournalPause,
       new TStatusItem("~Alt-X~ Exit",   kbAltX,  cmQuit,
-      hidden))))))))));
+      hidden))))))))))));
 }
 
 TMenuBar* JediApplication::initMenuBar(TRect bounds)

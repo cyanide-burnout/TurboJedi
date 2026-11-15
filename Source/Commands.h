@@ -55,9 +55,18 @@ enum
   cmJournalOpenWatch,          // Broadcast with a JournalWindowRequest of a watch of a plugin
   cmJournalWatches,            // The list of the watches of plugins
   cmJournalWatchesChanged,     // Broadcast: watches have changed, their windows draw again
+  cmWatchOpen,                 // Enter of a window of watches, by the status line
+  cmWatchRemove,               // Delete there
   cmJournalSourceList,         // One per source field, then one for PID
   cmJournalTimePick   = 1100,  // Since, then Until
   cmJournalTimePreset = 1110   // One per preset of the time picker
+};
+
+// Contexts the status line goes by: the windows of watches have their own keys
+enum
+{
+  hcWatchList  = 100,
+  hcWatchLines = 101
 };
 
 #endif
