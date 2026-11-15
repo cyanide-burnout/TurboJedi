@@ -204,9 +204,9 @@ Plugins of the package and of the machine; \fI/usr/share/turbojedi/examples\fR h
 .SH PLUGINS
 The Actions menu of an entry is made by plugins in Lua 5.4: the \fI*.lua\fR files of the directories above, run
 once at start in the order of their names. A file of the same name in the directory of the user takes the place
-of the one of the package, an empty one leaves it out. Run by root, a plugin is used only when root alone can
-change it and every directory above it. Every action is a command of a list of arguments, never a line of a shell,
-and changes nothing without being chosen. PLUGINS.md of the package tells how to write them.
+of the one of the package, an empty one leaves it out. Run by root, a plugin is used only when nobody but root,
+or the group root or staff of /usr/local, can change it and every directory above it. Every action is a command
+of a list of arguments, never a line of a shell, and changes nothing without being chosen. PLUGINS.md of the package tells how to write them.
 .SH NOTES
 Reading the whole journal needs root or the \fBsystemd-journal\fR group.
 .SH AUTHOR

@@ -41,8 +41,9 @@ The directory of the user is the one of the running process, by its `XDG_CONFIG_
 Under `sudo` it is root's, never the one of `SUDO_USER`.
 
 Run by root, TurboJedi uses a plugin or a module only when root alone can change it: the file and every directory above
-it, up to `/`, links resolved, belong to root, and neither the group nor the others can write to them (a group of root
-may). A plugin that is left out is told about with the directory that has let it out.
+it, up to `/`, links resolved, belong to root, and the others cannot write to them. The group may write when it is
+`root`, or `staff`, which Debian and Ubuntu give `/usr/local` so that its members install there: root runs what they
+put to `/usr/local/bin` anyway. A plugin that is left out is told about with the directory that has let it out.
 
 ## How a plugin works
 
@@ -278,7 +279,7 @@ end)
 ### fail2ban
 
 `/usr/share/turbojedi/examples/100-fail2ban.lua` offers Ban and Unban for every address in the message. Ban asks for
-the jail, starting on `sshd` for an entry of sshd, and for a confirmation, which warns when the address is the one of
+the jail, starting on `sshd` for an entry of sshd, `sshd-session` or `sshd-auth`, and for a confirmation, which warns when the address is the one of
 your own SSH session. It is an example to copy on purpose: a ban of the wrong address locks its user out.
 `fail2ban-client` needs root.
 

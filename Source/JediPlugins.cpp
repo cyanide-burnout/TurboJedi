@@ -25,6 +25,7 @@ extern "C"
 #error "Plugins are written for Lua 5.4"
 #endif
 
+#include <grp.h>
 #include <errno.h>
 #include <limits.h>
 #include <dirent.h>
@@ -249,11 +250,15 @@ static void PushMatch(lua_State* state, const std::string& text, const std::vect
   }
 }
 
-// Root runs only what root alone can change: the file and every directory up to /, links resolved
+// Root runs only what root alone can change: the file and every directory up to /, links resolved. The group may write
+// when it is root or staff, which Debian gives /usr/local so that its members install there: root runs what they put
+// to /usr/local/bin anyway
 static bool CheckTrust(const std::string& path, std::string& reason)
 {
+  gid_t staff;
   size_t slash;
   std::string part;
+  struct group* group;
   struct stat status;
   char resolved[PATH_MAX];
 
@@ -262,6 +267,9 @@ static bool CheckTrust(const std::string& path, std::string& reason)
     // A user runs what is the user's anyway
     return true;
   }
+
+  group = getgrnam("staff");
+  staff = (group != nullptr) ? group->gr_gid : 0;
 
   if (realpath(path.c_str(), resolved) == nullptr)
   {
@@ -281,9 +289,9 @@ static bool CheckTrust(const std::string& path, std::string& reason)
 
     if ((status.st_uid != 0) ||
         (status.st_mode & S_IWOTH) ||
-        ((status.st_mode & S_IWGRP) && (status.st_gid != 0)))
+        ((status.st_mode & S_IWGRP) && (status.st_gid != 0) && (status.st_gid != staff)))
     {
-      reason = path + " is left out: root runs a plugin only when root alone can change " + part;
+      reason = path + " is left out: root runs a plugin only when nobody but root, or the group root or staff, can change " + part;
       return false;
     }
 

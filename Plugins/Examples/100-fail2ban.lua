@@ -74,7 +74,9 @@ local function unban(address)
 end
 
 turbojedi.registerHandler(function(entry, menu, context)
-  local jail = (entry.SYSLOG_IDENTIFIER == 'sshd') and 'sshd' or nil
+  -- OpenSSH of 9.8 and later logs as sshd-session and sshd-auth
+  local identifier = entry.SYSLOG_IDENTIFIER
+  local jail       = (type(identifier) == 'string') and identifier:match('^sshd') and 'sshd' or nil
   local seen = { }
 
   for found in turbojedi.matches(entry.MESSAGE, ADDRESS) do
