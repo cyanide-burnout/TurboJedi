@@ -8,6 +8,7 @@
 #include <stdint.h>
 
 #include <vector>
+#include <functional>
 #include <string>
 
 #include "JournalTools.h"
@@ -54,8 +55,16 @@ class JournalQuery
 
 int64_t GetQueryMilliseconds();
 
-// Reads it through for an action: without a word for a moment, then with a dialog and Cancel while the windows go on, until
-// the timeout in seconds, zero for none. A handler making the menu calls step() with the deadline of the menu instead
+#define STEPS_DONE    0
+#define STEPS_TIME    1
+#define STEPS_CANCEL  2
+
+// A long work for a plugin by steps: each runs up to the deadline in milliseconds of CLOCK_MONOTONIC and tells whether the
+// work is over. Without a word for a moment, then with a dialog of the text and Cancel while the windows go on, until the
+// timeout in seconds, zero for none
+int RunSteps(const char* text, const std::function<bool(int64_t)>& step, int timeout);
+
+// A query read through for an action that way. A handler making the menu calls step() with the deadline of the menu instead
 void RunJournalQuery(JournalQuery& query, int timeout);
 
 #endif

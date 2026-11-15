@@ -78,8 +78,8 @@ class JournalView : public TScroller
     void jump(uint64_t realtime);
 
     // Marks the lines of the entries of the cursors as M does, every line of a message; the history comes in down to the
-    // oldest of them, in microseconds, as far as the window holds. Clear takes the other marks off first. The count of
-    // the entries marked, fewer when some are not in the window
+    // oldest of them, in microseconds, as far as the window holds, by steps with a dialog and Cancel when it takes long.
+    // Clear takes the other marks off first. The count of the entries marked, fewer when some are not in the window
     size_t mark(const std::set<std::string>& cursors, uint64_t oldest, bool clear);
     const char* describe();
     const char* name();

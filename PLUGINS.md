@@ -241,7 +241,8 @@ are spent. An action reads on, after a moment with a dialog and Cancel while the
 `mark` marks in the window of the menu the lines of the entries it is given, every line of a message, the way M and
 Ctrl+click mark: Copy and Export take them, Esc takes them off. It takes an entry, a list of entries such as `query`
 gives, or cursors; `clear = true` takes the other marks off first. The older entries come into the window down to the
-oldest one given, as far as the window holds, and the count of the entries marked tells when some are not there.
+oldest one given, as far as the window holds; a long way back gets a dialog with Cancel after a moment, while the
+windows go on, and Cancel marks what has come so far. The count of the entries marked tells when some are not there.
 
 ```lua
 local entries, stopped = turbojedi.query { matches = { _SYSTEMD_UNIT = entry._SYSTEMD_UNIT }, text = id, limit = 1000 }

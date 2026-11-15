@@ -19,11 +19,12 @@
 
 #include <algorithm>
 
-#define QUERY_QUIET   250  // Milliseconds a query may take before its dialog is shown
-#define QUERY_STEP    20   // Milliseconds of reading between the events
+#define STEP_QUIET    250  // Milliseconds a long work may take before its dialog is shown
+#define STEP_TIME     20   // Milliseconds of it between the events
 #define QUERY_BATCH   256  // Entries read between two looks at the clock
 
-#define cmQueryDone   1310
+#define cmStepsDone   1310
+#define cmStepsTime   1311
 
 int64_t GetQueryMilliseconds()
 {
@@ -203,35 +204,35 @@ bool JournalQuery::step(int64_t deadline)
   return true;
 }
 
-// QueryDialog
+// StepDialog
 
-class QueryDialog : public TDialog
+class StepDialog : public TDialog
 {
   public:
 
-    QueryDialog(JournalQuery& query, int64_t deadline);
+    StepDialog(const char* text, const std::function<bool(int64_t)>& step, int64_t deadline);
 
     void handleEvent(TEvent& event) override;
 
   private:
 
-    JournalQuery& query;
+    const std::function<bool(int64_t)>& step;
     int64_t deadline;
 };
 
-QueryDialog::QueryDialog(JournalQuery& query, int64_t deadline) :
+StepDialog::StepDialog(const char* text, const std::function<bool(int64_t)>& step, int64_t deadline) :
   TWindowInit(&TDialog::initFrame),
-  TDialog(TRect(0, 0, 44, 8), "Reading"),
-  query(query)
+  TDialog(TRect(0, 0, 50, 8), "Reading"),
+  step(step)
 {
   this->deadline = deadline;
 
   options |= ofCentered;
-  insert(new TStaticText(TRect(2, 2, 42, 3), "Reading the journal for a plugin"));
-  insert(new TButton(TRect(16, 5, 28, 7), "Cancel", cmCancel, bfDefault));
+  insert(new TStaticText(TRect(2, 2, 48, 3), text));
+  insert(new TButton(TRect(19, 5, 31, 7), "Cancel", cmCancel, bfDefault));
 }
 
-void QueryDialog::handleEvent(TEvent& event)
+void StepDialog::handleEvent(TEvent& event)
 {
   JournalPoll* poll;
 
@@ -242,15 +243,14 @@ void QueryDialog::handleEvent(TEvent& event)
     poll          = static_cast<JournalPoll*>(event.message.infoPtr);
     poll->timeout = 0;
 
-    if (query.step(std::min(GetQueryMilliseconds() + QUERY_STEP, (deadline > 0) ? deadline : INT64_MAX)))
+    if (step(std::min(GetQueryMilliseconds() + STEP_TIME, (deadline > 0) ? deadline : INT64_MAX)))
     {
-      endModal(cmQueryDone);
+      endModal(cmStepsDone);
     }
     else if ((deadline > 0) &&
              (GetQueryMilliseconds() >= deadline))
     {
-      query.stop("time");
-      endModal(cmQueryDone);
+      endModal(cmStepsTime);
     }
 
     return;
@@ -259,25 +259,32 @@ void QueryDialog::handleEvent(TEvent& event)
   TDialog::handleEvent(event);
 }
 
-void RunJournalQuery(JournalQuery& query, int timeout)
+int RunSteps(const char* text, const std::function<bool(int64_t)>& step, int timeout)
 {
+  int result;
   int64_t deadline;
-  QueryDialog* dialog;
+  StepDialog* dialog;
 
   deadline = (timeout > 0) ? (GetQueryMilliseconds() + timeout * 1000LL) : 0;
 
-  if (query.step(GetQueryMilliseconds() + QUERY_QUIET))
+  if (step(GetQueryMilliseconds() + STEP_QUIET))
   {
     // A short one ends before anything is shown
-    return;
+    return STEPS_DONE;
   }
 
-  dialog = new QueryDialog(query, deadline);
-
-  if (TProgram::deskTop->execView(dialog) != cmQueryDone)
-  {
-    query.stop("cancel");
-  }
-
+  dialog = new StepDialog(text, step, deadline);
+  result = TProgram::deskTop->execView(dialog);
   TObject::destroy(dialog);
+
+  return (result == cmStepsDone) ? STEPS_DONE : (result == cmStepsTime) ? STEPS_TIME : STEPS_CANCEL;
+}
+
+void RunJournalQuery(JournalQuery& query, int timeout)
+{
+  switch (RunSteps("Reading the journal for a plugin", [&query] (int64_t deadline) { return query.step(deadline); }, timeout))
+  {
+    case STEPS_TIME:   query.stop("time");   break;
+    case STEPS_CANCEL: query.stop("cancel"); break;
+  }
 }

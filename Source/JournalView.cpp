@@ -22,6 +22,7 @@
 #include "ColumnsDialog.h"
 #include "JournalsDialog.h"
 #include "JediClipboard.h"
+#include "JournalQuery.h"
 #include "JediPlugins.h"
 
 #include <time.h>
@@ -1949,12 +1950,20 @@ size_t JournalView::mark(const std::set<std::string>& cursors, uint64_t oldest, 
     marks.clear();
   }
 
-  while ((!lines.empty()) &&
-         (edge(false).realtime > oldest) &&
-         (back() > 0))
+  // Older entries come in by batches until the oldest asked for is there, the journal, the range or the capacity ends;
+  // a long way back gets a dialog, Cancel marks what has come so far
+  RunSteps("Bringing older entries into the window", [this, oldest] (int64_t deadline)
   {
-    // Older entries come in until the oldest asked for is there, the journal, the range or the capacity ends
-  }
+    while (GetQueryMilliseconds() < deadline)
+    {
+      if (lines.empty() || (edge(false).realtime <= oldest) || (back() == 0))
+      {
+        return true;
+      }
+    }
+
+    return false;
+  }, 0);
 
   for (index = 0; index < lines.size(); index ++)
   {
