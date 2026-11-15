@@ -140,6 +140,7 @@ argument whatever it holds, no shell sees it.
 | `find(text, options)` | action | the previous match in the window of the menu, as Find: `true` when found |
 | `seek(time)` | action | the window of the menu goes to a time, as Go to time |
 | `query(options)` | handler, action | entries of a filter for the plugin to look into: a list, and why the reading has stopped |
+| `mark(entries, options)` | action | marks the lines of entries in the window of the menu, as M does: the count marked |
 | `execute(argv)` | action | runs a command in the background: `true`, or `nil` and the reason when it has not started |
 | `output(argv)` | action | runs a command in a window of its own: `true`, or `nil` and the reason |
 | `terminal(argv)` | action | runs a command on the terminal: `how, code` |
@@ -234,6 +235,18 @@ a reason means it is not known, and an action that changes things has to take it
 A handler may query while it makes the menu, so that the items depend on the history, but the menu is not kept waiting:
 the queries of all handlers of one menu share 200 ms and 10000 entries, a query stops with `time` or `scan` when they
 are spent. An action reads on, after a moment with a dialog and Cancel while the windows go on.
+
+### Marking
+
+`mark` marks in the window of the menu the lines of the entries it is given, every line of a message, the way M and
+Ctrl+click mark: Copy and Export take them, Esc takes them off. It takes an entry, a list of entries such as `query`
+gives, or cursors; `clear = true` takes the other marks off first. The older entries come into the window down to the
+oldest one given, as far as the window holds, and the count of the entries marked tells when some are not there.
+
+```lua
+local entries, stopped = turbojedi.query { matches = { _SYSTEMD_UNIT = entry._SYSTEMD_UNIT }, text = id, limit = 1000 }
+local count = turbojedi.mark(entries, { clear = true })
+```
 
 ### Commands
 

@@ -1939,6 +1939,37 @@ void JournalView::jump(uint64_t realtime)
   seek(realtime, false);
 }
 
+size_t JournalView::mark(const std::set<std::string>& cursors, uint64_t oldest, bool clear)
+{
+  size_t index;
+  std::set<std::string> found;
+
+  if (clear)
+  {
+    marks.clear();
+  }
+
+  while ((!lines.empty()) &&
+         (edge(false).realtime > oldest) &&
+         (back() > 0))
+  {
+    // Older entries come in until the oldest asked for is there, the journal, the range or the capacity ends
+  }
+
+  for (index = 0; index < lines.size(); index ++)
+  {
+    if ((!lines[index].cursor.empty()) &&
+        (cursors.count(lines[index].cursor) != 0))
+    {
+      marks.insert(first + index);
+      found.insert(lines[index].cursor);
+    }
+  }
+
+  refresh();
+  return found.size();
+}
+
 bool JournalView::find(int direction, bool tell)
 {
   size_t added;

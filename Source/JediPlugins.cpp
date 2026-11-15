@@ -40,6 +40,7 @@ extern "C"
 #include <sys/stat.h>
 
 #include <map>
+#include <set>
 #include <algorithm>
 
 #define PHASE_ANY     -1
@@ -954,6 +955,87 @@ static int Seek(lua_State* state)
   return 0;
 }
 
+// The cursor of an entry or a cursor itself, with the time it tells: __REALTIME_TIMESTAMP, or t= of the cursor in hex
+static bool AddCursor(lua_State* state, int index, std::set<std::string>& cursors, uint64_t& oldest)
+{
+  bool found;
+  size_t place;
+  uint64_t stamp;
+  std::string cursor;
+
+  index = lua_absindex(state, index);
+
+  if (lua_type(state, index) == LUA_TTABLE)
+  {
+    lua_pushliteral(state, "__CURSOR");
+    lua_rawget(state, index);
+    found = GetString(state, -1, cursor);
+    lua_pop(state, 1);
+  }
+  else
+  {
+    found = GetString(state, index, cursor);
+  }
+
+  if (!found)
+  {
+    return false;
+  }
+
+  cursors.insert(cursor);
+  place = cursor.find(";t=");
+  stamp = (place != std::string::npos) ? strtoull(cursor.c_str() + place + 3, nullptr, 16) : 0;
+
+  if (stamp != 0)
+  {
+    oldest = std::min(oldest, stamp);
+  }
+
+  return true;
+}
+
+// Marks in the window of the menu the lines of an entry, of a list of entries such as query() gives, or of cursors
+static int Mark(lua_State* state)
+{
+  bool single;
+  uint64_t oldest;
+  std::set<std::string> cursors;
+
+  oldest = UINT64_MAX;
+
+  if (lua_type(state, 1) == LUA_TTABLE)
+  {
+    lua_pushliteral(state, "__CURSOR");
+    single = (lua_rawget(state, 1) != LUA_TNIL);
+    lua_pop(state, 1);
+
+    if (single)
+    {
+      AddCursor(state, 1, cursors, oldest);
+    }
+
+    for (lua_Integer number = 1; (!single) && (number <= (lua_Integer)lua_rawlen(state, 1)); number ++)
+    {
+      lua_rawgeti(state, 1, number);
+
+      if (!AddCursor(state, -1, cursors, oldest))
+      {
+        lua_pop(state, 1);
+        return Fail(state, "mark() takes entries or cursors, item %d is neither", (int)number);
+      }
+
+      lua_pop(state, 1);
+    }
+  }
+  else if (!AddCursor(state, 1, cursors, oldest))
+  {
+    return Fail(state, "mark() takes an entry, a list of entries or cursors, or a cursor");
+  }
+
+  lua_pushinteger(state, origin->mark(cursors, oldest, GetFlag(state, 2, "clear")));
+  return 1;
+}
+
 static int Quote(lua_State* state)
 {
   std::string line;
@@ -1158,6 +1240,7 @@ static const luaL_Reg functions[] =
   { "find",            Call<Find,            PHASE_ACTION> },
   { "seek",            Call<Seek,            PHASE_ACTION> },
   { "query",           Call<Query,           PHASE_ANY>    },
+  { "mark",            Call<Mark,            PHASE_ACTION> },
   { "quote",           Call<Quote,           PHASE_ANY>    },
   { "regex",           Call<Match,           PHASE_ANY>    },
   { "matches",         Call<Matches,         PHASE_ANY>    },
