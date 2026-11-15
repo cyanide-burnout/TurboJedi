@@ -347,6 +347,34 @@ entry, the journal of another machine above all; that is why commands are lists 
 
 All plugins share one state of Lua, a global of one is seen by the others: keep your names `local`.
 
+### Modules of Lua
+
+A plugin may `require` any module installed for Lua 5.4 in the system: luasocket, a library of JSON, a client of MQTT.
+`package.path` and `package.cpath` keep the directories of the system, only the paths relative to the current directory
+are taken out, and `lib/` of the plugin directories is looked into first. Under root, the modules of `lib/` are checked
+the way the plugins are; the ones of the system directories belong to its packages.
+
+An action runs on the thread of the screen. While a call of a module waits, nothing is drawn and no key is taken; only
+the dialogs and `capture` of TurboJedi keep the windows going. Give a call to the network a short timeout:
+
+```lua
+local socket = require('socket')
+local client = socket.tcp()
+
+client:settimeout(2)
+
+local done, failure = client:connect(host, 80)
+```
+
+A request that may take long goes better through a program and `capture`, which gives it a dialog with Cancel and a
+timeout of its own:
+
+```lua
+local text, how, code = turbojedi.capture({ 'curl', '-fsS', '--max-time', '10', url }, { timeout = 15 })
+```
+
+A handler making the menu should not wait on the network at all: the budget of the menu bounds `query`, not a module.
+
 ## Examples
 
 ### The unit and the process of an entry
