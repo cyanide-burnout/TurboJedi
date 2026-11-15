@@ -10,7 +10,7 @@
 #include <tvision/tv.h>
 
 #include "Version.h"
-#include "JediPlugins.h"
+#include "JediScript.h"
 #include "JediProcess.h"
 #include "JediFetch.h"
 #include "ActionDialogs.h"

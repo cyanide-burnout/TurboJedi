@@ -8,7 +8,7 @@
 #include "JournalTools.h"
 #include "JournalHighlighter.h"
 #include "JediClipboard.h"
-#include "JediPlugins.h"
+#include "JediScript.h"
 
 #include <time.h>
 #include <stdio.h>

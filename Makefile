@@ -86,7 +86,7 @@ OBJECTS := \
 	$(SOURCE)/ColumnsDialog.o \
 	$(SOURCE)/JournalsDialog.o \
 	$(SOURCE)/DirectoryDialog.o \
-	$(SOURCE)/JediPlugins.o \
+	$(SOURCE)/JediScript.o \
 	$(SOURCE)/JediProcess.o \
 	$(SOURCE)/JediFetch.o \
 	$(SOURCE)/JournalQuery.o \
@@ -102,7 +102,7 @@ endif
 OBJECTS += $(TURBOVISION)/build/libtvision.a
 
 FLAGS += \
-	-Wno-unused-result -O2 -flto=auto -MMD -gdwarf \
+	-Wno-unused-result -O2 -flto=auto -MMD -MP -gdwarf \
 	-I$(TURBOVISION)/include \
 	$(shell $(PKG_CONFIG) --cflags $(DEPENDENCIES))
 
@@ -129,7 +129,7 @@ $(SOURCE)/Version.h: FORCE
 	@printf '#define VERSION "%s"\n#define BUILT_FOR "%s"\n#define REPOSITORY "%s"\n' '$(VERSION)' '$(TARGET)' '$(REPOSITORY)' | cmp -s - $@ || \
 	 printf '#define VERSION "%s"\n#define BUILT_FOR "%s"\n#define REPOSITORY "%s"\n' '$(VERSION)' '$(TARGET)' '$(REPOSITORY)' > $@
 
-$(SOURCE)/TurboJedi.o $(SOURCE)/JediApplication.o $(SOURCE)/JediUpdate.o $(SOURCE)/JediFetch.o $(SOURCE)/JediPlugins.o: $(SOURCE)/Version.h
+$(SOURCE)/TurboJedi.o $(SOURCE)/JediApplication.o $(SOURCE)/JediUpdate.o $(SOURCE)/JediFetch.o $(SOURCE)/JediScript.o: $(SOURCE)/Version.h
 
 # Internal headers of Turbo Vision include each other from there, only the event source needs them
 $(SOURCE)/JournalSource.o: CXXFLAGS += -I$(TURBOVISION)/include/tvision
@@ -165,6 +165,10 @@ arch:
 clean:
 	rm -f $(wildcard $(filter %.o,$(OBJECTS))) $(wildcard $(filter %.d,$(OBJECTS:.o=.d))) $(EXECUTABLE) $(SOURCE)/Version.h
 	rm -rf $(TURBOVISION)/build
+
+# A header that has gone or has been renamed is no reason to stop: -MP gives the headers of the dependencies empty rules,
+# this one serves the files written before it, the object is built again once a header it needs has changed
+$(SOURCE)/%.h: ;
 
 -include $(wildcard $(filter %.d,$(OBJECTS:.o=.d)))
 

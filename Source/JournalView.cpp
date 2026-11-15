@@ -23,7 +23,7 @@
 #include "JournalsDialog.h"
 #include "JediClipboard.h"
 #include "JournalQuery.h"
-#include "JediPlugins.h"
+#include "JediScript.h"
 
 #include <time.h>
 #include <stdio.h>

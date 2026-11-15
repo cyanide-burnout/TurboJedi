@@ -30,7 +30,7 @@
 #include "UpdateDialog.h"
 #endif
 #include "JediProcess.h"
-#include "JediPlugins.h"
+#include "JediScript.h"
 #include "ActionDialogs.h"
 
 #include <time.h>

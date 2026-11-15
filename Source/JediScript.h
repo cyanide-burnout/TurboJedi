@@ -1,5 +1,5 @@
-#ifndef JEDIPLUGINS_H
-#define JEDIPLUGINS_H
+#ifndef JEDISCRIPT_H
+#define JEDISCRIPT_H
 
 // TurboJedi, Turbo Journald Interface
 // https://github.com/cyanide-burnout/TurboJedi
