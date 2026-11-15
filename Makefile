@@ -84,6 +84,7 @@ OBJECTS := \
 	$(SOURCE)/DirectoryDialog.o \
 	$(SOURCE)/JediPlugins.o \
 	$(SOURCE)/JediProcess.o \
+	$(SOURCE)/JournalQuery.o \
 	$(SOURCE)/ActionDialogs.o
 
 # libcurl and the repository let the Help menu check for a newer release, without either the item is left out

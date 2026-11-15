@@ -139,6 +139,7 @@ argument whatever it holds, no shell sees it.
 | `open(options)` | action | a new window with a filter, like the one the menu has been opened in |
 | `find(text, options)` | action | the previous match in the window of the menu, as Find: `true` when found |
 | `seek(time)` | action | the window of the menu goes to a time, as Go to time |
+| `query(options)` | handler, action | entries of a filter for the plugin to look into: a list, and why the reading has stopped |
 | `execute(argv)` | action | runs a command in the background: `true`, or `nil` and the reason when it has not started |
 | `output(argv)` | action | runs a command in a window of its own: `true`, or `nil` and the reason |
 | `terminal(argv)` | action | runs a command on the terminal: `how, code` |
@@ -204,6 +205,35 @@ Ctrl-P go on with it. It gives `false` when nothing more is found, saying nothin
 ```lua
 turbojedi.seek(entry.__REALTIME_TIMESTAMP - 60 * 1000000)  -- a minute before the entry
 ```
+
+### Reading the journal
+
+`query` gives the plugin the entries of a filter to look into on its own, so that it decides by what the journal has
+told before: not to offer Drop for a connection that has closed already, to show how many times it has come back. It
+takes the options of `open`, read the way a window reads: the journal applies the matches, the text is matched against
+`identifier[pid]: message`, the times bound the range.
+
+| Option | |
+|---|---|
+| `before` | an entry or its `__CURSOR`: the entries older than it, the newest first; the entry itself is left out |
+| `after` | the same the other way: the entries newer than it, the oldest first |
+| `limit` | entries to give, 100 by default |
+| `scan` | entries of the matches to look at, 100000 by default: a text is matched here, not by the index of journald |
+| `timeout` | seconds an action reads, 30 by default, 0 for as long as it takes |
+
+Without `before` and `after` it starts from the newest entry of the range. The entries are tables like `entry`.
+
+```lua
+local closed, stopped = turbojedi.query { matches = { _SYSTEMD_UNIT = entry._SYSTEMD_UNIT }, text = id .. ' closed', before = entry, limit = 1 }
+```
+
+The second value tells why the reading has stopped before the journal or the range has ended: `limit`, `scan`, `time`
+or `cancel`; `nil` when it has looked at everything. Nothing found with `nil` means there is nothing; nothing found with
+a reason means it is not known, and an action that changes things has to take it so.
+
+A handler may query while it makes the menu, so that the items depend on the history, but the menu is not kept waiting:
+the queries of all handlers of one menu share 200 ms and 10000 entries, a query stops with `time` or `scan` when they
+are spent. An action reads on, after a moment with a dialog and Cancel while the windows go on.
 
 ### Commands
 

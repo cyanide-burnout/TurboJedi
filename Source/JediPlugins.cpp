@@ -15,6 +15,7 @@
 #include "JediClipboard.h"
 #include "JournalExpression.h"
 #include "JournalView.h"
+#include "JournalQuery.h"
 #include "Commands.h"
 
 extern "C"
@@ -53,6 +54,12 @@ extern "C"
 
 #define cmJournalAction    1200  // The first item of the menu, one per item
 
+#define QUERY_LIMIT        100     // Entries query() gives by default
+#define QUERY_SCAN         100000  // Entries it looks at by default
+#define QUERY_TIMEOUT      30      // Seconds it reads in an action by default
+#define MENU_TIME          200     // Milliseconds the queries of all handlers of a menu may take together
+#define MENU_SCAN          10000   // Entries they may look at together
+
 #define HANDLERS  "TurboJedi.handlers"
 #define NAMES     "TurboJedi.names"     // Of the plugin of every handler, by the same index
 #define MENU      "TurboJedi.menu"
@@ -62,7 +69,11 @@ static const char* const SystemDirectories[] = { "/usr/share/turbojedi/plugins",
 static lua_State* state;
 static int phase;
 static std::string plugin;  // Name of the plugin being loaded
-static JournalView* origin; // Window the menu has been opened in, for open(), find() and seek() of its action
+static JournalView* origin; // Window the menu has been opened in, for open(), find(), seek() and query()
+static int64_t deadline;    // Of the queries of the handlers making the menu, shared by all of them
+static size_t budget;       // Entries they may look at yet
+
+static void PushEntry(lua_State* state, const std::vector<std::pair<std::string, std::string>>& fields);
 static std::vector<std::string> directories;  // In the order a file of the same name takes the place: the user last
 static std::map<std::string, JournalExpression> expressions;
 
@@ -660,22 +671,18 @@ static bool AddMatch(JournalFilter& filter, const std::string& field, const std:
   return true;
 }
 
-// A new window like the one of the menu: its journals, columns and highlighting, the filter of the options
-static int Open(lua_State* state)
+// A filter of the options of open() and query(): the journals, columns and highlighting of the window of the menu, the
+// matches, text, times and levels of the options; false and the reason when an option is wrong
+static bool MakeFilter(lua_State* state, int index, JournalFilter& filter, std::string& error)
 {
+  int top;
   int level;
   uint64_t stamp;
   size_t equal;
   std::string key;
   std::string value;
-  std::string error;
-  JournalFilter filter;
 
-  if (lua_type(state, 1) != LUA_TTABLE)
-  {
-    return Fail(state, "open() takes a table of options");
-  }
-
+  top              = lua_gettop(state);
   filter           = JournalFilter { };
   filter.directory = origin->getFilter().directory;
   filter.merge     = origin->getFilter().merge;
@@ -684,7 +691,7 @@ static int Open(lua_State* state)
   filter.levels    = 0xff;
 
   lua_pushliteral(state, "matches");
-  lua_rawget(state, 1);
+  lua_rawget(state, index);
 
   if (lua_type(state, -1) == LUA_TTABLE)
   {
@@ -698,8 +705,9 @@ static int Open(lua_State* state)
 
         if ((equal == std::string::npos) || !AddMatch(filter, value.substr(0, equal), value.substr(equal + 1), error))
         {
-          lua_pop(state, 3);
-          return Fail(state, "open(): %s", (error.empty() ? value + " is not a FIELD=VALUE match" : error).c_str());
+          error = error.empty() ? (value + " is not a FIELD=VALUE match") : error;
+          lua_settop(state, top);
+          return false;
         }
 
         continue;
@@ -717,8 +725,8 @@ static int Open(lua_State* state)
 
           if (!AddMatch(filter, key, value, error))
           {
-            lua_pop(state, 3);
-            return Fail(state, "open(): %s", error.c_str());
+            lua_settop(state, top);
+            return false;
           }
         }
 
@@ -728,49 +736,176 @@ static int Open(lua_State* state)
       if ((!GetString(state, -1, value)) ||
           (!AddMatch(filter, key, value, error)))
       {
-        lua_pop(state, 3);
-        return Fail(state, "open(): %s", (error.empty() ? "a value of " + key + " is not a string" : error).c_str());
+        error = error.empty() ? ("a value of " + key + " is not a string") : error;
+        lua_settop(state, top);
+        return false;
       }
     }
   }
 
-  lua_pop(state, 1);
+  lua_settop(state, top);
 
-  if (GetOption(state, 1, "text", filter.text))
+  if (GetOption(state, index, "text", filter.text))
   {
-    filter.mode = GetTextMode(state, 1);
+    filter.mode = GetTextMode(state, index);
 
     if ((filter.mode & JOURNAL_TEXT_EXPRESSION) &&
         (!JournalExpression().compile(filter.text, !(filter.mode & JOURNAL_TEXT_SENSITIVE), &error)))
     {
-      return Fail(state, "open(): %s", error.c_str());
+      return false;
     }
   }
 
-  if (GetOption(state, 1, "since", filter.since) && !ParseJournalTime(filter.since, &stamp))
+  if ((GetOption(state, index, "since", filter.since) && !ParseJournalTime(filter.since, &stamp)) ||
+      (GetOption(state, index, "until", filter.until) && !ParseJournalTime(filter.until, &stamp)))
   {
-    return Fail(state, "open(): unknown time %s", filter.since.c_str());
+    error = "unknown time " + (filter.until.empty() ? filter.since : filter.until);
+    return false;
   }
 
-  if (GetOption(state, 1, "until", filter.until) && !ParseJournalTime(filter.until, &stamp))
-  {
-    return Fail(state, "open(): unknown time %s", filter.until.c_str());
-  }
-
-  if (GetOption(state, 1, "priority", value))
+  if (GetOption(state, index, "priority", value))
   {
     // Up to the level, like -p
     if ((level = GetPriority(value)) < 0)
     {
-      return Fail(state, "open(): unknown priority %s", value.c_str());
+      error = "unknown priority " + value;
+      return false;
     }
 
     filter.levels = (2 << level) - 1;
   }
 
+  return true;
+}
+
+// A new window like the one of the menu with the filter of the options
+static int Open(lua_State* state)
+{
+  std::string error;
+  JournalFilter filter;
+
+  if (lua_type(state, 1) != LUA_TTABLE)
+  {
+    return Fail(state, "open() takes a table of options");
+  }
+
+  if (!MakeFilter(state, 1, filter, error))
+  {
+    return Fail(state, "open(): %s", error.c_str());
+  }
+
   // The application makes the window as for a field of Details
   message(TProgram::application, evBroadcast, cmJournalOpenFilter, &filter);
   return 0;
+}
+
+// The cursor of a bound: an entry or its __CURSOR
+static bool GetBound(lua_State* state, int index, const char* name, std::string& cursor)
+{
+  bool found;
+
+  lua_pushstring(state, name);
+  lua_rawget(state, index);
+
+  if (lua_type(state, -1) == LUA_TTABLE)
+  {
+    lua_pushliteral(state, "__CURSOR");
+    lua_rawget(state, -2);
+    lua_replace(state, -2);
+  }
+
+  found = GetString(state, -1, cursor);
+  lua_pop(state, 1);
+  return found;
+}
+
+// Entries of a filter for the plugin to look into: a list of tables like entry, and why the reading has stopped before
+// the journal or the range has ended. A handler shares the budget of the menu with the others, an action reads on
+// with a dialog
+static int Query(lua_State* state)
+{
+  bool older;
+  int timeout;
+  size_t limit;
+  size_t scan;
+  std::string text;
+  std::string cursor;
+  std::string error;
+  JournalFilter filter;
+  JournalQuery query;
+
+  if (phase == PHASE_LOAD)
+  {
+    return Fail(state, "query() is used by a handler or an action, not while the plugin is loaded");
+  }
+
+  if (lua_type(state, 1) != LUA_TTABLE)
+  {
+    return Fail(state, "query() takes a table of options");
+  }
+
+  if (!MakeFilter(state, 1, filter, error))
+  {
+    return Fail(state, "query(): %s", error.c_str());
+  }
+
+  // Before an entry going older by default, after one going newer, from the newest without either
+  older = true;
+
+  if (!GetBound(state, 1, "before", cursor) &&
+      GetBound(state, 1, "after", cursor))
+  {
+    older = false;
+  }
+
+  limit   = GetOption(state, 1, "limit", text) ? std::max<long long>(1, atoll(text.c_str())) : QUERY_LIMIT;
+  scan    = GetOption(state, 1, "scan", text) ? std::max<long long>(1, atoll(text.c_str())) : QUERY_SCAN;
+  timeout = GetOption(state, 1, "timeout", text) ? std::max(0, atoi(text.c_str())) : QUERY_TIMEOUT;
+
+  if (phase == PHASE_MENU)
+  {
+    // Every handler takes from what the menu has left
+    scan = std::min(scan, budget);
+  }
+
+  if (!query.start(filter, cursor, older, limit, scan, error))
+  {
+    return Fail(state, "query(): %s", error.c_str());
+  }
+
+  if (phase == PHASE_MENU)
+  {
+    if (!query.step(deadline))
+    {
+      // The menu is not kept waiting
+      query.stop("time");
+    }
+
+    budget -= std::min(budget, query.scanned);
+
+    if ((budget == 0) && (query.stopped != nullptr) && (strcmp(query.stopped, "limit") != 0))
+    {
+      // The menu has spent its entries rather than this query its own
+      query.stopped = "scan";
+    }
+  }
+  else
+  {
+    RunJournalQuery(query, timeout);
+  }
+
+  lua_createtable(state, query.records.size(), 0);
+
+  for (size_t index = 0; index < query.records.size(); index ++)
+  {
+    PushEntry(state, query.records[index]);
+    lua_rawseti(state, -2, index + 1);
+  }
+
+  if (query.stopped != nullptr) lua_pushstring(state, query.stopped);
+  else                          lua_pushnil(state);
+
+  return 2;
 }
 
 // Find in the window of the menu: highlighted, on into the older entries, a step of its history
@@ -1022,6 +1157,7 @@ static const luaL_Reg functions[] =
   { "open",            Call<Open,            PHASE_ACTION> },
   { "find",            Call<Find,            PHASE_ACTION> },
   { "seek",            Call<Seek,            PHASE_ACTION> },
+  { "query",           Call<Query,           PHASE_ANY>    },
   { "quote",           Call<Quote,           PHASE_ANY>    },
   { "regex",           Call<Match,           PHASE_ANY>    },
   { "matches",         Call<Matches,         PHASE_ANY>    },
@@ -1313,8 +1449,11 @@ void ShowActions(JournalView* view, const std::string& cursor, TPoint where, boo
   lua_getfield(state, LUA_REGISTRYINDEX, HANDLERS);  // base + 5
   lua_getfield(state, LUA_REGISTRYINDEX, NAMES);     // base + 6
 
-  phase = PHASE_MENU;
-  count = lua_rawlen(state, base + 5);
+  phase    = PHASE_MENU;
+  origin   = view;
+  deadline = GetQueryMilliseconds() + MENU_TIME;
+  budget   = MENU_SCAN;
+  count    = lua_rawlen(state, base + 5);
 
   for (index = 1; index <= count; index ++)
   {
@@ -1349,8 +1488,9 @@ void ShowActions(JournalView* view, const std::string& cursor, TPoint where, boo
     lua_settop(state, base + 6);
   }
 
-  phase = PHASE_IDLE;
-  count = std::min<int>(lua_rawlen(state, base + 4), ACTION_LIMIT);
+  phase  = PHASE_IDLE;
+  origin = nullptr;
+  count  = std::min<int>(lua_rawlen(state, base + 4), ACTION_LIMIT);
 
   if (!errors.empty())
   {
