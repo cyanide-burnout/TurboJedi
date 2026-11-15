@@ -286,8 +286,9 @@ void JournalView::draw()
   // The cursor tells whether its line is a part of a selection
   extra = selected() > 0;
 
-  // Before the keys have moved it the cursor is on the line Enter and the actions take, the newest one while following
-  current = (anchor != NO_SELECTION) ? cursor : ((total() > 0) ? (first + latest()) : NO_SELECTION);
+  // Before the keys have moved it the cursor is on the line Enter and the actions take, the newest one while following;
+  // that one is drawn only in the window in front, the others would have a bar on their last lines for nothing
+  current = (anchor != NO_SELECTION) ? cursor : (((total() > 0) && (owner != nullptr) && (owner->state & sfSelected)) ? (first + latest()) : NO_SELECTION);
 
   for (y = 0; y < size.y; y ++)
   {
@@ -708,6 +709,17 @@ void JournalView::handleEvent(TEvent& event)
         refresh();
       }
       break;
+  }
+}
+
+void JournalView::setState(ushort state, Boolean enable)
+{
+  TScroller::setState(state, enable);
+
+  if (state & sfActive)
+  {
+    // The window has come to the front or left it, the cursor not moved yet is drawn only there
+    drawView();
   }
 }
 

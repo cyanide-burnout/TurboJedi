@@ -68,6 +68,7 @@ class JournalView : public TScroller
     void draw() override;
     void handleEvent(TEvent& event) override;
     void changeBounds(const TRect& bounds) override;
+    void setState(ushort state, Boolean enable) override;
 
     const JournalFilter& getFilter() const;
     const char* describe();
