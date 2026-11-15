@@ -116,16 +116,38 @@ void JournalQuery::stop(const char* reason)
   }
 }
 
-bool JournalQuery::step(int64_t deadline)
+bool TestJournalText(sd_journal* journal, JournalMatcher& matcher, bool exclude)
 {
-  int count;
-  int result;
   size_t length;
-  uint64_t stamp;
   const void* data;
   std::string text;
   char identifier[256];
   char pid[32];
+
+  if (matcher.empty())
+  {
+    return true;
+  }
+
+  // As a window matches its text
+  text = (GetJournalField(journal, "SYSLOG_IDENTIFIER", identifier, sizeof(identifier)) || GetJournalField(journal, "_COMM", identifier, sizeof(identifier))) ? identifier : "?";
+  text += "[";
+  text += GetJournalField(journal, "_PID", pid, sizeof(pid)) ? pid : "";
+  text += "]: ";
+
+  if (sd_journal_get_data(journal, "MESSAGE", &data, &length) >= 0)
+  {
+    text.append(static_cast<const char*>(data) + 8, length - 8);
+  }
+
+  return matcher.match(text) != exclude;
+}
+
+bool JournalQuery::step(int64_t deadline)
+{
+  int count;
+  int result;
+  uint64_t stamp;
 
   while (!over)
   {
@@ -173,23 +195,9 @@ bool JournalQuery::step(int64_t deadline)
 
       scanned ++;
 
-      if (!matcher.empty())
+      if (!TestJournalText(journal, matcher, exclude))
       {
-        // As a window matches its text
-        text = (GetJournalField(journal, "SYSLOG_IDENTIFIER", identifier, sizeof(identifier)) || GetJournalField(journal, "_COMM", identifier, sizeof(identifier))) ? identifier : "?";
-        text += "[";
-        text += GetJournalField(journal, "_PID", pid, sizeof(pid)) ? pid : "";
-        text += "]: ";
-
-        if (sd_journal_get_data(journal, "MESSAGE", &data, &length) >= 0)
-        {
-          text.append(static_cast<const char*>(data) + 8, length - 8);
-        }
-
-        if (matcher.match(text) == exclude)
-        {
-          continue;
-        }
+        continue;
       }
 
       records.push_back(CollectJournalFields(journal));

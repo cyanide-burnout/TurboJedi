@@ -90,6 +90,7 @@ OBJECTS := \
 	$(SOURCE)/JediProcess.o \
 	$(SOURCE)/JediFetch.o \
 	$(SOURCE)/JournalQuery.o \
+	$(SOURCE)/JournalWatch.o \
 	$(SOURCE)/ActionDialogs.o
 
 # The repository lets the Help menu check for a newer release, without it the item is left out

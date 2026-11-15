@@ -55,6 +55,10 @@ class JournalQuery
 
 int64_t GetQueryMilliseconds();
 
+// The entry the journal is on passes the text of a filter, matched against identifier[pid]: message as a window does;
+// exclude turns it over. Any entry passes an empty one
+bool TestJournalText(sd_journal* journal, JournalMatcher& matcher, bool exclude);
+
 #define STEPS_DONE    0
 #define STEPS_TIME    1
 #define STEPS_CANCEL  2
