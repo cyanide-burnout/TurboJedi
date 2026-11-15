@@ -171,6 +171,20 @@ argument whatever it holds, no shell sees it.
 
 Called at the wrong time, a function is an error.
 
+### Version
+
+`turbojedi.version` is the version of TurboJedi as git tells it: `v0.15` of a release, `v0.15-3-gabcdef` of a build
+after it, `unknown` of a copy without git. A plugin that needs a function of a later release asks for the function
+itself, which works for a build between the releases too:
+
+```lua
+if not turbojedi.fetch then
+  error('fetch() is in TurboJedi ' .. turbojedi.version .. ' not yet')
+end
+
+local major, minor = turbojedi.version:match('^v(%d+)%.(%d+)')  -- nil for unknown
+```
+
 ### Dialogs
 
 Dialogs are modal, the windows go on behind them; a long text scrolls. They are the way for the user to see with their

@@ -129,7 +129,7 @@ $(SOURCE)/Version.h: FORCE
 	@printf '#define VERSION "%s"\n#define BUILT_FOR "%s"\n#define REPOSITORY "%s"\n' '$(VERSION)' '$(TARGET)' '$(REPOSITORY)' | cmp -s - $@ || \
 	 printf '#define VERSION "%s"\n#define BUILT_FOR "%s"\n#define REPOSITORY "%s"\n' '$(VERSION)' '$(TARGET)' '$(REPOSITORY)' > $@
 
-$(SOURCE)/TurboJedi.o $(SOURCE)/JediApplication.o $(SOURCE)/JediUpdate.o $(SOURCE)/JediFetch.o: $(SOURCE)/Version.h
+$(SOURCE)/TurboJedi.o $(SOURCE)/JediApplication.o $(SOURCE)/JediUpdate.o $(SOURCE)/JediFetch.o $(SOURCE)/JediPlugins.o: $(SOURCE)/Version.h
 
 # Internal headers of Turbo Vision include each other from there, only the event source needs them
 $(SOURCE)/JournalSource.o: CXXFLAGS += -I$(TURBOVISION)/include/tvision

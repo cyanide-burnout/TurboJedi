@@ -9,6 +9,7 @@
 #define Uses_TEvent
 #include <tvision/tv.h>
 
+#include "Version.h"
 #include "JediPlugins.h"
 #include "JediProcess.h"
 #include "JediFetch.h"
@@ -1867,7 +1868,10 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
 
   luaL_openlibs(state);
 
+  // turbojedi.version as git tells it: v0.15, v0.15-3-gabcdef of a build after it, or unknown
   luaL_newlib(state, functions);
+  lua_pushliteral(state, VERSION);
+  lua_setfield(state, -2, "version");
   lua_setglobal(state, "turbojedi");
 
   lua_newtable(state);
