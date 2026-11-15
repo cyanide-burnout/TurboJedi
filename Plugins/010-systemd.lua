@@ -13,6 +13,17 @@ local function status(unit)
   turbojedi.output { 'env', 'SYSTEMD_COLORS=1', 'systemctl', 'status', '--no-pager', '--full', unit }
 end
 
+local function copy(unit)
+  -- systemctl status ends with 3 for a unit that is not running, its text is the status all the same
+  local text, how, code, errors = turbojedi.capture { 'systemctl', 'status', '--no-pager', '--full', unit }
+
+  if (how == 'exit') and (text ~= '') then
+    turbojedi.copy(text)
+  else
+    turbojedi.message('systemctl status ' .. unit .. ': ' .. (errors or how .. ' ' .. tostring(code)))
+  end
+end
+
 local function file(unit)
   turbojedi.output { 'systemctl', 'cat', '--no-pager', unit }
 end
@@ -31,6 +42,7 @@ turbojedi.registerHandler(function(entry, menu, context)
 
   if type(unit) == 'string' then
     menu:add('Status of ' .. unit, status, unit)
+    menu:add('Copy status of ' .. unit, copy, unit)
     menu:add('Unit file of ' .. unit, file, unit)
   end
 

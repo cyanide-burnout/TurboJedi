@@ -261,6 +261,7 @@ All plugins share one state of Lua, a global of one is seen by the others: keep 
 `010-systemd.lua` of the package only looks, nothing is changed. For an entry of this machine:
 
 - Status of the unit, `systemctl status`, in a window
+- Copy status of the unit, the same text put to the clipboard
 - Unit file of the unit, `systemctl cat`, in a window
 - Process in `top`, on the terminal, while the process of the entry still runs as the same program
 

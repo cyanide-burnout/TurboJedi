@@ -323,7 +323,8 @@ written the same way in `Source/JournalHighlighter.cpp`.
 
 The Actions menu of an entry, Alt-F10, A, F11, Shift-F10 or a right click, is made by plugins in Lua 5.4 from
 `/usr/share/turbojedi/plugins`, `/usr/local/share/turbojedi/plugins` and `~/.config/turbojedi/plugins`. The package
-brings `010-systemd.lua`, which only looks: the status and the unit file of the unit of the entry, its process in top.
+brings `010-systemd.lua`, which only looks: the status of the unit of the entry in a window or to the clipboard, its
+unit file, its process in top.
 Plugins that change things come as examples in `/usr/share/turbojedi/examples` and are not run by themselves.
 
 The fail2ban example bans or unbans an address of the entry, after asking for the jail and a confirmation; it needs
