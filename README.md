@@ -33,7 +33,7 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd and
 - Details of an entry with all its fields, a field there opens a window narrowed to it
 - Actions of an entry by plugins in Lua 5.4: Alt-F10, A, F11, Shift-F10 or a right click opens the menu of what the
   plugins offer for it, each item named with its plugin. The plugins of the package only look: the status and the
-  unit file of the unit of the entry and its process in top, the route, name, whois, ping and path of an address,
+  unit file of the unit of the entry and its process in top, the route, lookup, whois, ping and path of an address,
   a core dump in coredumpctl and gdb; fail2ban and block devices are in the examples. Plugins ask with dialogs and run commands in the background, in a window or on the terminal, see
   [PLUGINS.md](PLUGINS.md)
 - Selection with the keyboard or the mouse, copy to the clipboard (OSC 52 over SSH), export to a file
@@ -327,7 +327,7 @@ brings plugins that only look:
 
 - `010-systemd.lua`: the status of the unit of the entry in a window or to the clipboard, its unit file, its process
   in top
-- `020-network.lua`: an item for every address of the message, its route, name, whois, ping, path or a copy are chosen
+- `020-network.lua`: an item for every address of the message, its route, lookup, whois, ping, path or a copy are chosen
   there, the ones whose programs are installed
 - `030-coredump.lua`: for an entry of systemd-coredump, what coredumpctl knows of that dump, a copy of it, its stack in
   gdb

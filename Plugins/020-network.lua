@@ -2,7 +2,7 @@
 -- https://github.com/cyanide-burnout/TurboJedi
 -- Artem Prilutskiy, 2026
 
--- Addresses of an entry: one item for each, its route, name, whois, ping, path or a copy are chosen there; they only look
+-- Addresses of an entry: one item for each, its route, lookup, whois, ping, path or a copy are chosen there; they only look
 
 -- IPv4, or IPv6 in full or with ::, not a time such as 12:34:56
 local ADDRESS = [[(?<![\w.:])(?<address>(?:\d{1,3}\.){3}\d{1,3}|(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4})*)?::(?:[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4})*)?)(?![\w.:])]]
@@ -13,7 +13,9 @@ local function valid(address)
   return select(2, address:gsub('%x+', '')) >= 2  -- :: alone and ::1 say nothing
 end
 
-local function name(address)
+-- The names of an address: host asks the DNS and tells all of them, getent goes the way the system resolves
+local function lookup(address)
+  if turbojedi.which('host') then return turbojedi.output { 'host', address } end
   local text, how, code = turbojedi.capture { 'getent', 'hosts', address }
   turbojedi.message(((how == 'exit') and (code == 0)) and text:gsub('%s+$', '') or (address .. ' has no name'))
 end
@@ -22,7 +24,7 @@ end
 local ACTIONS =
 {
   { 'Route',      'ip',        function(address) turbojedi.output { 'ip', 'route', 'get', address } end },
-  { 'Name',       'getent',    name },
+  { 'Lookup',     'getent',    lookup },
   { 'Whois',      'whois',     function(address) turbojedi.output { 'whois', address } end },
   { 'Ping',       'ping',      function(address) turbojedi.output { 'ping', '-c', '4', '-W', '2', address } end },
   { 'Trace path', 'tracepath', function(address) turbojedi.output { 'tracepath', '-n', address } end },

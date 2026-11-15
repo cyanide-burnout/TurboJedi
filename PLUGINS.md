@@ -373,7 +373,7 @@ end)
 ### Addresses
 
 `020-network.lua` of the package gives one item to every address of the message, IPv4 or IPv6, and the actions are
-chosen in a list there: Route (`ip route get`), Name (`getent hosts`), Whois, Ping (four of them), Trace path
+chosen in a list there: Route (`ip route get`), Lookup (`host`, or `getent hosts` without it), Whois, Ping (four of them), Trace path
 (`tracepath -n`) and Copy. Only the actions whose programs are installed are in the list, so the menu stays short when
 an entry has several addresses.
 
