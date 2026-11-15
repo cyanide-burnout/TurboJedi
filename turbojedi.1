@@ -146,6 +146,10 @@ window follows the tail, anywhere else it pauses.
 All fields of the entry under the cursor, also by a double click.
 \fBEnter\fR on a field there opens a window with the filter of this one and the field.
 .TP
+.B Alt-F10
+Actions of the plugins for the entry under the cursor, also \fBF11\fR, \fBShift-F10\fR and a right click on a line.
+See \fBPLUGINS\fR below.
+.TP
 .B Space
 Pause or follow the tail. Scrolling past the oldest line brings the older entries in.
 The title of a window starts with \[u25BA] when it follows, with \[u2016] when it is paused, and with the count of the
@@ -191,6 +195,18 @@ your user, such as \fB\-\-clipboard\-copy "sudo \-u $USER $HOME/remote-copy.sh"\
 .I $XDG_CONFIG_HOME/turbojedi/last.jedi
 The layout kept on exit, \fI~/.config/turbojedi/last.jedi\fR without XDG_CONFIG_HOME.
 It is opened on the next start unless a layout or filter options are given.
+.TP
+.I $XDG_CONFIG_HOME/turbojedi/plugins
+Plugins of the user in Lua 5.4, \fI~/.config/turbojedi/plugins\fR without XDG_CONFIG_HOME.
+.TP
+.I /usr/share/turbojedi/plugins, /usr/local/share/turbojedi/plugins
+Plugins of the package and of the machine; \fI/usr/share/turbojedi/examples\fR has more of them to copy.
+.SH PLUGINS
+The Actions menu of an entry is made by plugins in Lua 5.4: the \fI*.lua\fR files of the directories above, run
+once at start in the order of their names. A file of the same name in the directory of the user takes the place
+of the one of the package, an empty one leaves it out. Run by root, a plugin is used only when root alone can
+change it and every directory above it. Every action is a command of a list of arguments, never a line of a shell,
+and changes nothing without being chosen. PLUGINS.md of the package tells how to write them.
 .SH NOTES
 Reading the whole journal needs root or the \fBsystemd-journal\fR group.
 .SH AUTHOR

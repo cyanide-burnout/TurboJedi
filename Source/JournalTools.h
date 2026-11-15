@@ -76,6 +76,10 @@ int GetJournalWait(sd_journal* journal, int limit);
 std::vector<std::string> ReadJournalEntry(const JournalFilter& filter, const std::string& cursor);
 bool GetJournalField(sd_journal* journal, const char* name, char* buffer, size_t size);
 
+// Every field of the entry at a cursor as the journal has it, binary data and repeated fields included, with
+// __REALTIME_TIMESTAMP, __MONOTONIC_TIMESTAMP and __CURSOR; empty when the entry is gone
+std::vector<std::pair<std::string, std::string>> ReadJournalFields(const JournalFilter& filter, const std::string& cursor);
+
 // The file system of the journal tells nothing about its changes: a network one, which libsystemd knows, or FUSE such as sshfs,
 // which it does not; such a journal is read on every poll instead of when inotify tells
 bool IsJournalBlind(sd_journal* journal, const JournalFilter& filter);

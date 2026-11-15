@@ -11,7 +11,7 @@ pkgdesc='Turbo Vision viewer of the systemd journal'
 arch=('x86_64' 'aarch64')
 url='https://github.com/cyanide-burnout/TurboJedi'
 license=('MIT')
-depends=('glibc' 'gcc-libs' 'systemd-libs' 'ncurses' 'pcre2' 'gpm' 'curl')
+depends=('glibc' 'gcc-libs' 'systemd-libs' 'ncurses' 'pcre2' 'gpm' 'curl' 'lua54')
 makedepends=('cmake' 'git' 'pkgconf')
 
 build() {
@@ -26,4 +26,5 @@ package() {
   install -D -m 644 Import/tvision/COPYRIGHT "${pkgdir}/usr/share/licenses/${pkgname}/tvision-COPYRIGHT"
   install -D -m 644 README.md "${pkgdir}/usr/share/doc/${pkgname}/README.md"
   install -D -m 644 CHANGELOG.md "${pkgdir}/usr/share/doc/${pkgname}/CHANGELOG.md"
+  install -D -m 644 PLUGINS.md "${pkgdir}/usr/share/doc/${pkgname}/PLUGINS.md"
 }

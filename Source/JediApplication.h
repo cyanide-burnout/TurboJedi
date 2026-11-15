@@ -34,6 +34,8 @@ class JediApplication : public TApplication
 
     bool save(const std::string& path);
 
+    void tell(const std::vector<std::string>& problems);  // Of the plugins at start
+
   private:
 
     JournalFilter filter;
@@ -45,6 +47,8 @@ class JediApplication : public TApplication
     MouseEventType held;  // The mouse with a button held, buttons are zero when none is
     uint64_t repeat;      // Milliseconds of Turbo Vision when the held button repeats
     std::string place;    // Path of the layout opened or saved the last time, empty before
+    std::vector<std::string> problems;  // Of the plugins at start
+    std::vector<std::string> reports;   // Of the commands in the background that have ended badly
 #ifdef USE_UPDATE
     JediUpdate update;    // Latest release on GitHub, asked from the Help menu or on start
     bool automatic;       // The running check has begun on start, it tells only about a newer release

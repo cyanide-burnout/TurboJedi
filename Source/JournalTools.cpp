@@ -173,6 +173,57 @@ std::vector<std::string> ReadJournalEntry(const JournalFilter& filter, const std
   return fields;
 }
 
+std::vector<std::pair<std::string, std::string>> ReadJournalFields(const JournalFilter& filter, const std::string& cursor)
+{
+  size_t length;
+  uint64_t stamp;
+  const void* data;
+  const char* text;
+  const char* equal;
+  sd_id128_t boot;
+  sd_journal* journal;
+  std::vector<std::pair<std::string, std::string>> fields;
+
+  if (OpenJournal(&journal, filter) < 0)
+  {
+    return fields;
+  }
+
+  // Seeking puts the cursor in front of the entry, the step lands on it
+  if ((sd_journal_seek_cursor(journal, cursor.c_str()) >= 0) &&
+      (sd_journal_next(journal) > 0) &&
+      (sd_journal_test_cursor(journal, cursor.c_str()) > 0))
+  {
+    SD_JOURNAL_FOREACH_DATA(journal, data, length)
+    {
+      text  = static_cast<const char*>(data);
+      equal = static_cast<const char*>(memchr(text, '=', length));
+
+      if (equal != nullptr)
+      {
+        // Values are bytes, a plugin takes them as they are
+        fields.emplace_back(std::string(text, equal - text), std::string(equal + 1, length - (equal - text) - 1));
+      }
+    }
+
+    if (sd_journal_get_realtime_usec(journal, &stamp) >= 0)
+    {
+      fields.emplace_back("__REALTIME_TIMESTAMP", std::to_string(stamp));
+    }
+
+    if (sd_journal_get_monotonic_usec(journal, &stamp, &boot) >= 0)
+    {
+      // _BOOT_ID is a field of the entry already
+      fields.emplace_back("__MONOTONIC_TIMESTAMP", std::to_string(stamp));
+    }
+
+    fields.emplace_back("__CURSOR", cursor);
+  }
+
+  sd_journal_close(journal);
+  return fields;
+}
+
 bool GetJournalField(sd_journal* journal, const char* name, char* buffer, size_t size)
 {
   size_t length;

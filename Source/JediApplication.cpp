@@ -29,6 +29,8 @@
 #ifdef USE_UPDATE
 #include "UpdateDialog.h"
 #endif
+#include "JediProcess.h"
+#include "ActionDialogs.h"
 
 #include <time.h>
 #include <stdio.h>
@@ -91,7 +93,15 @@ JediApplication::JediApplication(const JournalFilter& filter, int history, const
 
 TStatusLine* JediApplication::initStatusLine(TRect bounds)
 {
+  TStatusItem* hidden;
+
   bounds.a.y = bounds.b.y - 1;
+
+  // Keys without a label
+  hidden = new TStatusItem(0, kbCtrlC, cmQuit);
+
+  // Actions the way Far and Windows open them, Alt-F10 of the menu as in the IDEs of Borland is the main one
+  hidden = new TStatusItem(0, kbF11, cmJournalActions, new TStatusItem(0, kbShiftF10, cmJournalActions, hidden));
 
   return new JediStatusLine(bounds,
     *new TStatusDef(0, 0xffff,
@@ -103,7 +113,7 @@ TStatusLine* JediApplication::initStatusLine(TRect bounds)
       new TStatusItem("~Ctrl-F~ Find",  kbCtrlF, cmJournalFind,
       new TStatusItem("~Space~ Pause",  kbNoKey, cmJournalPause,
       new TStatusItem("~Alt-X~ Exit",   kbAltX,  cmQuit,
-      new TStatusItem(0,                kbCtrlC, cmQuit)))))))))));
+      hidden))))))))));
 }
 
 TMenuBar* JediApplication::initMenuBar(TRect bounds)
@@ -136,6 +146,7 @@ TMenuBar* JediApplication::initMenuBar(TRect bounds)
       *new TMenuItem("Find ~n~ext",     cmJournalFindNext,     kbCtrlN,   hcNoContext, "Ctrl-N") +
       *new TMenuItem("Find p~r~evious", cmJournalFindPrevious, kbCtrlP,   hcNoContext, "Ctrl-P") +
       *new TMenuItem("~D~etails...",    cmJournalDetails,      kbNoKey,   hcNoContext, "Enter") +
+      *new TMenuItem("~A~ctions...",    cmJournalActions,      kbAltF10,  hcNoContext, "Alt-F10") +
       newLine() +
       *new TMenuItem("~G~o to time...", cmJournalGoTo,         kbCtrlG,   hcNoContext, "Ctrl-G") +
       *new TMenuItem("S~y~nc windows",  cmJournalSync,         kbAltG,    hcNoContext, "Alt-G") +
@@ -184,6 +195,17 @@ void JediApplication::getEvent(TEvent& event)
     event.what      = evMouseAuto;
     event.mouse     = held;
     repeat          = ticks + REPEAT_INTERVAL;
+  }
+
+  if ((event.what == evNothing) &&
+      ((!problems.empty()) || (!reports.empty())) &&
+      (TopView() == this))
+  {
+    // Problems of the plugins at start, commands of actions in the background that have ended badly: told when nothing
+    // modal would swallow the command
+    event.what            = evCommand;
+    event.message.command = (!problems.empty()) ? cmJournalPlugins : cmJournalReports;
+    event.message.infoPtr = nullptr;
   }
 
   if (event.what != evNothing)
@@ -235,6 +257,31 @@ void JediApplication::handleEvent(TEvent& event)
       case cmJournalHelp:      showHelp();         break;
       case cmJournalTimeline:  timeline(current);  break;
       case cmJournalAbout:     showAbout();        break;
+      case cmJournalPlugins:
+        // Each file that has failed, the rest of them work
+        if (!problems.empty())
+        {
+          std::string text;
+
+          for (const std::string& problem : problems)
+          {
+            text += (text.empty() ? "" : "\n\n") + problem;
+          }
+
+          problems.clear();
+          ShowActionText("Plugins", text);
+        }
+        break;
+
+      case cmJournalReports:
+        while (!reports.empty())
+        {
+          std::string report = reports.front();
+
+          reports.erase(reports.begin());
+          ShowActionText("Command", report);
+        }
+        break;
 #ifdef USE_UPDATE
       case cmJournalUpdateAsk: askUpdate();        break;
       case cmJournalUpdate:    checkUpdate();      break;
@@ -268,6 +315,18 @@ void JediApplication::idle()
     // The held button repeats when the wait ends
     ticks        = THardwareInfo::getTickCountMs();
     poll.timeout = (repeat > ticks) ? std::min<int>(poll.timeout, repeat - ticks) : 0;
+  }
+
+  if (PollBackground(reports))
+  {
+    // Commands of actions go on in the background, their ends are looked for now and then
+    poll.timeout = std::min(poll.timeout, 200);
+  }
+
+  if (!reports.empty())
+  {
+    // getEvent() tells them once no dialog is open
+    poll.timeout = std::min(poll.timeout, 200);
   }
 
 #ifdef USE_UPDATE
@@ -478,6 +537,12 @@ bool JediApplication::load(const std::string& path, std::string& error)
   return true;
 }
 
+void JediApplication::tell(const std::vector<std::string>& problems)
+{
+  // getEvent() tells them once the windows are up and nothing modal is open
+  this->problems = problems;
+}
+
 bool JediApplication::save(const std::string& path)
 {
   std::vector<JournalLayout> layout;
@@ -617,6 +682,8 @@ void JediApplication::showHelp()
     "  Esc             Drop the cursor, the selection and the marks",
     "  Enter           All fields of the entry under the cursor, also double click,",
     "                  Enter on a field there opens a window with the filter of this one and the field",
+    "  Alt-F10         Actions of the plugins for the entry under the cursor, also F11, Shift-F10",
+    "                  and a right click on a line; see PLUGINS.md",
     "  Ctrl-F          Find and highlight, Ctrl-N and Ctrl-P go to the next and previous one,",
     "                  the search goes on into the older entries past the oldest line",
     "  Ctrl-G          Go to a time",

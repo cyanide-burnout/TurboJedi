@@ -134,3 +134,34 @@ void JournalExpression::release()
   code = nullptr;
   data = nullptr;
 }
+
+std::vector<std::string> JournalExpression::names() const
+{
+  uint32_t count;
+  uint32_t size;
+  uint32_t index;
+  uint32_t groups;
+  PCRE2_SPTR table;
+  std::vector<std::string> result;
+
+  if ((code == nullptr) ||
+      (pcre2_pattern_info(code, PCRE2_INFO_CAPTURECOUNT, &groups) != 0))
+  {
+    return result;
+  }
+
+  result.resize(groups + 1);
+
+  if ((pcre2_pattern_info(code, PCRE2_INFO_NAMECOUNT, &count) == 0) &&
+      (pcre2_pattern_info(code, PCRE2_INFO_NAMEENTRYSIZE, &size) == 0) &&
+      (pcre2_pattern_info(code, PCRE2_INFO_NAMETABLE, &table) == 0))
+  {
+    for (index = 0; index < count; index ++)
+    {
+      // An entry is the number in two bytes, then the name ending with zero
+      result[(table[index * size] << 8) | table[index * size + 1]] = (const char*)(table + index * size + 2);
+    }
+  }
+
+  return result;
+}

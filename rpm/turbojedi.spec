@@ -23,6 +23,13 @@ BuildRequires:  ncurses-devel
 BuildRequires:  pcre2-devel
 BuildRequires:  libcurl-devel
 
+# Plugins of the Actions menu, Lua 5.4 under its own name in openSUSE
+%if 0%{?suse_version}
+BuildRequires:  lua54-devel
+%else
+BuildRequires:  lua-devel
+%endif
+
 # Mouse of the Linux console, EL10 has no GPM
 %if 0%{?rhel} < 10
 BuildRequires:  gpm-devel
@@ -46,7 +53,7 @@ or rule files of grc, synchronized time across windows and saved layouts.
 
 %prep
 # What %%setup would unpack: %%license and %%doc take the names from the build directory
-cp -p "%{turbojedi_tree}/LICENSE" "%{turbojedi_tree}/README.md" "%{turbojedi_tree}/CHANGELOG.md" .
+cp -p "%{turbojedi_tree}/LICENSE" "%{turbojedi_tree}/README.md" "%{turbojedi_tree}/CHANGELOG.md" "%{turbojedi_tree}/PLUGINS.md" .
 cp -p "%{turbojedi_tree}/Import/tvision/COPYRIGHT" tvision-COPYRIGHT
 
 %build
@@ -65,6 +72,7 @@ make install PREFIX=%{buildroot}%{_prefix}
 
 %files
 %license LICENSE tvision-COPYRIGHT
-%doc README.md CHANGELOG.md
+%doc README.md CHANGELOG.md PLUGINS.md
 %{_bindir}/turbojedi
 %{_mandir}/man1/turbojedi.1*
+%{_datadir}/turbojedi

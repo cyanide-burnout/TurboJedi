@@ -181,6 +181,7 @@ class JournalView : public TScroller
     void copy();
     void save();
     void details();
+    void actions(TPoint where);  // Of the plugins for the entry under the cursor, the menu there on the screen
     void find(int direction);
     void seek(uint64_t realtime, bool nearest);
     JournalPlace here();

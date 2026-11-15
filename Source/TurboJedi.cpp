@@ -8,6 +8,7 @@
 #include "JournalTools.h"
 #include "JournalHighlighter.h"
 #include "JediClipboard.h"
+#include "JediPlugins.h"
 
 #include <time.h>
 #include <stdio.h>
@@ -26,6 +27,7 @@
 #define DEFAULT_HISTORY  1000
 #define LAST_LAYOUT      "last.jedi"
 #define UPDATE_SETTINGS  "update.ini"
+#define PLUGIN_DIRECTORY "plugins"
 
 static int GetPriorityLevel(const char* value)
 {
@@ -166,6 +168,7 @@ int main(int count, char* const* arguments)
   std::string last;
   std::string error;
   std::vector<JournalLayout> windows;
+  std::vector<std::string> problems;
   sd_id128_t boot;
   JournalFilter filter;
   JediApplication* application;
@@ -336,7 +339,11 @@ int main(int count, char* const* arguments)
   WriteTerminal("\x1b[22;2t");
   atexit(RestoreTitle);
 
+  // Plugins are run before the windows, their problems are told once the windows are up
+  LoadPlugins(GetConfigPath(PLUGIN_DIRECTORY), problems);
+
   application = new JediApplication(filter, history, layout, GetConfigPath(UPDATE_SETTINGS));
+  application->tell(problems);
 
   // Journals of sshfs and NFS may lose their files under the mapping, the windows open them again instead of a crash;
   // after Turbo Vision has set its handlers, other faults go on to them
@@ -354,6 +361,7 @@ int main(int count, char* const* arguments)
   }
 
   TObject::destroy(application);
+  ClosePlugins();
 
   return EXIT_SUCCESS;
 }

@@ -33,6 +33,9 @@ class JournalExpression
     // Next match from the offset on: byte ranges of the match and its groups, npos for a group that has not taken part
     bool search(const std::string& text, size_t offset, std::vector<std::pair<size_t, size_t>>& groups);
 
+    // Names of the groups by their numbers, empty for a group without one; as many as there are groups and the match
+    std::vector<std::string> names() const;
+
     // Where the search goes on after a match that has ended there, past a whole character after an empty one
     static size_t advance(const std::string& text, size_t start, size_t end);
 

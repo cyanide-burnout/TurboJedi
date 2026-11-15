@@ -31,6 +31,11 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd and
 - List of the windows to go to, narrowed down by a filter
 - Go to a time, and every other window to the time of the selected line: what happened elsewhere at that moment
 - Details of an entry with all its fields, a field there opens a window narrowed to it
+- Actions of an entry by plugins in Lua 5.4: Alt-F10, F11, Shift-F10 or a right click opens the menu of what the
+  plugins offer for it, each item named with its plugin. The package brings one that only looks: the status and the
+  unit file of the unit of the entry, its process in top while it runs; fail2ban in the examples bans an address of
+  the entry. Plugins ask with dialogs and run commands in the background, in a window or on the terminal, see
+  [PLUGINS.md](PLUGINS.md)
 - Selection with the keyboard or the mouse, copy to the clipboard (OSC 52 over SSH), export to a file
 - Timeline: entries of the filter of a window by intervals of time, errors, warnings and the rest stacked
   in a column per interval; a column takes every journal window to its time
@@ -69,7 +74,7 @@ Alpine has no systemd, so there is no journal to show. Elsewhere TurboJedi build
 
 ## Building
 
-Debian packages: `build-essential cmake pkg-config libsystemd-dev libncurses-dev libpcre2-dev`, `libgpm-dev` for
+Debian packages: `build-essential cmake pkg-config libsystemd-dev libncurses-dev libpcre2-dev liblua5.4-dev`, `libgpm-dev` for
 the mouse in the Linux console, `libcurl4-openssl-dev` for Check for updates, and `grc` for its rule files if they are wanted
 
 ```
@@ -87,10 +92,11 @@ make
 ```
 
 `make` builds tvision in `Import/tvision/build` first, and again what has changed in it after the submodule has
-moved. `make install` puts the executable to `/usr/local/bin` and the manual page to `/usr/local/share/man/man1`,
-`PREFIX` and `DESTDIR` move them. Without libgpm the build goes on, with the mouse in terminal emulators only; the mouse
+moved. `make install` puts the executable to `/usr/local/bin`, the manual page to `/usr/local/share/man/man1` and the
+plugins to `/usr/local/share/turbojedi`, `PREFIX` and `DESTDIR` move them. Without libgpm the build goes on, with the mouse in terminal emulators only; the mouse
 of the Linux console needs the `gpm` service running.
-Without libcurl the Help menu has no Check for updates.
+Without libcurl the Help menu has no Check for updates. Lua 5.4 is needed; distributions name its pkg-config module in
+their own ways, `lua5.4`, `lua54` or `lua`, any of them of version 5.4 is taken.
 
 About, `--help` and Check for updates link to the repository on GitHub the clone comes from, its `origin`, so a fork links
 to itself and checks its own releases. A copy without git or a clone of another host has none, `make REPOSITORY=` leaves
@@ -113,24 +119,25 @@ that architecture in place:
 ```
 sudo dpkg --add-architecture amd64
 sudo apt update
-sudo apt install crossbuild-essential-amd64 libsystemd-dev:amd64 libncurses-dev:amd64 libpcre2-dev:amd64 libgpm-dev:amd64 libcurl4-openssl-dev:amd64
+sudo apt install crossbuild-essential-amd64 libsystemd-dev:amd64 libncurses-dev:amd64 libpcre2-dev:amd64 libgpm-dev:amd64 libcurl4-openssl-dev:amd64 liblua5.4-dev:amd64
 ```
 
 ### RPM package
 
 ```
-sudo dnf install rpm-build gcc-c++ make cmake systemd-devel ncurses-devel pcre2-devel gpm-devel libcurl-devel
+sudo dnf install rpm-build gcc-c++ make cmake systemd-devel ncurses-devel pcre2-devel gpm-devel libcurl-devel lua-devel
 make rpm
 ```
 
 `make rpm` builds `rpmbuild/RPMS/<arch>/turbojedi-<version>-1.<dist>.<arch>.rpm` for Fedora, RHEL and Amazon Linux,
-with the version the same way. openSUSE takes the same packages from `zypper` and `gcc-PIE`, gives no tag of its own
+with the version the same way. RHEL 9 and its rebuilds have `lua-devel` in CRB: `sudo dnf config-manager --set-enabled crb`. openSUSE takes the same
+packages from `zypper` with `lua54-devel` and `gcc-PIE`, gives no tag of its own
 and gets it by `make rpm DIST=tumbleweed` or `DIST=leap16`.
 
 ### Arch Linux package
 
 ```
-sudo pacman -S --needed base-devel cmake git pkgconf gpm curl
+sudo pacman -S --needed base-devel cmake git pkgconf gpm curl lua54
 make arch
 ```
 
@@ -259,6 +266,7 @@ window to the time of the selected line, and a layout keeps their directories fo
 | Alt-T | timeline: entries of the filter of the window by intervals of time; Left and Right move, Enter takes every journal window to the interval, `+` and `-` change the step, `L` the scale |
 | Up, Down, PgUp, PgDn, Home, End | move the cursor, it comes on the newest row of the screen first; on the newest line the window follows, anywhere else it pauses |
 | Enter, double click | details of the entry under the cursor, Enter on a field there opens a window with it added to the filter |
+| Alt-F10, F11, Shift-F10, right click | actions of the plugins for the entry under the cursor, see [PLUGINS.md](PLUGINS.md) |
 | Space | pause or follow, also a click on ► or ‖ in the title |
 | Shift+arrows, mouse | select lines from the cursor, Esc drops the cursor, the selection and the marks |
 | M, Insert | begin marking from the cursor, the keys mark the lines they pass; M again ends it and they stay marked, so lines apart are marked one stroke after another. Begun on a marked line it takes the marks off instead. No Shift is needed, which Terminal of macOS and some others keep for themselves |
@@ -310,6 +318,35 @@ Rules are those of [grc](https://github.com/garabik/grc): `regexp=` with `colour
 `/usr/local/share/grc` and `/usr/share/grc`, or by a path. Colors go over the color of the level, light ones for
 the blue window; rules of several lines (`count=block`) and replacements are left out. The built-in rules are
 written the same way in `Source/JournalHighlighter.cpp`.
+
+## Plugins
+
+The Actions menu of an entry, Alt-F10, F11, Shift-F10 or a right click, is made by plugins in Lua 5.4 from
+`/usr/share/turbojedi/plugins`, `/usr/local/share/turbojedi/plugins` and `~/.config/turbojedi/plugins`. The package
+brings `010-systemd.lua`, which only looks: the status and the unit file of the unit of the entry, its process in top.
+Plugins that change things come as examples in `/usr/share/turbojedi/examples` and are not run by themselves.
+
+The fail2ban example bans or unbans an address of the entry, after asking for the jail and a confirmation; it needs
+root. A link to it turns it on and follows the updates of the package, for the whole machine:
+
+```
+sudo mkdir -p /usr/local/share/turbojedi/plugins
+sudo ln -s /usr/share/turbojedi/examples/100-fail2ban.lua /usr/local/share/turbojedi/plugins/
+```
+
+or for root alone:
+
+```
+sudo mkdir -p /root/.config/turbojedi/plugins
+sudo ln -s /usr/share/turbojedi/examples/100-fail2ban.lua /root/.config/turbojedi/plugins/
+```
+
+TurboJedi reads plugins at start, it takes the plugin when started again. The items are there when `fail2ban-client`
+is in `PATH` and the message of the entry has an address. Removing the link takes it away, a link left behind by
+a removed package is told about at start. A build installed by
+`make install` has the example in `/usr/local/share/turbojedi/examples`.
+
+How to write a plugin: [PLUGINS.md](PLUGINS.md).
 
 ## Last layout
 

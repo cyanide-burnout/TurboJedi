@@ -22,6 +22,7 @@
 #include "ColumnsDialog.h"
 #include "JournalsDialog.h"
 #include "JediClipboard.h"
+#include "JediPlugins.h"
 
 #include <time.h>
 #include <stdio.h>
@@ -528,6 +529,17 @@ void JournalView::handleEvent(TEvent& event)
   TScroller::handleEvent(event);
 
   if ((event.what == evMouseDown) &&
+      (event.mouse.buttons & mbRightButton) &&
+      (!lines.empty()))
+  {
+    // Actions of the entry under the mouse, the cursor goes there first as a click puts it
+    walk(lineOf(delta.y + makeLocal(event.mouse.where).y), marking);
+    actions(event.mouse.where);
+    clearEvent(event);
+    return;
+  }
+
+  if ((event.what == evMouseDown) &&
       (event.mouse.buttons & mbLeftButton))
   {
     if (event.mouse.eventFlags & meDoubleClick)
@@ -598,6 +610,7 @@ void JournalView::handleEvent(TEvent& event)
         case cmJournalBack:          restore();        break;
         case cmJournalForward:       advance();        break;
         case cmJournalDetails:       details();        break;
+        case cmJournalActions:       actions(TPoint { -1, -1 }); break;
         case cmJournalExport:        save();           break;
         case cmJournalPause:         pause();          break;
         case cmJournalCopy:          copy();           break;
@@ -1774,6 +1787,31 @@ void JournalView::save()
   }
 
   TObject::destroy(dialog);
+}
+
+void JournalView::actions(TPoint where)
+{
+  size_t index;
+  int64_t row;
+  bool keyboard;
+
+  if ((index = focus()) >= lines.size())
+  {
+    // No entry to act on
+    return;
+  }
+
+  keyboard = (where.x < 0);
+
+  if (keyboard)
+  {
+    // From the keys: under the line of the cursor, or at the top when it is off the screen
+    row   = (int64_t)rowOf(index) - delta.y;
+    row   = ((row >= 0) && (row < size.y)) ? row : 0;
+    where = makeGlobal(TPoint { 2, (int)row });
+  }
+
+  ShowActions(filter, lines[index].cursor, where, keyboard);
 }
 
 void JournalView::details()

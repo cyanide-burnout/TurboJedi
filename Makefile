@@ -72,7 +72,9 @@ OBJECTS := \
 	$(SOURCE)/ColumnsDialog.o \
 	$(SOURCE)/JournalsDialog.o \
 	$(SOURCE)/DirectoryDialog.o \
-	$(TURBOVISION)/build/libtvision.a
+	$(SOURCE)/JediPlugins.o \
+	$(SOURCE)/JediProcess.o \
+	$(SOURCE)/ActionDialogs.o
 
 # libcurl and the repository let the Help menu check for a newer release, without either the item is left out
 ifneq ($(REPOSITORY), )
@@ -82,6 +84,20 @@ ifeq ($(shell $(PKG_CONFIG) --exists libcurl && echo yes), yes)
 	FLAGS        += -DUSE_UPDATE
 endif
 endif
+
+# Lua 5.4 runs the plugins of the Actions menu, distributions name its pkg-config module in their own ways
+LUA := $(firstword $(foreach module, lua5.4 lua-5.4 lua54 lua, $(shell $(PKG_CONFIG) --exists '$(module) >= 5.4' '$(module) < 5.5' && echo $(module))))
+
+ifeq ($(LUA), )
+ifeq ($(filter clean,$(MAKECMDGOALS)), )
+$(error Lua 5.4 is needed: liblua5.4-dev, lua-devel, lua54-devel or lua54 of the distribution)
+endif
+endif
+
+DEPENDENCIES += $(LUA)
+
+# The linker takes from an archive only what the objects in front of it need, it goes after all of them
+OBJECTS += $(TURBOVISION)/build/libtvision.a
 
 FLAGS += \
 	-Wno-unused-result -O2 -flto=auto -MMD -gdwarf \
@@ -122,6 +138,8 @@ build: $(OBJECTS)
 install:
 	install -D -m 755 $(EXECUTABLE) $(PREFIX)/bin/$(EXECUTABLE)
 	install -D -m 644 $(EXECUTABLE).1 $(PREFIX)/share/man/man1/$(EXECUTABLE).1
+	install -D -m 644 -t $(PREFIX)/share/$(EXECUTABLE)/plugins Plugins/*.lua
+	install -D -m 644 -t $(PREFIX)/share/$(EXECUTABLE)/examples Plugins/Examples/*.lua
 
 # The package goes next to the directory of the project, as dpkg-buildpackage puts it,
 # DISTRIBUTION names another architecture of Debian to build for, such as amd64
