@@ -83,6 +83,9 @@ std::vector<std::pair<std::string, std::string>> ReadJournalFields(const Journal
 // The same of the entry the journal is on
 std::vector<std::pair<std::string, std::string>> CollectJournalFields(sd_journal* journal);
 
+// The same of the entries of the cursors in their order, the journal opened once; an entry gone is left out
+std::vector<std::vector<std::pair<std::string, std::string>>> ReadJournalRecords(const JournalFilter& filter, const std::vector<std::string>& cursors);
+
 // The file system of the journal tells nothing about its changes: a network one, which libsystemd knows, or FUSE such as sshfs,
 // which it does not; such a journal is read on every poll instead of when inotify tells
 bool IsJournalBlind(sd_journal* journal, const JournalFilter& filter);

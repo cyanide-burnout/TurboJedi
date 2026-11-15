@@ -107,11 +107,27 @@ What the window tells about where its journal comes from, not a field of the ent
 |---|---|
 | `source` | `'local'` for this machine, `'all'` for every machine the journal has, `'directory'` for a directory |
 | `directory` | the directory, when `source` is `'directory'` |
+| `marked` | the entries of the selection and the marks of the window, tables like `entry`, the oldest first, up to 1000 of them; `nil` when only the cursor is there |
+| `selected` | how many entries the selection and the marks hold, more than `#marked` when the list is cut |
 
 Commands always run on this machine. A unit or a process of an entry of another machine, of a merged journal or of a
 directory mounted over SSH or NFS, is not here: `_HOSTNAME` tells where it is, and an action may reach it by `ssh`.
 
-Later versions may add fields to `context`, the marked lines among them, without changing the handlers there are.
+An action on the marked entries takes `context.marked` along, the way the other values of the handler go to it:
+
+```lua
+turbojedi.registerHandler(function(entry, menu, context)
+  if context.marked then
+    menu:add(('Copy %d marked messages'):format(#context.marked), function(marked)
+      local lines = { }
+      for _, item in ipairs(marked) do lines[#lines + 1] = item.MESSAGE end
+      turbojedi.copy(table.concat(lines, '\n') .. '\n')
+    end, context.marked)
+  end
+end)
+```
+
+Later versions may add fields to `context` without changing the handlers there are.
 
 ### `menu:add(title, func, ...)`
 

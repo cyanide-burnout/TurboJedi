@@ -60,6 +60,7 @@ extern "C"
 #define QUERY_TIMEOUT      30      // Seconds it reads in an action by default
 #define MENU_TIME          200     // Milliseconds the queries of all handlers of a menu may take together
 #define MENU_SCAN          10000   // Entries they may look at together
+#define MARKED_LIMIT       1000    // Entries of the selection a handler gets in context.marked
 
 #define HANDLERS  "TurboJedi.handlers"
 #define NAMES     "TurboJedi.names"     // Of the plugin of every handler, by the same index
@@ -1505,8 +1506,11 @@ void ShowActions(JournalView* view, const std::string& cursor, TPoint where, boo
   std::string title;
   std::string name;
   std::string previous;
+  size_t total;
   std::vector<std::string> errors;
+  std::vector<std::string> cursors;
   std::vector<std::pair<std::string, std::string>> fields;
+  std::vector<std::vector<std::pair<std::string, std::string>>> records;
 
   if ((state == nullptr) ||
       (phase != PHASE_IDLE))
@@ -1528,6 +1532,27 @@ void ShowActions(JournalView* view, const std::string& cursor, TPoint where, boo
   lua_pushcfunction(state, Trace);                   // base + 1
   PushEntry(state, fields);                          // base + 2
   PushContext(state, filter);                        // base + 3
+
+  // The selection and the marks of the window, beside the entry of the cursor: the entries in context.marked, how many
+  // there are in context.selected, as the list may be cut
+  cursors = view->pickedCursors(MARKED_LIMIT, total);
+
+  if (!cursors.empty())
+  {
+    records = ReadJournalRecords(filter, cursors);
+    lua_createtable(state, records.size(), 0);
+
+    for (size_t number = 0; number < records.size(); number ++)
+    {
+      PushEntry(state, records[number]);
+      lua_rawseti(state, -2, number + 1);
+    }
+
+    lua_setfield(state, base + 3, "marked");
+    lua_pushinteger(state, total);
+    lua_setfield(state, base + 3, "selected");
+  }
+
   lua_newtable(state);                               // base + 4, items of every handler
   lua_getfield(state, LUA_REGISTRYINDEX, HANDLERS);  // base + 5
   lua_getfield(state, LUA_REGISTRYINDEX, NAMES);     // base + 6

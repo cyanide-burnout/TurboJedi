@@ -1979,6 +1979,38 @@ size_t JournalView::mark(const std::set<std::string>& cursors, uint64_t oldest, 
   return found.size();
 }
 
+std::vector<std::string> JournalView::pickedCursors(size_t limit, size_t& total)
+{
+  size_t step;
+  size_t index;
+  std::set<std::string> seen;
+  std::vector<std::string> cursors;
+
+  total = 0;
+
+  for (step = 0; step < lines.size(); step ++)
+  {
+    // The oldest first, the lines of a message once
+    index = reversed() ? (lines.size() - 1 - step) : step;
+
+    if ((!picked(first + index)) ||
+        (lines[index].cursor.empty()) ||
+        (!seen.insert(lines[index].cursor).second))
+    {
+      continue;
+    }
+
+    total ++;
+
+    if (cursors.size() < limit)
+    {
+      cursors.push_back(lines[index].cursor);
+    }
+  }
+
+  return cursors;
+}
+
 bool JournalView::find(int direction, bool tell)
 {
   size_t added;

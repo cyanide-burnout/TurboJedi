@@ -216,6 +216,31 @@ std::vector<std::pair<std::string, std::string>> CollectJournalFields(sd_journal
   return fields;
 }
 
+std::vector<std::vector<std::pair<std::string, std::string>>> ReadJournalRecords(const JournalFilter& filter, const std::vector<std::string>& cursors)
+{
+  sd_journal* journal;
+  std::vector<std::vector<std::pair<std::string, std::string>>> records;
+
+  if (cursors.empty() ||
+      (OpenJournal(&journal, filter) < 0))
+  {
+    return records;
+  }
+
+  for (const std::string& cursor : cursors)
+  {
+    if ((sd_journal_seek_cursor(journal, cursor.c_str()) >= 0) &&
+        (sd_journal_next(journal) > 0) &&
+        (sd_journal_test_cursor(journal, cursor.c_str()) > 0))
+    {
+      records.push_back(CollectJournalFields(journal));
+    }
+  }
+
+  sd_journal_close(journal);
+  return records;
+}
+
 std::vector<std::pair<std::string, std::string>> ReadJournalFields(const JournalFilter& filter, const std::string& cursor)
 {
   sd_journal* journal;

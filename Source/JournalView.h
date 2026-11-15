@@ -81,6 +81,10 @@ class JournalView : public TScroller
     // oldest of them, in microseconds, as far as the window holds, by steps with a dialog and Cancel when it takes long.
     // Clear takes the other marks off first. The count of the entries marked, fewer when some are not in the window
     size_t mark(const std::set<std::string>& cursors, uint64_t oldest, bool clear);
+
+    // Cursors of the entries of the selection and the marks, the oldest first whatever the order, up to the limit; total
+    // tells how many entries there are. None when only the cursor is there
+    std::vector<std::string> pickedCursors(size_t limit, size_t& total);
     const char* describe();
     const char* name();
     const char* sign();  // Of the title: ► following, ‖ paused, with +N entries come meanwhile
