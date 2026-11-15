@@ -52,8 +52,8 @@ LIBRARIES := \
 DEPENDENCIES := \
 	libsystemd \
 	libpcre2-8 \
-	$(LUA) \
-	libcurl
+	libcurl \
+	$(LUA)
 
 OBJECTS := \
 	$(SOURCE)/TurboJedi.o \
