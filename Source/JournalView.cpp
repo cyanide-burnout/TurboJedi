@@ -287,8 +287,8 @@ void JournalView::draw()
   extra = selected() > 0;
 
   // Before the keys have moved it the cursor is on the line Enter and the actions take, the newest one while following;
-  // that one is drawn only in the window in front, the others would have a bar on their last lines for nothing
-  current = (anchor != NO_SELECTION) ? cursor : (((total() > 0) && (owner != nullptr) && (owner->state & sfSelected)) ? (first + latest()) : NO_SELECTION);
+  // it is drawn only in the window in front as in a panel of mc, the selection and the marks are drawn in every window
+  current = ((owner == nullptr) || !(owner->state & sfSelected)) ? NO_SELECTION : (anchor != NO_SELECTION) ? cursor : (total() > 0) ? (first + latest()) : NO_SELECTION;
 
   for (y = 0; y < size.y; y ++)
   {
@@ -727,7 +727,7 @@ void JournalView::setState(ushort state, Boolean enable)
 
   if (state & sfActive)
   {
-    // The window has come to the front or left it, the cursor not moved yet is drawn only there
+    // The window has come to the front or left it, the cursor is drawn only there
     drawView();
   }
 }
