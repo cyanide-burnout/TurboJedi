@@ -20,11 +20,11 @@ local function lookup(address)
   turbojedi.message(((how == 'exit') and (code == 0)) and text:gsub('%s+$', '') or (address .. ' has no name'))
 end
 
--- Title, the program it needs, the action; only the ones whose program is there are offered
+-- Title, the programs it can do with, any of them, the action; only the ones whose program is there are offered
 local ACTIONS =
 {
   { 'Route',      'ip',        function(address) turbojedi.output { 'ip', 'route', 'get', address } end },
-  { 'Lookup',     'getent',    lookup },
+  { 'Lookup',     { 'host', 'getent' }, lookup },
   { 'Whois',      'whois',     function(address) turbojedi.output { 'whois', address } end },
   { 'Ping',       'ping',      function(address) turbojedi.output { 'ping', '-c', '4', '-W', '2', address } end },
   { 'Trace path', 'tracepath', function(address) turbojedi.output { 'tracepath', '-n', address } end },
@@ -34,8 +34,15 @@ local ACTIONS =
 local titles  = { }
 local actions = { }
 
+local function present(programs)
+  for _, program in ipairs((type(programs) == 'table') and programs or { programs }) do
+    if turbojedi.which(program) then return true end
+  end
+  return programs == nil
+end
+
 for _, action in ipairs(ACTIONS) do
-  if (action[2] == nil) or turbojedi.which(action[2]) then
+  if present(action[2]) then
     titles[#titles + 1]   = action[1]
     actions[#actions + 1] = action[3]
   end
