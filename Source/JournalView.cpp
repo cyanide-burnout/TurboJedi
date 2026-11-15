@@ -262,6 +262,7 @@ void JournalView::draw()
   size_t index;
   uint64_t row;
   uint64_t chunk;
+  uint64_t current;
   char date[16];
   char clock[16];
   std::string source;
@@ -285,6 +286,9 @@ void JournalView::draw()
   // The cursor tells whether its line is a part of a selection
   extra = selected() > 0;
 
+  // Before the keys have moved it the cursor is on the line Enter and the actions take, the newest one while following
+  current = (anchor != NO_SELECTION) ? cursor : ((total() > 0) ? (first + latest()) : NO_SELECTION);
+
   for (y = 0; y < size.y; y ++)
   {
     row = delta.y + y;
@@ -304,11 +308,10 @@ void JournalView::draw()
       }
 
       picks  = picked(first + index);
-      chosen = picks || ((anchor != NO_SELECTION) && (cursor == first + index));
+      chosen = picks || (current == first + index);
       bar    = marked;
 
-      if ((anchor != NO_SELECTION) &&
-          (cursor == first + index))
+      if (current == first + index)
       {
         // The cursor is a cyan bar as in a panel of mc, on a selected line its text is white, the selection keeps its own bar
         bar = (picks && extra) ? TColorAttr(TColorBIOS(0xf), TColorBIOS(0x3)) : TColorAttr(TColorBIOS(0x0), TColorBIOS(0x3));
@@ -469,8 +472,8 @@ void JournalView::handleEvent(TEvent& event)
     if ((event.keyDown.keyCode == kbEsc) &&
         (anchor != NO_SELECTION))
     {
-      anchor  = NO_SELECTION;
-      cursor  = NO_SELECTION;
+      // The selection and the marks go, the cursor stays on its line
+      anchor  = cursor;
       marking = false;
       unmark  = false;
       marks.clear();
@@ -1723,19 +1726,9 @@ void JournalView::copy()
   }
   else
   {
-    if ((anchor != NO_SELECTION) &&
-        (cursor >= first))
-    {
-      // The line under the cursor
-      index = std::min<size_t>(cursor - first, lines.size());
-      limit = std::min<size_t>(index + 1, lines.size());
-    }
-    else
-    {
-      // Nothing selected, take the lines on the screen
-      index = std::min<size_t>(lineOf(delta.y), lines.size());
-      limit = (total() > 0) ? (lineOf(std::min<uint64_t>(delta.y + size.y, total()) - 1) + 1) : 0;
-    }
+    // The line under the cursor, before the keys have moved it the one it is drawn on
+    index = std::min<size_t>(focus(), lines.size());
+    limit = std::min<size_t>(index + 1, lines.size());
 
     for ( ; index < limit; index ++)
     {

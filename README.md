@@ -264,14 +264,14 @@ window to the time of the selected line, and a layout keeps their directories fo
 | Ctrl-Z | undo navigation: back along the moves of the window, every move of the cursor by the keys or the mouse, Ctrl-G, Alt-G and a find, the last 64 of them; marks and lines are not undone; also Alt-Left and Alt-Backspace |
 | Ctrl-Y | redo navigation: forward again where Ctrl-Z has come from, also Alt-Right; a new move after Ctrl-Z drops the way ahead |
 | Alt-T | timeline: entries of the filter of the window by intervals of time; Left and Right move, Enter takes every journal window to the interval, `+` and `-` change the step, `L` the scale |
-| Up, Down, PgUp, PgDn, Home, End | move the cursor, it comes on the newest row of the screen first; on the newest line the window follows, anywhere else it pauses |
+| Up, Down, PgUp, PgDn, Home, End | move the cursor, it starts on the newest line of the screen; on the newest line the window follows, anywhere else it pauses |
 | Enter, double click | details of the entry under the cursor, Enter on a field there opens a window with it added to the filter |
 | Alt-F10, F11, Shift-F10, right click | actions of the plugins for the entry under the cursor, see [PLUGINS.md](PLUGINS.md) |
 | Space | pause or follow, also a click on ► or ‖ in the title |
-| Shift+arrows, mouse | select lines from the cursor, Esc drops the cursor, the selection and the marks |
+| Shift+arrows, mouse | select lines from the cursor, Esc drops the selection and the marks, the cursor stays |
 | M, Insert | begin marking from the cursor, the keys mark the lines they pass; M again ends it and they stay marked, so lines apart are marked one stroke after another. Begun on a marked line it takes the marks off instead. No Shift is needed, which Terminal of macOS and some others keep for themselves |
 | Click | put the cursor on a line, the marks stay; in a stroke of M the click goes on with it as the keys do. Ctrl+click marks a line or takes its mark off, Shift+click and dragging select |
-| Ctrl-Ins | copy the selected lines, the line under the cursor or the screen |
+| Ctrl-Ins | copy the selected lines or the line under the cursor |
 | Ctrl-E | export the selected lines or all of them |
 | F8 | clear the window |
 | Ctrl-O, Ctrl-S | open, save a layout; both start at the layout opened or saved last, Save offers its file again |

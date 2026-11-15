@@ -139,7 +139,7 @@ to the first entry of the interval, \fB+\fR and \fB\-\fR make the intervals fine
 \fBL\fR switches between linear and logarithmic scale.
 .TP
 .B Up, Down, PgUp, PgDn, Home, End
-Move the cursor, it comes on the row of the window nearest to the newest entries first. On the newest line the
+Move the cursor, which starts on the line of the window nearest to the newest entries. On the newest line the
 window follows the tail, anywhere else it pauses.
 .TP
 .B Enter
@@ -157,7 +157,7 @@ entries come meanwhile after it; a click on the sign pauses or follows. A paused
 and marks, the new entries are counted and come in when it follows again.
 .TP
 .B Shift+arrows
-Select lines from the cursor, also with the mouse. \fBEsc\fR drops the cursor, the selection and the marks.
+Select lines from the cursor, also with the mouse. \fBEsc\fR drops the selection and the marks, the cursor stays.
 .TP
 .B M, Insert
 Begin marking from the cursor, the keys mark the lines they pass. \fBM\fR again ends it and they stay marked,
@@ -167,7 +167,7 @@ A click puts the cursor on a line and the marks stay, in a stroke of \fBM\fR the
 \fBCtrl\fR+click marks a line or takes its mark off.
 .TP
 .B Ctrl-Ins
-Copy the selected lines, the line under the cursor or the screen to the clipboard.
+Copy the selected lines or the line under the cursor to the clipboard.
 .TP
 .B Ctrl-E
 Export the selected lines or all of them to a file.
