@@ -229,6 +229,9 @@ JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar
 
 JournalView::~JournalView()
 {
+  // Watches of plugins that go to their entries here take another window
+  ForgetPluginWindow(this);
+
   if (journal != nullptr)
   {
     // Window has been closed, the copy of inotify goes first
@@ -1948,6 +1951,18 @@ size_t JournalView::mark(const std::set<std::string>& cursors, uint64_t oldest, 
   if (clear)
   {
     marks.clear();
+  }
+
+  if (journal != nullptr)
+  {
+    // A watch of a plugin may have read the entry before the window: what has come is read in first
+    sd_journal_process(journal);
+
+    do
+    {
+      read();
+    }
+    while (pending);
   }
 
   // Older entries come in by batches until the oldest asked for is there, the journal, the range or the capacity ends;

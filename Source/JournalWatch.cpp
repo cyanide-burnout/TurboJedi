@@ -38,6 +38,7 @@ JournalWatch::JournalWatch()
   delivered   = { std::string(), 0 };
   lag         = WATCH_LAG;
   callback    = -2;  // LUA_NOREF, the engine sets it
+  self        = -2;
   journal     = nullptr;
   notifier    = nullptr;
   blind       = false;

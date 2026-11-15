@@ -52,6 +52,7 @@ enum
   cmJournalPlugins,            // Problems of the plugins found at start, told once the windows are up
   cmJournalReports,            // Commands of actions in the background have ended badly
   cmJournalPluginEvents,       // Descriptors or timers of plugins are due
+  cmJournalOpenWatch,          // Broadcast with a JournalWindowRequest of a watch of a plugin
   cmJournalSourceList,         // One per source field, then one for PID
   cmJournalTimePick   = 1100,  // Since, then Until
   cmJournalTimePreset = 1110   // One per preset of the time picker

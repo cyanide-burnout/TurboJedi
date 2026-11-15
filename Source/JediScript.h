@@ -29,11 +29,22 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
 // keys it starts on its first item, by the mouse on none
 void ShowActions(JournalView* view, const std::string& cursor, TPoint where, bool keyboard);
 
-// Descriptors, timers and requests of fetch() of plugins, looked at between the events: milliseconds until the next look, -1 when there is
-// nothing to look at; the ones that are due wait for HasPluginEvents() and DispatchPluginEvents() when no dialog is open
-int PollPlugins();
+// Descriptors, timers, requests of fetch() and watches of journals of plugins, looked at between the events: milliseconds
+// until the next look, -1 when there is nothing to look at; the ones that are due wait for HasPluginEvents() and
+// DispatchPluginEvents() when no dialog is open. Paused while one is: the watches do not read then
+int PollPlugins(bool paused);
 bool HasPluginEvents();
 void DispatchPluginEvents();
+
+// A window is closed, the watches that have gone to their entries in it open another one next time
+void ForgetPluginWindow(JournalView* view);
+
+// What a watch asks the application for with cmJournalOpenWatch: a new window of its filter, the view of it back
+struct JournalWindowRequest
+{
+  const JournalFilter* filter;
+  JournalView* view;
+};
 
 void ClosePlugins();
 

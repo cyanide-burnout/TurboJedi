@@ -124,6 +124,7 @@ class JournalWatch
     std::string context;   // Of the plugin in the notation of a layout, empty when the watch is not kept there
     std::string saved;     // The line of a layout a watch of a plugin that is not there keeps as it is
     int callback;          // Of the engine in the registry of Lua, LUA_NOREF without
+    int self;              // Its table there, the same in every callback
 
   private:
 

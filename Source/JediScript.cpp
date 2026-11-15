@@ -18,6 +18,7 @@
 #include "JournalExpression.h"
 #include "JournalView.h"
 #include "JournalQuery.h"
+#include "JournalWatch.h"
 #include "Commands.h"
 
 extern "C"
@@ -45,6 +46,7 @@ extern "C"
 
 #include <map>
 #include <set>
+#include <memory>
 #include <algorithm>
 
 #define PHASE_ANY     -1
@@ -52,10 +54,13 @@ extern "C"
 #define PHASE_LOAD    1  // The files run, handlers are registered
 #define PHASE_MENU    2  // Handlers add items to the menu
 #define PHASE_ACTION  4  // The chosen item runs
-#define PHASE_EVENT   8  // A callback of poll() or timeout() runs
-#define PHASE_DO      (PHASE_ACTION | PHASE_EVENT)                // Dialogs and commands
-#define PHASE_WATCH   (PHASE_LOAD | PHASE_ACTION | PHASE_EVENT)  // Watches and timers are set
-#define PHASE_READ    (PHASE_MENU | PHASE_ACTION)                // The journal is read for the plugin
+#define PHASE_EVENT   8   // A callback of poll(), timeout() or fetch() runs
+#define PHASE_ENTRY   16  // A callback of watch() runs, with an entry or a gap
+#define PHASE_RESTORE 32  // A function of registerRestore() runs for a watch of a layout
+#define PHASE_DO      (PHASE_ACTION | PHASE_EVENT | PHASE_ENTRY)                                // Dialogs and commands
+#define PHASE_WATCH   (PHASE_LOAD | PHASE_ACTION | PHASE_EVENT | PHASE_ENTRY | PHASE_RESTORE)  // Watches and timers are set
+#define PHASE_READ    (PHASE_MENU | PHASE_ACTION)                                               // The journal is read for the plugin
+#define PHASE_MARK    (PHASE_ACTION | PHASE_ENTRY)                                              // Lines are marked in a window
 
 #define ACTION_LIMIT       100  // Items of a menu
 #define CAPTURE_TIMEOUT    30   // Seconds capture() waits by default
@@ -74,8 +79,14 @@ extern "C"
 #define FETCH_TIMEOUT      30      // Seconds a request of fetch() may take by default
 #define FETCH_STEP         20      // Milliseconds it is waited for between the events of its dialog
 
+#define WATCH_READ_TIME    10      // Milliseconds all watches may read their journals for in a poll
+#define WATCH_READ_LIMIT   256     // Entries a watch may look at in a poll
+#define WATCH_CALL_TIME    50      // Milliseconds the callbacks of all watches may take in a round of events
+#define WATCH_CALL_LIMIT   1000    // Callbacks of all watches in a round
+
 #define HANDLERS  "TurboJedi.handlers"
-#define WATCH     "TurboJedi.watch"
+#define POLLER    "TurboJedi.poller"   // Of poll()
+#define WATCHER   "TurboJedi.watch"    // Of watch()
 #define TIMER     "TurboJedi.timer"
 #define FETCH     "TurboJedi.fetch"
 #define NAMES     "TurboJedi.names"     // Of the plugin of every handler, by the same index
@@ -86,7 +97,7 @@ static const char* const SystemDirectories[] = { "/usr/share/turbojedi/plugins",
 static lua_State* state;
 static int phase;
 static std::string plugin;  // Name of the plugin being loaded
-static JournalView* origin; // Window the menu has been opened in, for open(), find(), seek() and query()
+static JournalView* origin; // Window the menu has been opened in, for open(), find(), seek() and query(); of the watch in its callbacks
 static int64_t deadline;    // Of the queries of the handlers making the menu, shared by all of them
 static size_t budget;       // Entries they may look at yet
 
@@ -124,6 +135,12 @@ struct Request
 static std::map<int, Watch> watches;
 static std::map<int, Timer> timers;
 static std::map<int, Request> requests;
+static std::map<int, std::unique_ptr<JournalWatch>> journals;  // Of watch(), by the same numbers
+static int watching;      // The watch whose callback runs, zero outside
+static int dispatching;   // Rounds of events going on, nested by the dialogs of callbacks
+static int turn;          // The watch the next round of reading or calling starts after, so that every one gets its share
+static bool changed;      // Watches have changed, their windows and the status line are told
+static int raising;       // A watch a line has raised the list of watches for, zero for none
 static int serial;
 static std::vector<std::string> directories;  // In the order a file of the same name takes the place: the user last
 static std::map<std::string, JournalExpression> expressions;
@@ -148,6 +165,7 @@ template <Body body, int needed> static int Call(lua_State* state)
       case PHASE_ACTION: return luaL_error(state, "the window of the menu is there only for an action chosen from it");
       case PHASE_WATCH:  return luaL_error(state, "watches and timers are set by a plugin loaded, an action or a callback");
       case PHASE_READ:   return luaL_error(state, "the journal is read for a handler or an action");
+      case PHASE_MARK:   return luaL_error(state, "lines are marked by an action or a callback of a watch");
       default:           return luaL_error(state, "dialogs and commands are used only by an action or a callback");
     }
   }
@@ -725,9 +743,9 @@ static bool AddMatch(JournalFilter& filter, const std::string& field, const std:
   return true;
 }
 
-// A filter of the options of open() and query(): the journals, columns and highlighting of the window of the menu, the
-// matches, text, times and levels of the options; false and the reason when an option is wrong
-static bool MakeFilter(lua_State* state, int index, JournalFilter& filter, std::string& error)
+// A filter of the options of open(), query() and watch(): the journals, columns and highlighting of a base, the window of the
+// menu for one, the matches, text, times and levels of the options; false and the reason when an option is wrong
+static bool MakeFilter(lua_State* state, int index, const JournalFilter& base, JournalFilter& filter, std::string& error)
 {
   int top;
   int level;
@@ -738,10 +756,10 @@ static bool MakeFilter(lua_State* state, int index, JournalFilter& filter, std::
 
   top              = lua_gettop(state);
   filter           = JournalFilter { };
-  filter.directory = origin->getFilter().directory;
-  filter.merge     = origin->getFilter().merge;
-  filter.columns   = origin->getFilter().columns;
-  filter.highlight = origin->getFilter().highlight;
+  filter.directory = base.directory;
+  filter.merge     = base.merge;
+  filter.columns   = base.columns;
+  filter.highlight = base.highlight;
   filter.levels    = 0xff;
 
   lua_pushliteral(state, "matches");
@@ -843,7 +861,7 @@ static int Open(lua_State* state)
     return Fail(state, "open() takes a table of options");
   }
 
-  if (!MakeFilter(state, 1, filter, error))
+  if (!MakeFilter(state, 1, origin->getFilter(), filter, error))
   {
     return Fail(state, "open(): %s", error.c_str());
   }
@@ -898,7 +916,7 @@ static int Query(lua_State* state)
     return Fail(state, "query() takes a table of options");
   }
 
-  if (!MakeFilter(state, 1, filter, error))
+  if (!MakeFilter(state, 1, origin->getFilter(), filter, error))
   {
     return Fail(state, "query(): %s", error.c_str());
   }
@@ -1008,6 +1026,42 @@ static int Seek(lua_State* state)
   return 0;
 }
 
+// A watch of watch() by its number, nullptr when there is none or it has been removed
+static JournalWatch* FindJournalWatch(int number)
+{
+  std::map<int, std::unique_ptr<JournalWatch>>::iterator watch;
+
+  return (((watch = journals.find(number)) != journals.end()) && (watch->second->state != WATCH_REMOVED)) ? watch->second.get() : nullptr;
+}
+
+// The window of a watch while it shows the journal of the watch: F7 Source may have given it another one, the window is
+// lost for the watch then as if it had been closed
+static JournalView* GetWatchWindow(JournalWatch* watch)
+{
+  if ((watch->window != nullptr) &&
+      ((watch->window->getFilter().directory != watch->filter.directory) ||
+       (watch->window->getFilter().merge != watch->filter.merge)))
+  {
+    watch->window = nullptr;
+  }
+
+  return watch->window;
+}
+
+// A new window of the journal and the filter of a watch, which takes it as its own
+static JournalView* OpenWatchWindow(JournalWatch* watch)
+{
+  JournalWindowRequest request;
+
+  request.filter = &watch->filter;
+  request.view   = nullptr;
+
+  message(TProgram::application, evBroadcast, cmJournalOpenWatch, &request);
+
+  watch->window = request.view;
+  return request.view;
+}
+
 // The cursor of an entry or a cursor itself, with the time it tells: __REALTIME_TIMESTAMP, or t= of the cursor in hex
 static bool AddCursor(lua_State* state, int index, std::set<std::string>& cursors, uint64_t& oldest)
 {
@@ -1047,11 +1101,13 @@ static bool AddCursor(lua_State* state, int index, std::set<std::string>& cursor
   return true;
 }
 
-// Marks in the window of the menu the lines of an entry, of a list of entries such as query() gives, or of cursors
+// Marks in the window of the menu the lines of an entry, of a list of entries such as query() gives, or of cursors; in a
+// callback of a watch, in the window of the watch
 static int Mark(lua_State* state)
 {
   bool single;
   uint64_t oldest;
+  JournalWatch* watch;
   std::set<std::string> cursors;
 
   oldest = UINT64_MAX;
@@ -1083,6 +1139,17 @@ static int Mark(lua_State* state)
   else if (!AddCursor(state, 1, cursors, oldest))
   {
     return Fail(state, "mark() takes an entry, a list of entries or cursors, or a cursor");
+  }
+
+  if ((origin == nullptr) &&
+      ((!GetFlag(state, 2, "open")) ||
+       ((watch = FindJournalWatch(watching)) == nullptr) ||
+       ((origin = OpenWatchWindow(watch)) == nullptr)))
+  {
+    // A watch without a window opens one only when asked, a refusal otherwise
+    lua_pushnil(state);
+    lua_pushliteral(state, "the watch has no window, mark() with { open = true } opens one");
+    return 2;
   }
 
   lua_pushinteger(state, origin->mark(cursors, oldest, GetFlag(state, 2, "clear")));
@@ -1367,7 +1434,7 @@ static int AddWatch(lua_State* state)
   watch.pending  = false;
 
   watches[++ serial] = watch;
-  PushHandle(state, serial, WATCH);
+  PushHandle(state, serial, POLLER);
   return 1;
 }
 
@@ -1687,6 +1754,260 @@ static int CancelRequest(lua_State* state)
   return 0;
 }
 
+// Watches of journals
+
+// watch(options, func, ...): the entries of the filter of the options as they come go to func(entry, watch, ...), the gaps
+// to options.skipped(gap, watch, ...); nil and the reason when the journal cannot be opened
+static int AddJournalWatch(lua_State* state)
+{
+  int type;
+  bool current;
+  std::string title;
+  std::string value;
+  std::string error;
+  JournalFilter base;
+  JournalFilter filter;
+  JournalWatch* parent;
+  std::unique_ptr<JournalWatch> watch;
+
+  if (lua_type(state, 1) != LUA_TTABLE)
+  {
+    return Fail(state, "watch() takes a table of options");
+  }
+
+  if (lua_type(state, 2) != LUA_TFUNCTION)
+  {
+    return Fail(state, "watch() takes a function after the options");
+  }
+
+  if ((!GetOption(state, 1, "title", title)) ||
+      (title.empty()))
+  {
+    return Fail(state, "watch() takes a title among the options");
+  }
+
+  current = true;
+
+  if (GetOption(state, 1, "window", value))
+  {
+    if ((value != "current") &&
+        (value != "new"))
+    {
+      return Fail(state, "window of watch() is 'current' or 'new'");
+    }
+
+    current = (value == "current");
+  }
+
+  lua_pushliteral(state, "skipped");
+  type = lua_rawget(state, 1);
+  lua_pop(state, 1);
+
+  if ((type != LUA_TNIL) &&
+      (type != LUA_TFUNCTION))
+  {
+    return Fail(state, "skipped of watch() is a function");
+  }
+
+  if ((GetOption(state, 1, "since", value)) ||
+      (GetOption(state, 1, "until", value)))
+  {
+    return Fail(state, "watch() starts at the end of the journal, it takes neither since nor until");
+  }
+
+  // The journal of the window of an action, of the watch whose callback this is, or of this machine
+  parent           = (phase == PHASE_ENTRY) ? FindJournalWatch(watching) : nullptr;
+  base             = JournalFilter { };
+  base.columns     = JOURNAL_COLUMN_DEFAULT;
+  base.highlight   = JOURNAL_HIGHLIGHT_BUILTIN;
+  base             = (origin != nullptr) ? origin->getFilter() : (parent != nullptr) ? parent->filter : base;
+
+  if (!MakeFilter(state, 1, base, filter, error))
+  {
+    return Fail(state, "watch(): %s", error.c_str());
+  }
+
+  watch = std::make_unique<JournalWatch>();
+
+  if (!watch->start(filter, nullptr, error))
+  {
+    // The journal refuses, not the plugin
+    lua_pushnil(state);
+    lua_pushlstring(state, error.data(), error.size());
+    return 2;
+  }
+
+  watch->number = ++ serial;
+  watch->order  = serial;
+  watch->plugin = plugin;
+  watch->title  = title;
+  watch->global = (phase == PHASE_LOAD);
+  watch->window = current ? origin : nullptr;
+
+  // The function and the values after it, the callback of the gaps along with them
+  watch->callback = KeepCallback(state, 2, 3);
+  lua_rawgeti(state, LUA_REGISTRYINDEX, watch->callback);
+  lua_pushliteral(state, "skipped");
+  lua_rawget(state, 1);
+  lua_setfield(state, -2, "skipped");
+  lua_pop(state, 1);
+
+  // One table for the watch in every callback, a plugin may keep it as a key
+  PushHandle(state, watch->number, WATCHER);
+  lua_pushvalue(state, -1);
+  watch->self = luaL_ref(state, LUA_REGISTRYINDEX);
+
+  journals[watch->number] = std::move(watch);
+  changed = true;
+  return 1;
+}
+
+static int SetWatchStatus(lua_State* state)
+{
+  std::string text;
+  JournalWatch* watch;
+
+  if (!GetString(state, 2, text))
+  {
+    return Fail(state, "status() takes a text");
+  }
+
+  if ((watch = FindJournalWatch(GetHandle(state))) != nullptr)
+  {
+    // A watch removed meanwhile takes nothing
+    watch->status = text;
+    changed       = true;
+  }
+
+  return 0;
+}
+
+// watch:add(text, entry, options): a line of the list of the watch, its number to delete it by
+static int AddWatchLine(lua_State* state)
+{
+  std::string text;
+  JournalWatch* watch;
+  JournalPosition entry;
+
+  if (!GetString(state, 2, text))
+  {
+    return Fail(state, "add() takes a text");
+  }
+
+  entry = { std::string(), 0 };
+
+  if (lua_type(state, 3) == LUA_TTABLE)
+  {
+    // An entry the window goes to
+    lua_pushliteral(state, "__CURSOR");
+    lua_rawget(state, 3);
+    GetString(state, -1, entry.cursor);
+    lua_pushliteral(state, "__REALTIME_TIMESTAMP");
+    lua_rawget(state, 3);
+    entry.realtime = lua_tointeger(state, -1);
+    lua_pop(state, 2);
+  }
+  else if (!lua_isnoneornil(state, 3))
+  {
+    return Fail(state, "add() takes an entry after the text");
+  }
+
+  if ((watch = FindJournalWatch(GetHandle(state))) == nullptr)
+  {
+    return 0;
+  }
+
+  lua_pushinteger(state, watch->add(text, entry));
+  changed = true;
+
+  if (GetFlag(state, 4, "raise"))
+  {
+    // Red in the list of watches and up in front, with a bell
+    watch->raised = true;
+    raising       = watch->number;
+  }
+
+  return 1;
+}
+
+static int DeleteWatchLine(lua_State* state)
+{
+  int whole;
+  lua_Integer number;
+  JournalWatch* watch;
+
+  number = lua_tointegerx(state, 2, &whole);
+
+  if (!whole)
+  {
+    return Fail(state, "delete() takes the number add() has given");
+  }
+
+  if ((watch = FindJournalWatch(GetHandle(state))) != nullptr)
+  {
+    watch->erase(number);
+    changed = true;
+  }
+
+  return 0;
+}
+
+static int ClearWatchLines(lua_State* state)
+{
+  JournalWatch* watch;
+
+  if ((watch = FindJournalWatch(GetHandle(state))) != nullptr)
+  {
+    watch->clear();
+    changed = true;
+  }
+
+  return 0;
+}
+
+// Marked removed at once, freed once no callback runs: a callback may remove its own watch or another one
+static void DropJournalWatch(int number)
+{
+  JournalWatch* watch;
+
+  if ((watch = FindJournalWatch(number)) != nullptr)
+  {
+    watch->stop(WATCH_REMOVED, std::string());
+    changed = true;
+  }
+}
+
+static int RemoveJournalWatch(lua_State* state)
+{
+  DropJournalWatch(GetHandle(state));
+  return 0;
+}
+
+static void CollectJournalWatches()
+{
+  std::map<int, std::unique_ptr<JournalWatch>>::iterator watch;
+
+  if ((dispatching > 0) ||
+      (phase != PHASE_IDLE))
+  {
+    // A callback may still hold one
+    return;
+  }
+
+  for (watch = journals.begin(); watch != journals.end(); )
+  {
+    if (watch->second->state != WATCH_REMOVED)
+    {
+      ++ watch;
+      continue;
+    }
+
+    luaL_unref(state, LUA_REGISTRYINDEX, watch->second->callback);
+    luaL_unref(state, LUA_REGISTRYINDEX, watch->second->self);
+    watch = journals.erase(watch);
+  }
+}
+
 static const luaL_Reg functions[] =
 {
   { "registerHandler", Call<RegisterHandler, PHASE_LOAD>   },
@@ -1703,7 +2024,7 @@ static const luaL_Reg functions[] =
   { "find",            Call<Find,            PHASE_ACTION> },
   { "seek",            Call<Seek,            PHASE_ACTION> },
   { "query",           Call<Query,           PHASE_READ>   },
-  { "mark",            Call<Mark,            PHASE_ACTION> },
+  { "mark",            Call<Mark,            PHASE_MARK>   },
   { "quote",           Call<Quote,           PHASE_ANY>    },
   { "regex",           Call<Match,           PHASE_ANY>    },
   { "matches",         Call<Matches,         PHASE_ANY>    },
@@ -1711,6 +2032,7 @@ static const luaL_Reg functions[] =
   { "poll",            Call<AddWatch,        PHASE_WATCH>  },
   { "timeout",         Call<AddTimer,        PHASE_WATCH>  },
   { "fetch",           Call<Fetch,           PHASE_WATCH>  },
+  { "watch",           Call<AddJournalWatch, PHASE_WATCH>  },
   { nullptr,           nullptr                             }
 };
 
@@ -1888,7 +2210,7 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
   lua_pop(state, 1);
 
   // watch:update(mode), watch:remove(), timer:cancel()
-  luaL_newmetatable(state, WATCH);
+  luaL_newmetatable(state, POLLER);
   lua_newtable(state);
   lua_pushcfunction(state, (Call<UpdateWatch, PHASE_ANY>));
   lua_setfield(state, -2, "update");
@@ -1901,6 +2223,22 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
   lua_newtable(state);
   lua_pushcfunction(state, (Call<CancelTimer, PHASE_ANY>));
   lua_setfield(state, -2, "cancel");
+  lua_setfield(state, -2, "__index");
+  lua_pop(state, 1);
+
+  // watch:status(text), watch:add(text, entry, options), watch:delete(line), watch:clear(), watch:remove() of watch()
+  luaL_newmetatable(state, WATCHER);
+  lua_newtable(state);
+  lua_pushcfunction(state, (Call<SetWatchStatus, PHASE_ANY>));
+  lua_setfield(state, -2, "status");
+  lua_pushcfunction(state, (Call<AddWatchLine, PHASE_ANY>));
+  lua_setfield(state, -2, "add");
+  lua_pushcfunction(state, (Call<DeleteWatchLine, PHASE_ANY>));
+  lua_setfield(state, -2, "delete");
+  lua_pushcfunction(state, (Call<ClearWatchLines, PHASE_ANY>));
+  lua_setfield(state, -2, "clear");
+  lua_pushcfunction(state, (Call<RemoveJournalWatch, PHASE_ANY>));
+  lua_setfield(state, -2, "remove");
   lua_setfield(state, -2, "__index");
   lua_pop(state, 1);
 
@@ -2192,14 +2530,41 @@ void ShowActions(JournalView* view, const std::string& cursor, TPoint where, boo
   lua_settop(state, base);
 }
 
-int PollPlugins()
+// Numbers of the watches of journals in a round that starts after the one of the turn, so that each gets its share
+static std::vector<int> RoundJournalWatches()
+{
+  std::vector<int> numbers;
+  std::map<int, std::unique_ptr<JournalWatch>>::iterator start;
+
+  start = journals.upper_bound(turn);
+
+  for (std::map<int, std::unique_ptr<JournalWatch>>::iterator watch = start; watch != journals.end(); ++ watch)
+  {
+    numbers.push_back(watch->first);
+  }
+
+  for (std::map<int, std::unique_ptr<JournalWatch>>::iterator watch = journals.begin(); watch != start; ++ watch)
+  {
+    numbers.push_back(watch->first);
+  }
+
+  return numbers;
+}
+
+int PollPlugins(bool paused)
 {
   int64_t now;
   int64_t wait;
+  int64_t end;
+  bool pending;
+  JournalWatch* watch;
+  JournalWatchState before;
   std::vector<int> numbers;
   std::vector<struct pollfd> pollers;
 
   wait = -1;
+
+  CollectJournalWatches();
 
   for (std::pair<const int, Watch>& watch : watches)
   {
@@ -2251,6 +2616,34 @@ int PollPlugins()
     wait = (wait < 0) ? (timer.second.due - now) : std::min(wait, timer.second.due - now);
   }
 
+  // Watches of journals read in turns within a time of all of them, a dialog open pauses them
+  end     = GetQueryMilliseconds() + WATCH_READ_TIME;
+  pending = false;
+
+  for (int number : RoundJournalWatches())
+  {
+    if ((watch = FindJournalWatch(number)) == nullptr)
+    {
+      continue;
+    }
+
+    before = watch->state;
+    watch->poll(WATCH_READ_LIMIT, end, paused);
+    changed = changed || (watch->state != before);
+    pending = pending || (!watch->events.empty());
+
+    if (watch->state == WATCH_ACTIVE)
+    {
+      wait = (wait < 0) ? watch->wait(POLL_INTERVAL * 20) : std::min<int64_t>(wait, watch->wait(POLL_INTERVAL * 20));
+    }
+  }
+
+  if (pending && !paused)
+  {
+    // Their callbacks are due as soon as nothing modal is open
+    wait = 0;
+  }
+
   return (int)wait;
 }
 
@@ -2271,7 +2664,157 @@ bool HasPluginEvents()
     if (IsFetchDone(request.first)) return true;
   }
 
+  for (const std::pair<const int, std::unique_ptr<JournalWatch>>& watch : journals)
+  {
+    if ((watch.second->state == WATCH_ACTIVE) && (!watch.second->events.empty())) return true;
+  }
+
   return false;
+}
+
+// An entry or a gap of a watch to its callback, in the phase of a watch: the window of the watch is the one of mark();
+// an error leaves the watch failed with its lines kept
+static void CallJournalWatch(JournalWatch* watch, const JournalWatchEvent& event, std::vector<std::string>& errors)
+{
+  int base;
+  int extra;
+  bool done;
+  int number;
+  std::string error;
+
+  base   = lua_gettop(state);
+  number = watch->number;
+
+  // Trace, the function, the entry or the gap, the watch, the values of the plugin
+  lua_pushcfunction(state, Trace);
+  lua_rawgeti(state, LUA_REGISTRYINDEX, watch->callback);
+
+  if (event.gap)
+  {
+    lua_getfield(state, base + 2, "skipped");
+
+    if (lua_type(state, -1) != LUA_TFUNCTION)
+    {
+      // The plugin has not asked about gaps, the list of watches tells them anyway
+      lua_settop(state, base);
+      return;
+    }
+
+    lua_createtable(state, 0, 3);
+    lua_pushinteger(state, event.range.since);
+    lua_setfield(state, -2, "since");
+    lua_pushinteger(state, event.range.till);
+    lua_setfield(state, -2, "till");
+
+    if (event.range.uncertain)
+    {
+      lua_pushboolean(state, true);
+      lua_setfield(state, -2, "uncertain");
+    }
+  }
+  else
+  {
+    lua_rawgeti(state, base + 2, 1);
+    PushEntry(state, event.fields);
+  }
+
+  lua_rawgeti(state, LUA_REGISTRYINDEX, watch->self);
+  lua_getfield(state, base + 2, "n");
+  extra = lua_tointeger(state, -1);
+  lua_pop(state, 1);
+
+  for (int index = 2; index <= extra; index ++)
+  {
+    lua_rawgeti(state, base + 2, index);
+  }
+
+  lua_remove(state, base + 2);
+
+  phase    = PHASE_ENTRY;
+  plugin   = watch->plugin;
+  watching = number;
+  origin   = GetWatchWindow(watch);
+  done     = (lua_pcall(state, 2 + extra - 1, 0, base + 1) == LUA_OK);
+  phase    = PHASE_IDLE;
+  watching = 0;
+  origin   = nullptr;
+
+  if (!done)
+  {
+    error = GetError(state);
+    errors.push_back(watch->plugin + ": " + error);
+
+    if ((watch = FindJournalWatch(number)) != nullptr)
+    {
+      // Stops reading, the lines stay to look at: the first line of the error tells why
+      watch->stop(WATCH_FAILED, error.substr(0, error.find('\n')));
+      changed = true;
+    }
+  }
+
+  lua_settop(state, base);
+}
+
+// The entries and gaps the watches have read, in turns within a time and a count of all of them; the rest waits for the
+// next round
+static void DispatchJournalWatches(std::vector<std::string>& errors)
+{
+  bool progress;
+  size_t calls;
+  int64_t end;
+  JournalWatch* watch;
+  JournalWatchEvent event;
+
+  dispatching ++;
+  calls    = 0;
+  progress = true;
+  end      = GetQueryMilliseconds() + WATCH_CALL_TIME;
+
+  while ((progress) &&
+         (calls < WATCH_CALL_LIMIT) &&
+         (GetQueryMilliseconds() < end))
+  {
+    progress = false;
+
+    for (int number : RoundJournalWatches())
+    {
+      if (((watch = FindJournalWatch(number)) == nullptr) ||
+          (watch->state != WATCH_ACTIVE) ||
+          (watch->events.empty()))
+      {
+        continue;
+      }
+
+      event = std::move(watch->events.front());
+      watch->events.pop_front();
+
+      if (event.gap)
+      {
+        // Shown with the watch whether its plugin asks about them or not
+        watch->gaps ++;
+        watch->gap = event.range;
+        changed    = true;
+      }
+      else
+      {
+        // The place a layout keeps: the entry has come to the plugin
+        watch->delivered = event.position;
+      }
+
+      CallJournalWatch(watch, event, errors);
+
+      turn     = number;
+      progress = true;
+
+      if (((++ calls) >= WATCH_CALL_LIMIT) ||
+          (GetQueryMilliseconds() >= end))
+      {
+        break;
+      }
+    }
+  }
+
+  dispatching --;
 }
 
 // A callback in the phase of events with the arguments push gives, its error goes to the errors with its plugin; false when
@@ -2430,6 +2973,8 @@ void DispatchPluginEvents()
     luaL_unref(state, LUA_REGISTRYINDEX, callback);
   }
 
+  DispatchJournalWatches(errors);
+
   if (!errors.empty())
   {
     ShowErrors(errors);
@@ -2438,6 +2983,7 @@ void DispatchPluginEvents()
 
 void ClosePlugins()
 {
+  journals.clear();
   watches.clear();
   timers.clear();
   requests.clear();
@@ -2450,4 +2996,16 @@ void ClosePlugins()
   }
 
   expressions.clear();
+}
+
+void ForgetPluginWindow(JournalView* view)
+{
+  for (std::pair<const int, std::unique_ptr<JournalWatch>>& watch : journals)
+  {
+    if (watch.second->window == view)
+    {
+      // An entry of the watch opens a window of its own next time
+      watch.second->window = nullptr;
+    }
+  }
 }

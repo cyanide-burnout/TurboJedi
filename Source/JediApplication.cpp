@@ -243,6 +243,17 @@ void JediApplication::handleEvent(TEvent& event)
     return;
   }
 
+  if ((event.what == evBroadcast) &&
+      (event.message.command == cmJournalOpenWatch))
+  {
+    // A watch of a plugin goes to its entries in a window of its own
+    JournalWindowRequest* request = static_cast<JournalWindowRequest*>(event.message.infoPtr);
+
+    request->view = open(*request->filter)->view;
+    clearEvent(event);
+    return;
+  }
+
   if (event.what == evCommand)
   {
     // A timeline counts the entries of the focused window
@@ -335,7 +346,7 @@ void JediApplication::idle()
     poll.timeout = std::min(poll.timeout, 200);
   }
 
-  if ((wait = PollPlugins()) >= 0)
+  if ((wait = PollPlugins(TopView() != this)) >= 0)
   {
     // Descriptors and timers of plugins
     poll.timeout = std::min(poll.timeout, wait);
@@ -369,7 +380,7 @@ void JediApplication::idle()
   }
 }
 
-void JediApplication::open(const JournalFilter& filter)
+JournalWindow* JediApplication::open(const JournalFilter& filter)
 {
   JournalWindow* window;
 
@@ -378,6 +389,7 @@ void JediApplication::open(const JournalFilter& filter)
 
   deskTop->insert(window);
   tile();
+  return window;
 }
 
 void JediApplication::clone()

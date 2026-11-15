@@ -54,7 +54,7 @@ class JediApplication : public TApplication
     bool automatic;       // The running check has begun on start, it tells only about a newer release
 #endif
 
-    void open(const JournalFilter& filter);
+    JournalWindow* open(const JournalFilter& filter);
     void clone();
     void chooseWindow();
     bool load(const std::string& path, std::string& error);
