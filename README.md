@@ -280,7 +280,7 @@ window to the time of the selected line, and a layout keeps their directories fo
 | Ctrl-O, Ctrl-S | open, save a layout; both start at the layout opened or saved last, Save offers its file again |
 | F5, Ctrl-F5, F6, F9, Alt-F3 | zoom, size, next, tile, close |
 | Alt-0 | list of the windows to go to, the one used before is under the cursor |
-| F12 | watches of plugins with their status, Enter shows the lines of one, Delete removes it |
+| F12 | watches of plugins with their status, Enter shows the lines of one, Delete or Backspace removes it |
 | Alt-X | exit |
 
 ## Layouts
