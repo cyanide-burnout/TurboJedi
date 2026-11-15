@@ -256,7 +256,7 @@ of the menu, its filter is of the options.
 | Option | |
 |---|---|
 | `matches` | `{ FIELD = value }`, `{ FIELD = { value, ... } }` or `{ 'FIELD=VALUE', ... }`: the journal finds them, the values of one field are ORed, different fields ANDed |
-| `text` | the text filter, plain by default; with `regex = true` an expression of PCRE2, `exclude = true` leaves the matching entries out, `case = true` minds the case |
+| `text` | the text filter, plain by default; with `regex = true` an expression of PCRE2, `exclude = true` leaves the matching entries out, `case = true` minds the case. It is matched against `identifier[pid]: message`, as the text filter of a window is: `^Failed` never matches, `: Failed` does |
 | `since`, `until` | times as `-S` takes them: `2026-10-23 19:00`, `-10m`, `today` |
 | `priority` | up to the level, as `-p`: `err`, `warning` or `0` to `7` |
 
