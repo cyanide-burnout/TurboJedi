@@ -32,10 +32,12 @@
 #include "JediProcess.h"
 #include "JediScript.h"
 #include "ActionDialogs.h"
+#include "WatchWindow.h"
 
 #include <time.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <algorithm>
 
@@ -166,6 +168,7 @@ TMenuBar* JediApplication::initMenuBar(TRect bounds)
       *new TMenuItem("~N~ext",        cmNext,           kbF6,      hcNoContext, "F6") +
       *new TMenuItem("~P~revious",    cmPrev,           kbShiftF6, hcNoContext, "Shift-F6") +
       *new TMenuItem("~L~ist...",     cmJournalWindows, kbAlt0,    hcNoContext, "Alt-0") +
+      *new TMenuItem("Wa~t~ches",     cmJournalWatches, kbF12,     hcNoContext, "F12") +
       *new TMenuItem("~C~lose",       cmClose,          kbAltF3,   hcNoContext, "Alt-F3") +
     *new TSubMenu("~H~elp", kbAltH) +
       *new TMenuItem("~K~eys",              cmJournalHelp,   kbF1,      hcNoContext, "F1") +
@@ -268,6 +271,7 @@ void JediApplication::handleEvent(TEvent& event)
       case cmJournalSave:      chooseSave();       break;
       case cmJournalHelp:      showHelp();         break;
       case cmJournalTimeline:  timeline(current);  break;
+      case cmJournalWatches:   ShowWatchList(0);   break;
       case cmJournalAbout:     showAbout();        break;
       case cmJournalPlugins:
         // Each file that has failed, the rest of them work
@@ -287,6 +291,7 @@ void JediApplication::handleEvent(TEvent& event)
 
       case cmJournalPluginEvents:
         DispatchPluginEvents();
+        raise();
         break;
 
       case cmJournalReports:
@@ -370,6 +375,13 @@ void JediApplication::idle()
   }
 #endif
 
+  if (TakePluginWatchChanges())
+  {
+    // Watches have read, been told about or been looked at: their windows and the indicator once per round
+    message(deskTop, evBroadcast, cmJournalWatchesChanged, nullptr);
+    statusLine->drawView();
+  }
+
   eventTimeoutMs = poll.timeout;
 
   if (focused != deskTop->current)
@@ -450,6 +462,20 @@ void JediApplication::chooseWindow()
   }
 
   TObject::destroy(dialog);
+}
+
+void JediApplication::raise()
+{
+  int number;
+  ssize_t length;
+
+  if ((number = TakePluginWatchRaise()) != 0)
+  {
+    // A line important to its plugin: the list of watches in front on its watch, with a bell straight to the terminal
+    ShowWatchList(number);
+    length = ::write(STDOUT_FILENO, "\a", 1);
+    (void)length;
+  }
 }
 
 void JediApplication::timeline(JournalWindow* current)

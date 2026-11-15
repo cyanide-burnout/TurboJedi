@@ -12,6 +12,7 @@
 #include <string>
 
 #include "JournalTools.h"
+#include "JournalWatch.h"
 
 class JournalView;
 
@@ -38,6 +39,20 @@ void DispatchPluginEvents();
 
 // A window is closed, the watches that have gone to their entries in it open another one next time
 void ForgetPluginWindow(JournalView* view);
+
+// Watches of journals for their windows: the ones there are, the one with the newest line first; one by its number
+std::vector<JournalWatch*> ListPluginWatches();
+JournalWatch* FindPluginWatch(int number);
+
+void RemovePluginWatch(int number);                                            // Delete in the list of watches
+void ShowPluginWatchEntry(JournalWatch* watch, const JournalPosition& entry);  // Enter on a line: the entry in a window
+
+// Watches have changed since the last time: their windows and the status line are drawn again
+void MarkPluginWatchesChanged();
+bool TakePluginWatchChanges();
+
+// A watch a line has raised the list of watches for, zero for none
+int TakePluginWatchRaise();
 
 // What a watch asks the application for with cmJournalOpenWatch: a new window of its filter, the view of it back
 struct JournalWindowRequest

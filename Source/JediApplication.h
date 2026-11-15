@@ -69,6 +69,7 @@ class JediApplication : public TApplication
     void showUpdate();
 #endif
     void timeline(JournalWindow* current);
+    void raise();  // The list of watches for a line that has asked for it
 
     static TStatusLine* initStatusLine(TRect bounds);
     static TMenuBar* initMenuBar(TRect bounds);

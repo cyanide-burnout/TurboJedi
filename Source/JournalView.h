@@ -77,6 +77,10 @@ class JournalView : public TScroller
     bool search(const std::string& text, uint16_t mode, bool older);
     void jump(uint64_t realtime);
 
+    // The cursor on the entry of a cursor, what has come read in and the history brought in as for a time; near its time
+    // when the window does not show it
+    void reach(const std::string& cursor, uint64_t realtime);
+
     // Marks the lines of the entries of the cursors as M does, every line of a message; the history comes in down to the
     // oldest of them, in microseconds, as far as the window holds, by steps with a dialog and Cancel when it takes long.
     // Clear takes the other marks off first. The count of the entries marked, fewer when some are not in the window

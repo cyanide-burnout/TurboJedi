@@ -18,10 +18,12 @@ class JediStatusLine : public TStatusLine
     JediStatusLine(const TRect& bounds, TStatusDef& definitions);
 
     const char* hint(ushort context) override;
+    void handleEvent(TEvent& event) override;
 
   private:
 
     std::string status;
+    std::string indicator;  // Of the watches, at the start of the hint
 };
 
 #endif

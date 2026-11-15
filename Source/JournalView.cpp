@@ -1943,6 +1943,34 @@ void JournalView::jump(uint64_t realtime)
   seek(realtime, false);
 }
 
+void JournalView::reach(const std::string& cursor, uint64_t realtime)
+{
+  if (journal != nullptr)
+  {
+    // The entry may be newer than what the window has read
+    sd_journal_process(journal);
+
+    do
+    {
+      read();
+    }
+    while (pending);
+  }
+
+  seek(realtime, true);
+
+  for (size_t index = 0; index < lines.size(); index ++)
+  {
+    if ((!lines[index].continued) &&
+        (lines[index].cursor == cursor))
+    {
+      // The first line of the entry itself
+      select(index, false);
+      break;
+    }
+  }
+}
+
 size_t JournalView::mark(const std::set<std::string>& cursors, uint64_t oldest, bool clear)
 {
   size_t index;

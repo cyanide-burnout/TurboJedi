@@ -4,8 +4,12 @@
 
 #define Uses_TProgram
 #define Uses_TDeskTop
+#define Uses_TStatusItem
+#define Uses_TEvent
 #include "JediStatusLine.h"
 #include "JournalWindow.h"
+#include "WatchWindow.h"
+#include "Commands.h"
 
 #include <stdio.h>
 #include <syslog.h>
@@ -23,15 +27,19 @@ const char* JediStatusLine::hint(ushort context)
   JournalWindow* window;
   const uint64_t* counts;
 
+  // Watches of plugins first, whatever window is in front: a click on them opens their list
+  indicator = DescribeWatches();
+  status    = indicator;
+
   if ((TProgram::deskTop == nullptr) ||
       ((window = dynamic_cast<JournalWindow*>(TProgram::deskTop->current)) == nullptr))
   {
     // No window to tell about
-    return "";
+    return status.c_str();
   }
 
-  counts = window->view->counts;
-  status = window->view->describe();
+  counts  = window->view->counts;
+  status += (status.empty() ? "" : " \xe2\x94\x82 ") + std::string(window->view->describe());
 
   snprintf(buffer, sizeof(buffer), " \xe2\x94\x82 err %llu warn %llu note %llu info %llu debug %llu",
     (unsigned long long)(counts[LOG_EMERG] + counts[LOG_ALERT] + counts[LOG_CRIT] + counts[LOG_ERR]),
@@ -42,4 +50,43 @@ const char* JediStatusLine::hint(ushort context)
 
   status += buffer;
   return status.c_str();
+}
+
+void JediStatusLine::handleEvent(TEvent& event)
+{
+  int start;
+  TPoint where;
+
+  if ((event.what == evMouseDown) &&
+      (!indicator.empty()))
+  {
+    // The hint goes after the items and the separator, the way TStatusLine draws it
+    where = makeLocal(event.mouse.where);
+    start = 0;
+
+    for (TStatusItem* item = items; item != nullptr; item = item->next)
+    {
+      if (item->text != nullptr)
+      {
+        start += cstrlen(item->text) + 2;
+      }
+    }
+
+    start += 2;
+
+    if ((where.x >= start) &&
+        (where.x < start + strwidth(indicator)))
+    {
+      TEvent command;
+
+      command.what            = evCommand;
+      command.message.command = cmJournalWatches;
+      command.message.infoPtr = nullptr;
+      putEvent(command);
+      clearEvent(event);
+      return;
+    }
+  }
+
+  TStatusLine::handleEvent(event);
 }

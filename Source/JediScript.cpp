@@ -2746,8 +2746,10 @@ static void CallJournalWatch(JournalWatch* watch, const JournalWatchEvent& event
 
     if ((watch = FindJournalWatch(number)) != nullptr)
     {
-      // Stops reading, the lines stay to look at: the first line of the error tells why
-      watch->stop(WATCH_FAILED, error.substr(0, error.find('\n')));
+      // Stops reading, the lines stay to look at: the first line of the error tells why, with the file and not its path
+      error = error.substr(0, error.find('\n'));
+      error = ((error.find(".lua:") != std::string::npos) && (error.rfind('/', error.find(".lua:")) != std::string::npos)) ? error.substr(error.rfind('/', error.find(".lua:")) + 1) : error;
+      watch->stop(WATCH_FAILED, error);
       changed = true;
     }
   }
@@ -3008,4 +3010,73 @@ void ForgetPluginWindow(JournalView* view)
       watch.second->window = nullptr;
     }
   }
+}
+
+std::vector<JournalWatch*> ListPluginWatches()
+{
+  std::vector<JournalWatch*> list;
+
+  for (std::pair<const int, std::unique_ptr<JournalWatch>>& watch : journals)
+  {
+    if (watch.second->state != WATCH_REMOVED)
+    {
+      list.push_back(watch.second.get());
+    }
+  }
+
+  // The newest line first, the ones without lines after them in the order they have been set
+  std::stable_sort(list.begin(), list.end(), [] (const JournalWatch* one, const JournalWatch* other)
+  {
+    return (one->latest != other->latest) ? (one->latest > other->latest) : (one->order < other->order);
+  });
+
+  return list;
+}
+
+JournalWatch* FindPluginWatch(int number)
+{
+  return FindJournalWatch(number);
+}
+
+void RemovePluginWatch(int number)
+{
+  DropJournalWatch(number);
+}
+
+void ShowPluginWatchEntry(JournalWatch* watch, const JournalPosition& entry)
+{
+  JournalView* view;
+
+  if (((view = GetWatchWindow(watch)) == nullptr) &&
+      ((view = OpenWatchWindow(watch)) == nullptr))
+  {
+    return;
+  }
+
+  // The window of the watch comes to the front with the cursor on the entry
+  static_cast<TView*>(view->owner)->select();
+  view->reach(entry.cursor, entry.realtime);
+}
+
+void MarkPluginWatchesChanged()
+{
+  changed = true;
+}
+
+bool TakePluginWatchChanges()
+{
+  bool result;
+
+  result  = changed;
+  changed = false;
+  return result;
+}
+
+int TakePluginWatchRaise()
+{
+  int number;
+
+  number  = raising;
+  raising = 0;
+  return number;
 }
