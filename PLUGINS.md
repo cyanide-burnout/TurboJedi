@@ -135,6 +135,7 @@ argument whatever it holds, no shell sees it.
 | `confirm(text)` | action | Yes or No: `true` or `false`. No is the default one, Esc is No |
 | `input(prompt, value)` | action | a line to edit, starting with the value: the line, or `nil` when cancelled |
 | `choose(title, items, initial)` | action | one of a list of strings: the item and its index, or `nil` when cancelled. `initial` is an item or an index to start on |
+| `copy(text)` | action | puts the text to the clipboard the way Ctrl-Ins does |
 | `execute(argv)` | action | runs a command in the background: `true`, or `nil` and the reason when it has not started |
 | `output(argv)` | action | runs a command in a window of its own: `true`, or `nil` and the reason |
 | `terminal(argv)` | action | runs a command on the terminal: `how, code` |
@@ -154,6 +155,20 @@ own eyes what is about to be done, with the values the plugin has found: an addr
 ```lua
 if turbojedi.confirm(('Ban %s in jail %s?'):format(address, jail)) then
   turbojedi.execute { 'fail2ban-client', 'set', jail, 'banip', address }
+end
+```
+
+### Clipboard
+
+`copy` takes the way Ctrl-Ins and Copy of a window take: the command of `--clipboard-copy` or
+`TURBOJEDI_CLIPBOARD_COPY` on its standard input, such as `remote-copy.sh`, or the clipboard of Turbo Vision, OSC 52 over
+SSH among its ways, when there is no command or it fails. A result goes there without a window:
+
+```lua
+local text, how, code = turbojedi.capture { 'systemctl', 'show', unit }
+
+if (how == 'exit') and (code == 0) then
+  turbojedi.copy(text)
 end
 ```
 

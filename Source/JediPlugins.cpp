@@ -12,6 +12,7 @@
 #include "JediPlugins.h"
 #include "JediProcess.h"
 #include "ActionDialogs.h"
+#include "JediClipboard.h"
 #include "JournalExpression.h"
 
 extern "C"
@@ -464,6 +465,20 @@ static int AskChoice(lua_State* state)
   return 2;
 }
 
+static int Copy(lua_State* state)
+{
+  std::string text;
+
+  if (!GetString(state, 1, text))
+  {
+    return Fail(state, "copy() takes a text");
+  }
+
+  // The way Ctrl-Ins copies: the command of the user, the clipboard of Turbo Vision when it fails
+  CopyClipboardText(text);
+  return 0;
+}
+
 static int Execute(lua_State* state)
 {
   std::string failure;
@@ -764,6 +779,7 @@ static const luaL_Reg functions[] =
   { "confirm",         Call<AskConfirm,      PHASE_ACTION> },
   { "input",           Call<AskInput,        PHASE_ACTION> },
   { "choose",          Call<AskChoice,       PHASE_ACTION> },
+  { "copy",            Call<Copy,            PHASE_ACTION> },
   { "execute",         Call<Execute,         PHASE_ACTION> },
   { "output",          Call<Output,          PHASE_ACTION> },
   { "terminal",        Call<Terminal,        PHASE_ACTION> },
