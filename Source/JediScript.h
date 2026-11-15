@@ -46,6 +46,7 @@ JournalWatch* FindPluginWatch(int number);
 // As a layout names one: its plugin, its title, and its index among the ones of the same plugin and title by the order
 // they have been set, as a title need not be unique
 JournalWatch* FindPluginWatch(const std::string& plugin, const std::string& title, int index);
+JournalWatch* FindPluginWatch(const std::string& plugin, const std::string& key);  // By the key its plugin has given
 int IndexPluginWatch(const JournalWatch* watch);
 
 void RemovePluginWatch(int number);                                            // Delete in the list of watches

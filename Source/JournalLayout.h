@@ -12,7 +12,8 @@
 
 // One window of a layout file: an INI section [journal] with the bounds on the desktop, the filter and the columns,
 // [timeline] with the bounds, the filter it counts, its step and scale, [watchlist] of the list of watches with its bounds,
-// or [watchlines] of the lines of a watch with its bounds and the plugin, the title and the index the watch is found by
+// or [watchlines] of the lines of a watch with its bounds and the plugin and the key the watch is found by, or the title and
+// the index without a key
 
 #define LAYOUT_WATCH_LIST   1
 #define LAYOUT_WATCH_LINES  2
@@ -28,6 +29,7 @@ struct JournalLayout
   std::string plugin;   // Of the watch of the lines
   std::string title;
   int index;            // Among the watches of the same plugin and title by the order they have been set, a title is not unique
+  std::string key;      // Of the watch when its plugin has given one, it alone finds the watch then
 };
 
 // Takes a whole file or nothing, the error tells the line and what is wrong there. The watches of plugins come from the

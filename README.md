@@ -316,8 +316,8 @@ scale = log
 ```
 
 The list of watches of plugins is a `[watchlist]` section with its `bounds`, the lines of a watch a `[watchlines]` section
-with `bounds` and the `plugin` and `title` of the watch, which is found by them when the layout opens, and `index` among
-the watches of the same plugin and title in the order they have been set, when there are several; the watches
+with `bounds` and the `plugin` and `key` of the watch, which find it when the layout opens; a watch without a key is
+found by its `title` and `index` among the watches of the same plugin and title in the order they have been set; the watches
 themselves are kept by their plugins in a `[watches]` section, see [PLUGINS.md](PLUGINS.md):
 
 ```
@@ -327,6 +327,7 @@ bounds = 5 8 115 26
 [watchlines]
 bounds = 7 9 117 27
 plugin = tetrapack
+key = context:41d48349-56d6-4e73-b2b9-bb45e9df0c97
 title = Context 41d48349-56d6-4e73-b2b9-bb45e9df0c97
 ```
 

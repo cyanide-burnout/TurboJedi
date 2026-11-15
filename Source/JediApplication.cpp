@@ -538,6 +538,7 @@ static void CollectWindow(TView* view, void* argument)
     layout.plugin    = (lines != nullptr) ? watch->plugin : "";
     layout.title     = (lines != nullptr) ? watch->title : "";
     layout.index     = (lines != nullptr) ? IndexPluginWatch(watch) : 0;
+    layout.key       = (lines != nullptr) ? watch->key : "";
 
     static_cast<std::vector<JournalLayout>*>(argument)->insert(static_cast<std::vector<JournalLayout>*>(argument)->begin(), layout);
     return;
@@ -593,6 +594,7 @@ bool JediApplication::load(const std::string& path, std::string& error)
   bool fitting;
   TWindow* window;
   JournalWindow* journal;
+  JournalWatch* watch;
   std::vector<TView*> windows;
   std::vector<JournalView*> views;
   std::vector<std::string> watches;
@@ -665,10 +667,11 @@ bool JediApplication::load(const std::string& path, std::string& error)
       PlaceWatchList(bounds);
     }
 
+    // By its key when its plugin gives keys, by its title and its index among the ones of that title otherwise
     if ((item.watches == LAYOUT_WATCH_LINES) &&
-        (FindPluginWatch(item.plugin, item.title, item.index) != nullptr))
+        ((watch = item.key.empty() ? FindPluginWatch(item.plugin, item.title, item.index) : FindPluginWatch(item.plugin, item.key)) != nullptr))
     {
-      PlaceWatchLog(FindPluginWatch(item.plugin, item.title, item.index)->number, bounds);
+      PlaceWatchLog(watch->number, bounds);
     }
   }
 

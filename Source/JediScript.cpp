@@ -1784,6 +1784,7 @@ static int AddJournalWatch(lua_State* state)
   std::string title;
   std::string value;
   std::string error;
+  std::string key;
   std::string context;
   JournalFilter base;
   JournalFilter filter;
@@ -1805,6 +1806,26 @@ static int AddJournalWatch(lua_State* state)
       (title.empty()))
   {
     return Fail(state, "watch() takes a title among the options");
+  }
+
+  // What the watch is to its plugin, apart from what the user sees: two of the same key would leave a layout guessing
+  if (GetOption(state, 1, "key", key))
+  {
+    if (key.empty() ||
+        (key.find_first_of("\r\n") != std::string::npos))
+    {
+      return Fail(state, "key of watch() is a text of one line");
+    }
+
+    for (std::pair<const int, std::unique_ptr<JournalWatch>>& other : journals)
+    {
+      if ((other.second->state != WATCH_REMOVED) &&
+          (other.second->plugin == plugin) &&
+          (other.second->key == key))
+      {
+        return Fail(state, "key %s of watch() is taken by another watch of the plugin", key.c_str());
+      }
+    }
   }
 
   current = true;
@@ -1904,6 +1925,7 @@ static int AddJournalWatch(lua_State* state)
   watch->order  = serial;
   watch->plugin = plugin;
   watch->title  = title;
+  watch->key    = key;
   watch->global = (phase == PHASE_LOAD);
   watch->window = current ? origin : nullptr;
   watch->context = context;
@@ -3153,6 +3175,20 @@ JournalWatch* FindPluginWatch(const std::string& plugin, const std::string& titl
 
   list = NamePluginWatches(plugin, title);
   return ((index >= 0) && (index < (int)list.size())) ? list[index] : nullptr;
+}
+
+JournalWatch* FindPluginWatch(const std::string& plugin, const std::string& key)
+{
+  for (JournalWatch* watch : ListPluginWatches())
+  {
+    if ((watch->plugin == plugin) &&
+        (watch->key == key))
+    {
+      return watch;
+    }
+  }
+
+  return nullptr;
 }
 
 int IndexPluginWatch(const JournalWatch* watch)

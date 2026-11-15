@@ -93,7 +93,8 @@ static const char* SetValue(JournalLayout& window, const std::string& key, const
     if ((window.watches == LAYOUT_WATCH_LINES) && (key == "plugin")) return (window.plugin = value, nullptr);
     if ((window.watches == LAYOUT_WATCH_LINES) && (key == "title"))  return (window.title = value, nullptr);
     if ((window.watches == LAYOUT_WATCH_LINES) && (key == "index"))  return ParseNumber(value, 0, INT_MAX, &number) ? (window.index = number, nullptr) : "index takes a number";
-    return (window.watches == LAYOUT_WATCH_LINES) ? "[watchlines] takes bounds, plugin, title and index" : "[watchlist] takes bounds";
+    if ((window.watches == LAYOUT_WATCH_LINES) && (key == "key"))    return (window.key = value, nullptr);
+    return (window.watches == LAYOUT_WATCH_LINES) ? "[watchlines] takes bounds, plugin, key, title and index" : "[watchlist] takes bounds";
   }
 
   for (index = 0; index < JOURNAL_FIELD_COUNT; index ++)
@@ -374,9 +375,17 @@ bool SaveJournalLayout(const std::string& path, const std::vector<JournalLayout>
       if (window.watches == LAYOUT_WATCH_LINES)
       {
         file << "plugin = " << window.plugin << '\n';
+
+        if (!window.key.empty())
+        {
+          // What finds the watch, the title only tells a reader which one it is
+          file << "key = " << window.key << '\n';
+        }
+
         file << "title = " << window.title << '\n';
 
-        if (window.index > 0)
+        if ((window.key.empty()) &&
+            (window.index > 0))
         {
           // One of several of the same name
           file << "index = " << window.index << '\n';

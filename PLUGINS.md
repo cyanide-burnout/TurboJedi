@@ -590,6 +590,7 @@ monitoring of the server: closed TurboJedi or a broken SSH connection watch noth
 | Option | |
 |---|---|
 | `title` | the name of the watch in the list, needed |
+| `key` | what the watch is to the plugin, unique among its watches: a layout finds the window of its lines by it. Without one, by its title and its place among the ones of the same title, which holds while the plugin sets them in the same order. A key taken by another watch of the plugin is an error |
 | `window` | `'current'`, by default: the window of the menu is the window of the watch while it is open; `'new'`: a window of its own, opened when needed |
 | `skipped` | `skipped(gap, watch, ...)`, when the watch has not seen a part of the journal |
 | `context` | data a layout keeps to get the watch back, see Layouts below |

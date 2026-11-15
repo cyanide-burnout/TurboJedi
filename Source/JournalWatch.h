@@ -102,6 +102,7 @@ class JournalWatch
     int number;            // Of the engine, its handle in Lua tells it
     std::string plugin;
     std::string title;
+    std::string key;       // Given by the plugin, unique among its watches: a layout finds the watch by it, empty without
     std::string status;    // Told by the plugin
     std::string reason;    // Why it is stopped or failed
     JournalWatchState state;
