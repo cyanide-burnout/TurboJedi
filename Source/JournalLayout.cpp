@@ -224,7 +224,7 @@ static bool CheckExpression(const JournalFilter& filter)
   return expression.compile(filter.text, !(filter.mode & JOURNAL_TEXT_SENSITIVE));
 }
 
-bool LoadJournalLayout(const std::string& path, std::vector<JournalLayout>& windows, std::vector<std::string>& watches, std::string& error)
+bool LoadJournalLayout(const std::string& path, std::vector<JournalLayout>& windows, std::vector<std::string>& watches, bool& utc, std::string& error)
 {
   int number;
   bool watching;
@@ -245,6 +245,7 @@ bool LoadJournalLayout(const std::string& path, std::vector<JournalLayout>& wind
   windows.clear();
   watches.clear();
   watching = false;
+  utc      = false;
 
   for (number = 1; std::getline(file, line); number ++)
   {
@@ -269,7 +270,8 @@ bool LoadJournalLayout(const std::string& path, std::vector<JournalLayout>& wind
       equal   = line.find('=');
       problem =
         (equal == std::string::npos)               ? "neither a section nor key = value" :
-        (Trim(line.substr(0, equal)) != "watch")   ? "a [watches] section takes watch = lines" :
+        ((Trim(line.substr(0, equal)) == "utc") && (Trim(line.substr(equal + 1)) != "yes") && (Trim(line.substr(equal + 1)) != "no")) ? "utc takes yes or no" :
+        ((Trim(line.substr(0, equal)) != "watch") && (Trim(line.substr(0, equal)) != "utc")) ? "a [watches] section takes watch and utc" :
         nullptr;
 
       if (problem != nullptr)
@@ -277,6 +279,13 @@ bool LoadJournalLayout(const std::string& path, std::vector<JournalLayout>& wind
         snprintf(buffer, sizeof(buffer), "line %d: %s", number, problem);
         error = buffer;
         return false;
+      }
+
+      if (Trim(line.substr(0, equal)) == "utc")
+      {
+        // The zone of the times of the watches
+        utc = (Trim(line.substr(equal + 1)) == "yes");
+        continue;
       }
 
       watches.push_back(Trim(line.substr(equal + 1)));
@@ -353,7 +362,7 @@ bool LoadJournalLayout(const std::string& path, std::vector<JournalLayout>& wind
   return !windows.empty();
 }
 
-bool SaveJournalLayout(const std::string& path, const std::vector<JournalLayout>& windows, const std::vector<std::string>& watches)
+bool SaveJournalLayout(const std::string& path, const std::vector<JournalLayout>& windows, const std::vector<std::string>& watches, bool utc)
 {
   int index;
   bool first;
@@ -456,10 +465,15 @@ bool SaveJournalLayout(const std::string& path, const std::vector<JournalLayout>
     file << "\n\n";
   }
 
-  if (!watches.empty())
+  if ((!watches.empty()) || (utc))
   {
     // The engine of the plugins has written them, the plugins read them back
     file << "[watches]\n";
+
+    if (utc)
+    {
+      file << "utc = yes\n";
+    }
 
     for (const std::string& watch : watches)
     {

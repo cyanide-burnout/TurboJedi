@@ -32,9 +32,9 @@ local function load()
   local rule
   local number = 0
 
-  for line in file:lines() do
+  for raw in file:lines() do
+    local line = raw:match('^%s*(.-)%s*$')
     number = number + 1
-    line = line:match('^%s*(.-)%s*$')
 
     if (line ~= '') and not line:match('^[#;]') then
       local name = line:match('^%[(.+)%]$')
@@ -71,8 +71,11 @@ if not rules then
   return
 end
 
+-- Times in the zone the user has chosen for the watches, UTC or local; os.date() before TurboJedi had date()
+local date = turbojedi.date or os.date
+
 local function clock(microseconds)
-  return os.date('%H:%M:%S', microseconds // 1000000)
+  return date('%H:%M:%S', microseconds // 1000000)
 end
 
 local failures = { }

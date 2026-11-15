@@ -281,7 +281,7 @@ window to the time of the selected line, and a layout keeps their directories fo
 | Ctrl-O, Ctrl-S | open, save a layout; both start at the layout opened or saved last, Save offers its file again |
 | F5, Ctrl-F5, F6, F9, Alt-F3 | zoom, size, next, tile, close |
 | Alt-0 | list of the windows to go to, the one used before is under the cursor |
-| F12 | watches of plugins with their status, Enter shows the lines of one, Delete or Backspace removes it |
+| F12 | watches of plugins with their status, Enter shows the lines of one, Delete or Backspace removes it, U turns their times to UTC and back |
 | Alt-X | exit |
 
 ## Layouts
@@ -319,7 +319,8 @@ scale = log
 The list of watches of plugins is a `[watchlist]` section with its `bounds`, the lines of a watch a `[watchlines]` section
 with `bounds` and the `plugin` and `key` of the watch, which find it when the layout opens; a watch without a key is
 found by its `title` and `index` among the watches of the same plugin and title in the order they have been set; the watches
-themselves are kept by their plugins in a `[watches]` section, see [PLUGINS.md](PLUGINS.md):
+themselves are kept by their plugins in a `[watches]` section, see [PLUGINS.md](PLUGINS.md), which has `utc = yes` when
+their times are of UTC:
 
 ```
 [watchlist]

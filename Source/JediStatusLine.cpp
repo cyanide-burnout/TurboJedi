@@ -9,6 +9,7 @@
 #include "JediStatusLine.h"
 #include "JournalWindow.h"
 #include "WatchWindow.h"
+#include "JediScript.h"
 #include "Commands.h"
 
 #include <stdio.h>
@@ -30,6 +31,14 @@ const char* JediStatusLine::hint(ushort context)
   // Watches of plugins first, whatever window is in front: a click on them opens their list
   indicator = DescribeWatches();
   status    = indicator;
+
+  if ((TProgram::deskTop != nullptr) &&
+      ((dynamic_cast<WatchWindow*>(TProgram::deskTop->current) != nullptr) ||
+       (dynamic_cast<WatchLogWindow*>(TProgram::deskTop->current) != nullptr)))
+  {
+    // The zone of their times, U turns it over
+    status += (status.empty() ? "" : " \xe2\x94\x82 ") + std::string(GetPluginUniversal() ? "UTC" : "local time");
+  }
 
   if ((TProgram::deskTop == nullptr) ||
       ((window = dynamic_cast<JournalWindow*>(TProgram::deskTop->current)) == nullptr))

@@ -18,6 +18,7 @@
 
 #include <time.h>
 #include <stdio.h>
+#include <ctype.h>
 
 #include <vector>
 #include <algorithm>
@@ -41,7 +42,7 @@ static std::string FormatMoment(uint64_t microseconds)
   }
 
   seconds = microseconds / 1000000;
-  localtime_r(&seconds, &local);
+  GetPluginUniversal() ? gmtime_r(&seconds, &local) : localtime_r(&seconds, &local);
   strftime(text, sizeof(text), "%Y-%m-%d %H:%M:%S", &local);
   return text;
 }
@@ -53,7 +54,7 @@ static std::string FormatClock(uint64_t microseconds)
   char text[16];
 
   seconds = microseconds / 1000000;
-  localtime_r(&seconds, &local);
+  GetPluginUniversal() ? gmtime_r(&seconds, &local) : localtime_r(&seconds, &local);
   strftime(text, sizeof(text), "%H:%M:%S", &local);
   return text;
 }
@@ -226,7 +227,7 @@ void WatchListView::draw()
   top = std::clamp(top, std::max(0, current - (size.y - 2)), std::max(0, current));
 
   // Whole rows first, the window shows them from the columns scrolled away on
-  heading = "  " + FitText("Date/time", TIME_WIDTH) + "  " + FitText("Plugin", PLUGIN_WIDTH) + "  " + FitText("Watch", TITLE_WIDTH) + "  Status";
+  heading = "  " + FitText(GetPluginUniversal() ? "Date/time UTC" : "Date/time", TIME_WIDTH) + "  " + FitText("Plugin", PLUGIN_WIDTH) + "  " + FitText("Watch", TITLE_WIDTH) + "  Status";
   widest  = strwidth(heading);
 
   for (JournalWatch* watch : watches)
@@ -349,6 +350,15 @@ void WatchListView::handleEvent(TEvent& event)
   if (event.what == evMouseWheel)
   {
     move(index + ((event.mouse.wheel == mwDown) ? 3 : (event.mouse.wheel == mwUp) ? -3 : 0));
+    clearEvent(event);
+    return;
+  }
+
+  if (((event.what == evCommand) && (event.message.command == cmWatchUniversal)) ||
+      ((event.what == evKeyDown) && (toupper(event.keyDown.charScan.charCode) == 'U')))
+  {
+    // One zone for every window of watches
+    SetPluginUniversal(!GetPluginUniversal());
     clearEvent(event);
     return;
   }
@@ -674,6 +684,15 @@ void WatchLogView::handleEvent(TEvent& event)
   {
     top = std::clamp(top + ((event.mouse.wheel == mwDown) ? 3 : (event.mouse.wheel == mwUp) ? -3 : 0), 0, std::max(0, count - size.y));
     drawView();
+    clearEvent(event);
+    return;
+  }
+
+  if (((event.what == evCommand) && (event.message.command == cmWatchUniversal)) ||
+      ((event.what == evKeyDown) && (toupper(event.keyDown.charScan.charCode) == 'U')))
+  {
+    // One zone for every window of watches
+    SetPluginUniversal(!GetPluginUniversal());
     clearEvent(event);
     return;
   }

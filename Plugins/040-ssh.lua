@@ -24,12 +24,15 @@ local ATTEMPT = [=[^(?:Invalid user (?<user>\S*) from|Failed \S+ for (?!invalid 
 local TOUCH   = [=[^(?:Connection closed by|Disconnected from|error: maximum authentication attempts exceeded for) (?:authenticating |invalid )?(?:user )?(?<user>\S*) (?:from )?(?<address>[0-9a-fA-F:.]+) port]=]
 local LOGIN   = [=[^Accepted \S+ for (?<user>\S+) from (?<address>\S+) port]=]
 
+-- Times in the zone the user has chosen for the watches, UTC or local; os.date() before TurboJedi had date()
+local date = turbojedi.date or os.date
+
 local sources = { }  -- By the address: tries, the times of the recent ones, the names, the last time, its line
 local width   = 0    -- Of the column of the addresses: the longest one there is, 15 for IPv4 alone, up to 39 for IPv6
 local watch
 
 local function clock(seconds)
-  return os.date('%H:%M:%S', seconds)
+  return date('%H:%M:%S', seconds)
 end
 
 -- The tries of the window, the older ones go

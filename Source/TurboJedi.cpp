@@ -169,6 +169,7 @@ int main(int count, char* const* arguments)
   std::string error;
   std::vector<JournalLayout> windows;
   std::vector<std::string> watches;
+  bool universal;
   std::vector<std::string> problems;
   sd_id128_t boot;
   JournalFilter filter;
@@ -315,7 +316,7 @@ int main(int count, char* const* arguments)
   }
 
   if ((!layout.empty()) &&
-      (!LoadJournalLayout(layout, windows, watches, error)))
+      (!LoadJournalLayout(layout, windows, watches, universal, error)))
   {
     // The last layout falls back to a window of the options, a given one has to be right
     fprintf(stderr, "Cannot read a layout from %s, %s\n", layout.c_str(), error.c_str());

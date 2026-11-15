@@ -54,7 +54,7 @@ local function line(item)
   local name  = first(item.SYSLOG_IDENTIFIER) or first(item._COMM) or '?'
   local pid   = first(item._PID)
 
-  return ('%s %s %s%s: %s'):format(stamp and os.date('%Y-%m-%d %H:%M:%S', stamp // 1000000) or '?',
+  return ('%s %s %s%s: %s'):format(stamp and (turbojedi.date or os.date)('%Y-%m-%d %H:%M:%S', stamp // 1000000) or '?',
     first(item._HOSTNAME) or '?', name, pid and ('[' .. pid .. ']') or '', first(item.MESSAGE) or '')
 end
 

@@ -170,6 +170,8 @@ argument whatever it holds, no shell sees it.
 | `regex(text, pattern, flags)` | any time | the first match, or `nil` |
 | `matches(text, pattern, flags)` | any time | an iterator over every match |
 | `which(name)` | any time | the path of a program in `PATH`, or `nil` |
+| `utc()` | any time | `true` when the user wants the times of the watches in UTC, `false` for the local zone |
+| `date(format, time)` | any time | `os.date()` in the zone the user has chosen for the watches: put it in its place for the times a watch shows. `!` in front of the format forces UTC as in `os.date()`, `*t` is left to `os.date()` |
 
 Called at the wrong time, a function is an error.
 
@@ -622,6 +624,9 @@ monitoring of the server: closed TurboJedi or a broken SSH connection watch noth
 - In the list, Enter shows the lines of a watch, Delete or Backspace removes it after a question. In the lines, Enter
   goes to the entry, Delete or Backspace takes a line away, F8 clears them; a line is read once it has been shown. The
   status line of both windows tells their keys, its items are clicked as well; Backspace is the key a Mac calls delete.
+- U in either window turns the times of all the watches over between the local zone and UTC, the status line tells
+  which one it is and a layout keeps it. The times the windows show follow at once; a plugin that writes times into its
+  status and lines takes them from `turbojedi.date()`, the ones written already stay as they are.
 - A callback that fails leaves its watch failed: it reads nothing more, its lines and the error stay in the list until
   it is removed. A watch whose journal has gone, a directory unmounted, is stopped the same way.
 - Methods of a watch removed meanwhile, by the user in the list for one, do nothing.

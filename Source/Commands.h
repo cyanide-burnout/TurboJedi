@@ -57,6 +57,7 @@ enum
   cmJournalWatchesChanged,     // Broadcast: watches have changed, their windows draw again
   cmWatchOpen,                 // Enter of a window of watches, by the status line
   cmWatchRemove,               // Delete there
+  cmWatchUniversal,            // U there: the times in UTC or in the local zone
   cmJournalSourceList,         // One per source field, then one for PID
   cmJournalTimePick   = 1100,  // Since, then Until
   cmJournalTimePreset = 1110   // One per preset of the time picker

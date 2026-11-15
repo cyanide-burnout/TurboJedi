@@ -144,6 +144,7 @@ static int turn;          // The watch the next round of reading or calling star
 static bool changed;      // Watches have changed, their windows and the status line are told
 static int raising;       // A watch a line has raised the list of watches for, zero for none
 static JournalFilter kept;  // The journal of a watch a layout restores, its function takes it as the base of watch()
+static bool universal;      // Times of the watches and of date() are of UTC, not of the local zone
 static int serial;
 static std::vector<std::string> directories;  // In the order a file of the same name takes the place: the user last
 static std::map<std::string, JournalExpression> expressions;
@@ -1773,6 +1774,62 @@ static int CancelRequest(lua_State* state)
   return 0;
 }
 
+// Time
+
+// utc(): whether the user wants the times of the watches in UTC
+static int GetUniversal(lua_State* state)
+{
+  lua_pushboolean(state, universal);
+  return 1;
+}
+
+// date(format, time): os.date() in the zone the user has chosen for the watches, ! in front of the format forces UTC
+static int FormatDate(lua_State* state)
+{
+  int whole;
+  bool utc;
+  time_t moment;
+  struct tm parts;
+  std::string format;
+  char buffer[512];
+
+  format = "%c";
+
+  if ((!lua_isnoneornil(state, 1)) &&
+      (!GetString(state, 1, format)))
+  {
+    return Fail(state, "date() takes a format of strftime");
+  }
+
+  utc    = universal || ((!format.empty()) && (format[0] == '!'));
+  format = ((!format.empty()) && (format[0] == '!')) ? format.substr(1) : format;
+  moment = time(nullptr);
+
+  if (!format.empty() && (format[0] == '*'))
+  {
+    return Fail(state, "date() takes a format of strftime, os.date() makes the table of *t");
+  }
+
+  if (!lua_isnoneornil(state, 2))
+  {
+    moment = lua_tointegerx(state, 2, &whole);
+
+    if (!whole)
+    {
+      return Fail(state, "date() takes whole seconds after the format");
+    }
+  }
+
+  if (((utc ? gmtime_r(&moment, &parts) : localtime_r(&moment, &parts)) == nullptr) ||
+      ((strftime(buffer, sizeof(buffer), format.c_str(), &parts) == 0) && (!format.empty())))
+  {
+    return Fail(state, "date() cannot make the time of %s", format.c_str());
+  }
+
+  lua_pushstring(state, format.empty() ? "" : buffer);
+  return 1;
+}
+
 // Watches of journals
 
 // watch(options, func, ...): the entries of the filter of the options as they come go to func(entry, watch, ...), the gaps
@@ -2137,6 +2194,8 @@ static const luaL_Reg functions[] =
   { "regex",           Call<Match,           PHASE_ANY>    },
   { "matches",         Call<Matches,         PHASE_ANY>    },
   { "which",           Call<Which,           PHASE_ANY>    },
+  { "utc",             Call<GetUniversal,    PHASE_ANY>    },
+  { "date",            Call<FormatDate,      PHASE_ANY>    },
   { "poll",            Call<AddWatch,        PHASE_WATCH>  },
   { "timeout",         Call<AddTimer,        PHASE_WATCH>  },
   { "fetch",           Call<Fetch,           PHASE_WATCH>  },
@@ -3422,4 +3481,15 @@ void RestorePluginWatches(const std::vector<std::string>& lines, const std::vect
     origin = nullptr;
     lua_settop(state, base);
   }
+}
+
+bool GetPluginUniversal()
+{
+  return universal;
+}
+
+void SetPluginUniversal(bool value)
+{
+  universal = value;
+  changed   = true;
 }

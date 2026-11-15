@@ -59,6 +59,10 @@ bool TakePluginWatchChanges();
 // A watch a line has raised the list of watches for, zero for none
 int TakePluginWatchRaise();
 
+// The times of the watches and of turbojedi.date() in UTC or in the local zone, U in a window of watches turns it over
+bool GetPluginUniversal();
+void SetPluginUniversal(bool value);
+
 // Watches of a layout: the ones of the layout that goes are removed when another one opens, the global ones of the plugins
 // stay. Lines of a [watches] section are given to the functions of registerRestore() of their plugins, a window of the
 // layout by its number among the journals; the lines of the plugins not there are kept as they are

@@ -112,17 +112,19 @@ TStatusLine* JediApplication::initStatusLine(TRect bounds)
       new TStatusItem("~F1~ Help",           kbF1,    cmJournalHelp,
       new TStatusItem("~Enter~ Lines",       kbNoKey, cmWatchOpen,
       new TStatusItem("~Backspace~ Remove",  kbNoKey, cmWatchRemove,
+      new TStatusItem("~U~ UTC",             kbNoKey, cmWatchUniversal,
       new TStatusItem("~Esc~ Close",         kbNoKey, cmClose,
       new TStatusItem("~Alt-X~ Exit",        kbAltX,  cmQuit,
-      new TStatusItem(0, kbCtrlC, cmQuit)))))),
+      new TStatusItem(0, kbCtrlC, cmQuit))))))),
     new TStatusDef(hcWatchLines, hcWatchLines,
       new TStatusItem("~F1~ Help",           kbF1,    cmJournalHelp,
       new TStatusItem("~Enter~ Go to entry", kbNoKey, cmWatchOpen,
       new TStatusItem("~Backspace~ Delete",  kbNoKey, cmWatchRemove,
       new TStatusItem("~F8~ Clear",          kbNoKey, cmJournalClear,
+      new TStatusItem("~U~ UTC",             kbNoKey, cmWatchUniversal,
       new TStatusItem("~Esc~ Close",         kbNoKey, cmClose,
       new TStatusItem("~Alt-X~ Exit",        kbAltX,  cmQuit,
-      new TStatusItem(0, kbCtrlC, cmQuit))))))),
+      new TStatusItem(0, kbCtrlC, cmQuit)))))))),
     new TStatusDef(0, 0xffff,
       new TStatusItem("~F1~ Help",      kbF1,    cmJournalHelp,
       new TStatusItem("~F2~ New",       kbF2,    cmJournalNew,
@@ -595,12 +597,13 @@ bool JediApplication::load(const std::string& path, std::string& error)
   TWindow* window;
   JournalWindow* journal;
   JournalWatch* watch;
+  bool universal;
   std::vector<TView*> windows;
   std::vector<JournalView*> views;
   std::vector<std::string> watches;
   std::vector<JournalLayout> layout;
 
-  if (!LoadJournalLayout(path, layout, watches, error))
+  if (!LoadJournalLayout(path, layout, watches, universal, error))
   {
     // Windows there are stay as they are
     return false;
@@ -614,8 +617,9 @@ bool JediApplication::load(const std::string& path, std::string& error)
     TObject::destroy(view);
   }
 
-  // And the watches of plugins it has had, the global ones stay
+  // And the watches of plugins it has had, the global ones stay; the zone of their times is of the layout
   DropWorkspaceWatches();
+  SetPluginUniversal(universal);
 
   extent  = deskTop->getExtent();
   fitting = true;
@@ -692,7 +696,7 @@ bool JediApplication::save(const std::string& path)
   deskTop->forEach(CollectWindow, &layout);
   deskTop->forEach(CollectView, &views);
 
-  return SaveJournalLayout(path, layout, SavePluginWatches(views));
+  return SaveJournalLayout(path, layout, SavePluginWatches(views), GetPluginUniversal());
 }
 
 void JediApplication::recall(TFileDialog* dialog, bool named)
@@ -793,8 +797,8 @@ void JediApplication::showHelp()
     "  Alt-0           List of the windows to go to, the filter narrows it down,",
     "                  the window used before is under the cursor",
     "  F12             Watches of plugins: Enter shows the lines of one, Delete or",
-    "                  Backspace removes it; Watch 1/3 * in the status line tells about",
-    "                  new lines",
+    "                  Backspace removes it, U turns their times to UTC and back;",
+    "                  Watch 1/3 * in the status line tells about new lines",
     "  F5, Ctrl-F5     Zoom, size or move the window",
     "  F9              Tile the windows",
     "  Alt-F3          Close the window",
