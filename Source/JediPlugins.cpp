@@ -1276,6 +1276,31 @@ static int Search(lua_State* state)
   return 1;
 }
 
+// A callback with the values of the plugin that go to it after the ones of its event, from the function at an index and
+// the values from another one on: { func, value, ..., n = count } in the registry
+static int KeepCallback(lua_State* state, int function, int first)
+{
+  int top;
+  int count;
+
+  top   = lua_gettop(state);
+  count = 1;
+
+  lua_createtable(state, std::max(0, top - first + 1) + 1, 1);
+  lua_pushvalue(state, function);
+  lua_rawseti(state, -2, 1);
+
+  for (int index = first; index <= top; index ++)
+  {
+    lua_pushvalue(state, index);
+    lua_rawseti(state, -2, ++ count);
+  }
+
+  lua_pushinteger(state, count);
+  lua_setfield(state, -2, "n");
+  return luaL_ref(state, LUA_REGISTRYINDEX);
+}
+
 // A handle of a watch or a timer: a table with its number and the methods of its kind
 static void PushHandle(lua_State* state, int number, const char* kind)
 {
@@ -1306,7 +1331,7 @@ static short GetEvents(const std::string& mode)
   return ((mode.find('r') != std::string::npos) ? POLLIN : 0) | ((mode.find('w') != std::string::npos) ? POLLOUT : 0);
 }
 
-// poll(handle, 'r' | 'w' | 'rw', callback): the callback gets 'r', 'w', 'rw', with 'e' for an error or a hang-up
+// poll(handle, 'r' | 'w' | 'rw', callback, ...): the callback gets 'r', 'w', 'rw', with 'e' for an error or a hang-up
 static int AddWatch(lua_State* state)
 {
   int whole;
@@ -1334,8 +1359,7 @@ static int AddWatch(lua_State* state)
     return Fail(state, "poll() takes a function after the events");
   }
 
-  lua_pushvalue(state, 3);
-  watch.callback = luaL_ref(state, LUA_REGISTRYINDEX);
+  watch.callback = KeepCallback(state, 3, 4);
   watch.handle   = handle;
   watch.revents  = 0;
   watch.plugin   = plugin;
@@ -1383,7 +1407,7 @@ static int RemoveWatch(lua_State* state)
   return 0;
 }
 
-// timeout(milliseconds, callback, periodic)
+// timeout(milliseconds, callback, periodic, ...)
 static int AddTimer(lua_State* state)
 {
   int whole;
@@ -1403,8 +1427,7 @@ static int AddTimer(lua_State* state)
     return Fail(state, "timeout() takes a function after the milliseconds");
   }
 
-  lua_pushvalue(state, 2);
-  timer.callback = luaL_ref(state, LUA_REGISTRYINDEX);
+  timer.callback = KeepCallback(state, 2, 4);
   timer.period   = lua_toboolean(state, 3) ? std::max<int64_t>(1, interval) : 0;
   timer.due      = GetQueryMilliseconds() + interval;
   timer.plugin   = plugin;
@@ -1432,7 +1455,7 @@ static int CancelTimer(lua_State* state)
   return 0;
 }
 
-// fetch(url | request, callback): url, method, headers, body, timeout of a request in a table
+// fetch(url | request, callback, ...): url, method, headers, body, timeout of a request in a table
 static int GetRequest(lua_State* state, int index, JediRequest& request)
 {
   int whole;
@@ -1603,8 +1626,7 @@ static int Fetch(lua_State* state)
   if (lua_type(state, 2) == LUA_TFUNCTION)
   {
     // The answer goes to the callback once no dialog is open
-    lua_pushvalue(state, 2);
-    item.callback    = luaL_ref(state, LUA_REGISTRYINDEX);
+    item.callback    = KeepCallback(state, 2, 3);
     item.plugin      = plugin;
     requests[number] = item;
     PushHandle(state, number, FETCH);
@@ -2254,17 +2276,32 @@ static bool RunCallback(int callback, const std::string& name, const std::functi
 {
   int base;
   int count;
+  int extra;
   bool done;
 
   base = lua_gettop(state);
 
+  // Trace, the function, the values of the event, the ones of the plugin
   lua_pushcfunction(state, Trace);
   lua_rawgeti(state, LUA_REGISTRYINDEX, callback);
+  lua_rawgeti(state, base + 2, 1);
 
-  count  = push ? push(state) : 0;
+  count = push ? push(state) : 0;
+
+  lua_getfield(state, base + 2, "n");
+  extra = lua_tointeger(state, -1);
+  lua_pop(state, 1);
+
+  for (int index = 2; index <= extra; index ++)
+  {
+    lua_rawgeti(state, base + 2, index);
+  }
+
+  lua_remove(state, base + 2);
+
   phase  = PHASE_EVENT;
   plugin = name;
-  done   = (lua_pcall(state, count, 0, base + 1) == LUA_OK);
+  done   = (lua_pcall(state, count + extra - 1, 0, base + 1) == LUA_OK);
   phase  = PHASE_IDLE;
 
   if (!done)

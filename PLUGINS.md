@@ -157,9 +157,9 @@ argument whatever it holds, no shell sees it.
 | `seek(time)` | action | the window of the menu goes to a time, as Go to time |
 | `query(options)` | handler, action | entries of a filter for the plugin to look into: a list, and why the reading has stopped |
 | `mark(entries, options)` | action | marks the lines of entries in the window of the menu, as M does: the count marked |
-| `poll(descriptor, events, func)` | loading, action, callback | calls `func(flags)` when the descriptor is ready, between the events: a watch |
-| `timeout(milliseconds, func, periodic)` | loading, action, callback | calls `func()` after the time, again and again when periodic: a timer |
-| `fetch(request, func)` | loading, action, callback | a request over HTTP or HTTPS: with `func` its answer goes there later, without it the action waits for `code, body, headers` |
+| `poll(descriptor, events, func, ...)` | loading, action, callback | calls `func(flags, ...)` when the descriptor is ready, between the events: a watch |
+| `timeout(milliseconds, func, periodic, ...)` | loading, action, callback | calls `func(...)` after the time, again and again when periodic: a timer |
+| `fetch(request, func, ...)` | loading, action, callback | a request over HTTP or HTTPS: with `func` its answer goes to `func(code, body, headers, ...)` later, without it the action waits for `code, body, headers` |
 | `execute(argv)` | action, callback | runs a command in the background: `true`, or `nil` and the reason when it has not started |
 | `output(argv)` | action, callback | runs a command in a window of its own: `true`, or `nil` and the reason |
 | `terminal(argv)` | action, callback | runs a command on the terminal: `how, code` |
@@ -396,11 +396,13 @@ end)
 local timer = turbojedi.timeout(5000, function() ... end, true)
 ```
 
-- `poll(descriptor, events, func)` watches a descriptor, `'r'`, `'w'` or `'rw'`; `func` gets what is ready, `'r'`,
+- `poll(descriptor, events, func, ...)` watches a descriptor, `'r'`, `'w'` or `'rw'`; `func` gets what is ready, `'r'`,
   `'w'` or `'rw'`, with `'e'` for an error or a hang-up. `watch:update(events)` changes the events, `watch:remove()` stops
   it. A descriptor closed without `remove()` is told about and its watch goes.
-- `timeout(milliseconds, func, periodic)` calls `func()` once after the time, or every that time when `periodic` is
+- `timeout(milliseconds, func, periodic, ...)` calls `func()` once after the time, or every that time when `periodic` is
   true; `timer:cancel()` stops it.
+- The values after the function go to it after the ones of the event, as the ones of `menu:add` go to an action:
+  `poll(fd, 'r', read, client)` calls `read(flags, client)`, `timeout(1000, retry, false, url)` calls `retry(url)`.
 - The descriptors are looked at every 50 ms while there are watches, so a callback comes within that much.
 - A callback runs only when no dialog is open and Lua runs nothing else: it waits while an action asks something. It
   may use the dialogs and the commands as an action does, but not `open`, `find`, `seek`, `mark` and `query`, which are
@@ -412,42 +414,101 @@ local timer = turbojedi.timeout(5000, function() ... end, true)
 
 `fetch` asks a web service through libcurl of TurboJedi itself: a webhook of a chat, a ticket, a look at an address,
 a silence of Alertmanager. No program runs, and a token in a header is not on any command line.
+[`100-chat.lua`](Plugins/Examples/100-chat.lua) of the examples is a whole plugin made with it, see Chat below.
+
+**Ask and wait.** In an action, `fetch` with the address alone waits for the answer; when it is late, a dialog with
+Cancel comes up, the windows go on meanwhile:
 
 ```lua
--- An action waits for the answer, a dialog with Cancel comes up when it is late
-local code, answer = turbojedi.fetch {
-  url     = 'https://chat.example.com/hooks/' .. key,
-  method  = 'POST',
-  headers = { ['Content-Type'] = 'application/json' },
-  body    = '{"text": "' .. text .. '"}',
-  timeout = 10
-}
-
-if not code then
-  turbojedi.message('Not sent: ' .. answer)  -- nil and how: 'error', 'timeout' or 'cancel'
-elseif code ~= 200 then
-  turbojedi.message('The chat has answered ' .. code)
-end
-
--- With a function nothing waits, the answer comes to it later
-local request = turbojedi.fetch('https://api.example.com/status', function(code, body, headers)
-  if code == 200 then turbojedi.copy(body) end
+menu:add('Weather here', function()
+  local code, body = turbojedi.fetch('https://wttr.in/?format=3')
+  if code == 200 then turbojedi.message(body) end
 end)
 ```
 
-- The request is the address alone or a table: `url`, `method` (GET, POST with a `body`, or any other word), `headers`
-  as names and their texts, `body`, `timeout` in seconds of the whole request, 30 by default, 0 for no limit. A header
-  with an empty text takes out the one libcurl would send, such as `Accept`.
-- The answer is `code, body, headers`: the status of HTTP, the body, the headers of the last answer by their names in
-  lower case, the texts of a name told twice joined by commas. An answer of 404 or 500 is an answer as well; only a
-  request that has got none is `nil, how, text`, where `how` is `'error'`, `'timeout'` or `'cancel'`.
-- Only `http` and `https`, redirects are followed up to five. The proxy of `http_proxy`, `https_proxy` and `no_proxy`
-  is used, the certificates are of the system. An answer larger than 16 MiB is an error.
-- Without a function, `fetch` waits as `capture` does: only an action or a callback may do it. With a function, it is
-  also used while loading; the function is called as the ones of `poll` are, when no dialog is open, once.
-  `request:cancel()` drops a request whose answer has not come yet.
-- JSON is left to a module, such as `lua-cjson` where the distribution has it for Lua 5.4: `require('cjson').decode(body)`.
-  A text put into JSON by hand, as above, has to have its quotes and backslashes escaped.
+**Tell how it went.** The answer is `code, body, headers`: the status of HTTP, the body and a table of the headers by
+their names in lower case. 404 or 500 is an answer as well, the code tells it. A request that has got no answer is
+`nil, how, text`: `how` is `'error'` (no network, no such name, a certificate), `'timeout'` or `'cancel'`, `text` says
+more:
+
+```lua
+local code, body, more = turbojedi.fetch(url)
+
+if not code then
+  turbojedi.message(('No answer: %s, %s'):format(body, more))  -- body is how, more the text here
+elseif code ~= 200 then
+  turbojedi.message(('The service has answered %d'):format(code))
+else
+  turbojedi.copy(body)
+end
+```
+
+**Send something.** A table instead of the address takes the method, the headers, the body and the timeout. A body
+makes it a POST unless `method` says otherwise:
+
+```lua
+local code = turbojedi.fetch {
+  url     = 'https://tickets.example.com/api/issues',
+  method  = 'POST',                                   -- GET by default, POST with a body, any other word
+  headers = { ['Content-Type'] = 'application/json',
+              ['Authorization'] = 'Bearer ' .. token },
+  body    = '{"title": "Disk full on db1"}',
+  timeout = 10                                        -- seconds of the whole request, 30 by default, 0 for no limit
+}
+```
+
+A header with an empty text takes out the one libcurl would send, such as `Accept`. A value of the entry put into JSON
+by hand has to have its quotes, backslashes and control characters escaped: `json()` of `100-chat.lua` does it.
+
+**Read JSON.** Lua has no JSON of its own; a module does it, such as `lua-cjson` where the distribution has it for
+Lua 5.4. `pcall(require, ...)` keeps the plugin working without it:
+
+```lua
+local found, cjson = pcall(require, 'cjson')
+
+menu:add('Who is ' .. address, function()
+  local code, body = turbojedi.fetch('https://ipinfo.io/' .. address .. '/json')
+  if code ~= 200 then return end
+
+  if found then
+    local info = cjson.decode(body)
+    turbojedi.message(('%s: %s, %s'):format(address, info.org or '?', info.country or '?'))
+  else
+    turbojedi.message(body)
+  end
+end)
+```
+
+**Do not wait.** With a function after the request, `fetch` returns at once and the answer comes to the function
+later, with the same values. Nothing is shown meanwhile, the user goes on; the function may use the dialogs as an action
+does, and is called when no dialog is open, once. This one also may start while the plugin is loaded:
+
+```lua
+local request = turbojedi.fetch({ url = hook, body = text }, function(code, body, more)
+  if code ~= 200 then turbojedi.message('Not sent: ' .. tostring(code or more)) end
+end)
+
+request:cancel()  -- drops it while the answer has not come, the function is not called then
+```
+
+**Take your values along.** The values after the function go to it after the answer, as the ones of `menu:add` go to
+an action: one function serves every request, no closure is needed for each:
+
+```lua
+local function told(code, body, more, unit, host)
+  if code ~= 200 then turbojedi.message(('%s of %s is not reported: %s'):format(unit, host, tostring(code or more))) end
+end
+
+turbojedi.fetch({ url = hook, body = text }, told, entry._SYSTEMD_UNIT, entry._HOSTNAME)
+```
+
+**Limits.**
+
+- Only `http` and `https`, redirects are followed up to five.
+- The proxy of `http_proxy`, `https_proxy` and `no_proxy` is used, the certificates are of the system.
+- An answer larger than 16 MiB is an error.
+- Waiting is allowed to an action and a callback, not to a handler making the menu, which never waits on the network.
+- Requests that are still going when TurboJedi exits are dropped.
 
 ## Examples
 
@@ -527,6 +588,31 @@ The commands go to the Asterisk of this machine through `asterisk -rx`, root or 
 machine has only the actions of calls and channels in the journal. A value of the entry takes part in a command only
 when the CLI would take it as one argument. Hang up, Load and Reload ask first; it is an example since they change the
 PBX.
+
+### Chat
+
+`/usr/share/turbojedi/examples/100-chat.lua` sends the entry under the cursor, or the marked ones, to a chat through its
+webhook: Slack, Mattermost, Rocket.Chat, Discord, Telegram or ntfy. Send to chat shows the line of the entry to add a
+word to before it goes; Send N marked to chat asks first. Nothing waits for the chat, only a failure is told about.
+It is an example since the entries leave the machine.
+
+The chat is told by `~/.config/turbojedi/chat.conf` of the user who runs TurboJedi; without the file the plugin adds
+nothing:
+
+```
+url    = https://chat.example.com/hooks/xxxxxxxxxxxxxxxx
+format = slack
+```
+
+| `format` | `url` | more |
+|---|---|---|
+| `slack` | the incoming webhook of Slack, Mattermost or Rocket.Chat | |
+| `discord` | the webhook of the channel | |
+| `telegram` | `https://api.telegram.org/bot<token>/sendMessage` | `chat = <id of the chat>` |
+| `ntfy` | `https://ntfy.sh/<topic>` or a server of your own | `token = <access token>` when the topic needs one |
+
+`token` gives the header `Authorization: Bearer` to any of them. The file holds a secret: `chmod 600`. It is linked as
+the one of fail2ban below.
 
 ### fail2ban
 
