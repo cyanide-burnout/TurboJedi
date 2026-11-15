@@ -74,8 +74,8 @@ Alpine has no systemd, so there is no journal to show. Elsewhere TurboJedi build
 
 ## Building
 
-Debian packages: `build-essential cmake pkg-config libsystemd-dev libncurses-dev libpcre2-dev liblua5.4-dev`, `libgpm-dev` for
-the mouse in the Linux console, `libcurl4-openssl-dev` for Check for updates, and `grc` for its rule files if they are wanted
+Debian packages: `build-essential cmake pkg-config libsystemd-dev libncurses-dev libpcre2-dev liblua5.4-dev libcurl4-openssl-dev`,
+`libgpm-dev` for the mouse in the Linux console, and `grc` for its rule files if they are wanted
 
 ```
 git submodule update --init
@@ -95,7 +95,7 @@ make
 moved. `make install` puts the executable to `/usr/local/bin`, the manual page to `/usr/local/share/man/man1` and the
 plugins to `/usr/local/share/turbojedi`, `PREFIX` and `DESTDIR` move them. Without libgpm the build goes on, with the mouse in terminal emulators only; the mouse
 of the Linux console needs the `gpm` service running.
-Without libcurl the Help menu has no Check for updates. Lua 5.4 is needed; distributions name its pkg-config module in
+libcurl serves Check for updates and the requests of plugins. Lua 5.4 is needed; distributions name its pkg-config module in
 their own ways, `lua5.4`, `lua54` or `lua`, any of them of version 5.4 is taken.
 
 About, `--help` and Check for updates link to the repository on GitHub the clone comes from, its `origin`, so a fork links

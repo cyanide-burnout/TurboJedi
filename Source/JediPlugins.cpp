@@ -11,6 +11,7 @@
 
 #include "JediPlugins.h"
 #include "JediProcess.h"
+#include "JediFetch.h"
 #include "ActionDialogs.h"
 #include "JediClipboard.h"
 #include "JournalExpression.h"
@@ -30,6 +31,7 @@ extern "C"
 #endif
 
 #include <grp.h>
+#include <ctype.h>
 #include <poll.h>
 #include <errno.h>
 #include <limits.h>
@@ -68,10 +70,13 @@ extern "C"
 #define MARKED_LIMIT       1000    // Entries of the selection a handler gets in context.marked
 
 #define POLL_INTERVAL      50      // Milliseconds between the looks at the descriptors plugins watch
+#define FETCH_TIMEOUT      30      // Seconds a request of fetch() may take by default
+#define FETCH_STEP         20      // Milliseconds it is waited for between the events of its dialog
 
 #define HANDLERS  "TurboJedi.handlers"
 #define WATCH     "TurboJedi.watch"
 #define TIMER     "TurboJedi.timer"
+#define FETCH     "TurboJedi.fetch"
 #define NAMES     "TurboJedi.names"     // Of the plugin of every handler, by the same index
 #define MENU      "TurboJedi.menu"
 
@@ -85,6 +90,7 @@ static int64_t deadline;    // Of the queries of the handlers making the menu, s
 static size_t budget;       // Entries they may look at yet
 
 static void PushEntry(lua_State* state, const std::vector<std::pair<std::string, std::string>>& fields);
+static std::string Fit(std::string title, int width);
 
 // A descriptor a plugin watches, a timer it has set: the callback in the registry of Lua, the plugin for its errors; pending
 // when it is due and waits for no dialog being open
@@ -107,8 +113,16 @@ struct Timer
   bool pending;
 };
 
+// A request of fetch() with a callback, its transfer goes by the same number
+struct Request
+{
+  int callback;
+  std::string plugin;
+};
+
 static std::map<int, Watch> watches;
 static std::map<int, Timer> timers;
+static std::map<int, Request> requests;
 static int serial;
 static std::vector<std::string> directories;  // In the order a file of the same name takes the place: the user last
 static std::map<std::string, JournalExpression> expressions;
@@ -1418,6 +1432,238 @@ static int CancelTimer(lua_State* state)
   return 0;
 }
 
+// fetch(url | request, callback): url, method, headers, body, timeout of a request in a table
+static int GetRequest(lua_State* state, int index, JediRequest& request)
+{
+  int whole;
+  lua_Integer timeout;
+  std::string name;
+  std::string value;
+
+  request.post    = false;
+  request.timeout = FETCH_TIMEOUT;
+
+  if (GetString(state, index, request.url))
+  {
+    // Only the address
+    return 0;
+  }
+
+  if ((lua_type(state, index) != LUA_TTABLE) ||
+      (!GetOption(state, index, "url", request.url)))
+  {
+    return Fail(state, "fetch() takes an address or a table of the request with url");
+  }
+
+  if (GetOption(state, index, "method", request.method))
+  {
+    for (char& character : request.method)
+    {
+      if (!isalpha(static_cast<unsigned char>(character)))
+      {
+        return Fail(state, "method of fetch() is a word such as GET or POST");
+      }
+
+      character = toupper(static_cast<unsigned char>(character));
+    }
+  }
+
+  request.post = GetOption(state, index, "body", request.body) || (request.method == "POST");
+
+  lua_pushliteral(state, "timeout");
+
+  if (lua_rawget(state, index) != LUA_TNIL)
+  {
+    timeout = lua_tointegerx(state, -1, &whole);
+
+    if ((!whole) ||
+        (timeout < 0))
+    {
+      lua_pop(state, 1);
+      return Fail(state, "timeout of fetch() is whole seconds, zero for no limit");
+    }
+
+    request.timeout = std::min<lua_Integer>(timeout, INT_MAX);
+  }
+
+  lua_pop(state, 1);
+  lua_pushliteral(state, "headers");
+
+  if (lua_rawget(state, index) == LUA_TTABLE)
+  {
+    lua_pushnil(state);
+
+    while (lua_next(state, -2) != 0)
+    {
+      // Neither may end a line, nor a name have more than a token
+      if ((lua_type(state, -2) != LUA_TSTRING) ||
+          (!GetString(state, -1, value)) ||
+          ((name = lua_tostring(state, -2)).empty()) ||
+          (name.find_first_of(" \t\r\n:") != std::string::npos) ||
+          (value.find_first_of("\r\n") != std::string::npos) ||
+          (name.find('\0') != std::string::npos) ||
+          (value.find('\0') != std::string::npos))
+      {
+        lua_pop(state, 3);
+        return Fail(state, "headers of fetch() are names and their texts");
+      }
+
+      request.headers.emplace_back(name, value);
+      lua_pop(state, 1);
+    }
+  }
+
+  lua_pop(state, 1);
+
+  if (request.url.find('\0') != std::string::npos)
+  {
+    return Fail(state, "url of fetch() is a text");
+  }
+
+  return 0;
+}
+
+// The code, the body and the headers of an answer; nil, how and the text when there is none
+static int PushAnswer(lua_State* state, const JediAnswer& answer)
+{
+  if (answer.how != "done")
+  {
+    lua_pushnil(state);
+    lua_pushstring(state, answer.how.c_str());
+    lua_pushlstring(state, answer.text.data(), answer.text.size());
+    return 3;
+  }
+
+  lua_pushinteger(state, answer.code);
+  lua_pushlstring(state, answer.body.data(), answer.body.size());
+  lua_createtable(state, 0, answer.headers.size());
+
+  for (const std::pair<std::string, std::string>& header : answer.headers)
+  {
+    lua_pushlstring(state, header.first.data(), header.first.size());
+
+    if (lua_rawget(state, -2) == LUA_TSTRING)
+    {
+      // A header told twice is one, its texts go apart by commas
+      lua_pushliteral(state, ", ");
+      lua_pushlstring(state, header.second.data(), header.second.size());
+      lua_concat(state, 3);
+    }
+    else
+    {
+      lua_pop(state, 1);
+      lua_pushlstring(state, header.second.data(), header.second.size());
+    }
+
+    lua_pushlstring(state, header.first.data(), header.first.size());
+    lua_insert(state, -2);
+    lua_rawset(state, -3);
+  }
+
+  return 3;
+}
+
+static int Fetch(lua_State* state)
+{
+  int number;
+  size_t start;
+  std::string host;
+  std::string error;
+  JediAnswer answer;
+  JediRequest request;
+  Request item;
+
+  if (GetRequest(state, 1, request) < 0)
+  {
+    return -1;
+  }
+
+  if ((lua_type(state, 2) != LUA_TFUNCTION) &&
+      (lua_type(state, 2) != LUA_TNONE) &&
+      (lua_type(state, 2) != LUA_TNIL))
+  {
+    return Fail(state, "fetch() takes a function after the request");
+  }
+
+  if ((lua_type(state, 2) != LUA_TFUNCTION) &&
+      ((phase & PHASE_DO) == 0))
+  {
+    return Fail(state, "fetch() without a callback waits in a dialog, it is used only by an action or a callback");
+  }
+
+  number = ++ serial;
+
+  if (!StartFetch(number, request, error))
+  {
+    answer.how  = "error";
+    answer.text = error;
+    return PushAnswer(state, answer);
+  }
+
+  if (lua_type(state, 2) == LUA_TFUNCTION)
+  {
+    // The answer goes to the callback once no dialog is open
+    lua_pushvalue(state, 2);
+    item.callback    = luaL_ref(state, LUA_REGISTRYINDEX);
+    item.plugin      = plugin;
+    requests[number] = item;
+    PushHandle(state, number, FETCH);
+    return 1;
+  }
+
+  // As capture() waits: the dialog with Cancel comes up when the answer is late
+  start = request.url.find("://");
+  host  = request.url.substr((start != std::string::npos) ? (start + 3) : 0);
+  host  = host.substr(0, host.find_first_of("/?#"));
+
+  switch (RunSteps(Fit("Waiting for " + host, 46).c_str(), [number] (int64_t deadline)
+  {
+    int64_t now;
+
+    PollFetches(0);
+
+    while ((!IsFetchDone(number)) &&
+           ((now = GetQueryMilliseconds()) < deadline))
+    {
+      PollFetches(std::min<int64_t>(deadline - now, FETCH_STEP));
+    }
+
+    return IsFetchDone(number);
+  }, 0))
+  {
+    case STEPS_DONE:
+      TakeFetch(number, answer);
+      break;
+
+    default:
+      CancelFetch(number);
+      answer.how  = "cancel";
+      answer.text = "the request has been canceled";
+      break;
+  }
+
+  return PushAnswer(state, answer);
+}
+
+static void DropRequest(lua_State* state, int number)
+{
+  std::map<int, Request>::iterator request;
+
+  if ((request = requests.find(number)) != requests.end())
+  {
+    luaL_unref(state, LUA_REGISTRYINDEX, request->second.callback);
+    requests.erase(request);
+  }
+
+  CancelFetch(number);
+}
+
+static int CancelRequest(lua_State* state)
+{
+  DropRequest(state, GetHandle(state));
+  return 0;
+}
+
 static const luaL_Reg functions[] =
 {
   { "registerHandler", Call<RegisterHandler, PHASE_LOAD>   },
@@ -1441,6 +1687,7 @@ static const luaL_Reg functions[] =
   { "which",           Call<Which,           PHASE_ANY>    },
   { "poll",            Call<AddWatch,        PHASE_WATCH>  },
   { "timeout",         Call<AddTimer,        PHASE_WATCH>  },
+  { "fetch",           Call<Fetch,           PHASE_WATCH>  },
   { nullptr,           nullptr                             }
 };
 
@@ -1627,6 +1874,14 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
   luaL_newmetatable(state, TIMER);
   lua_newtable(state);
   lua_pushcfunction(state, (Call<CancelTimer, PHASE_ANY>));
+  lua_setfield(state, -2, "cancel");
+  lua_setfield(state, -2, "__index");
+  lua_pop(state, 1);
+
+  // request:cancel() of fetch()
+  luaL_newmetatable(state, FETCH);
+  lua_newtable(state);
+  lua_pushcfunction(state, (Call<CancelRequest, PHASE_ANY>));
   lua_setfield(state, -2, "cancel");
   lua_setfield(state, -2, "__index");
   lua_pop(state, 1);
@@ -1943,7 +2198,10 @@ int PollPlugins()
     }
   }
 
-  if (!watches.empty())
+  PollFetches(0);
+
+  if ((!watches.empty()) ||
+      (HasFetches()))
   {
     // Looked at again before long, nothing wakes the loop for them
     wait = POLL_INTERVAL;
@@ -1982,13 +2240,20 @@ bool HasPluginEvents()
     if (timer.second.pending) return true;
   }
 
+  for (const std::pair<const int, Request>& request : requests)
+  {
+    if (IsFetchDone(request.first)) return true;
+  }
+
   return false;
 }
 
-// A callback in the phase of events, its error goes to the errors with its plugin; false when it has failed
-static bool RunCallback(int callback, const std::string& name, const char* argument, std::vector<std::string>& errors)
+// A callback in the phase of events with the arguments push gives, its error goes to the errors with its plugin; false when
+// it has failed
+static bool RunCallback(int callback, const std::string& name, const std::function<int(lua_State*)>& push, std::vector<std::string>& errors)
 {
   int base;
+  int count;
   bool done;
 
   base = lua_gettop(state);
@@ -1996,14 +2261,10 @@ static bool RunCallback(int callback, const std::string& name, const char* argum
   lua_pushcfunction(state, Trace);
   lua_rawgeti(state, LUA_REGISTRYINDEX, callback);
 
-  if (argument != nullptr)
-  {
-    lua_pushstring(state, argument);
-  }
-
+  count  = push ? push(state) : 0;
   phase  = PHASE_EVENT;
   plugin = name;
-  done   = (lua_pcall(state, (argument != nullptr) ? 1 : 0, 0, base + 1) == LUA_OK);
+  done   = (lua_pcall(state, count, 0, base + 1) == LUA_OK);
   phase  = PHASE_IDLE;
 
   if (!done)
@@ -2025,6 +2286,8 @@ void DispatchPluginEvents()
   std::vector<std::string> errors;
   std::map<int, Watch>::iterator watch;
   std::map<int, Timer>::iterator timer;
+  std::map<int, Request>::iterator request;
+  JediAnswer answer;
 
   if ((state == nullptr) ||
       (phase != PHASE_IDLE))
@@ -2061,7 +2324,7 @@ void DispatchPluginEvents()
     if (watch->second.revents & (POLLERR | POLLHUP)) flags[length ++] = 'e';
     flags[length] = '\0';
 
-    if (!RunCallback(watch->second.callback, watch->second.plugin, flags, errors))
+    if (!RunCallback(watch->second.callback, watch->second.plugin, [&flags] (lua_State* state) { lua_pushstring(state, flags); return 1; }, errors))
     {
       // A callback that fails is not called again
       DropWatch(state, number);
@@ -2103,6 +2366,29 @@ void DispatchPluginEvents()
     }
   }
 
+  numbers.clear();
+
+  for (const std::pair<const int, Request>& item : requests)
+  {
+    if (IsFetchDone(item.first)) numbers.push_back(item.first);
+  }
+
+  for (int number : numbers)
+  {
+    if ((request = requests.find(number)) == requests.end())
+    {
+      continue;
+    }
+
+    // Gone before the callback runs, the way a timer of one shot is
+    callback = request->second.callback;
+    name     = request->second.plugin;
+    requests.erase(request);
+    TakeFetch(number, answer);
+    RunCallback(callback, name, [&answer] (lua_State* state) { return PushAnswer(state, answer); }, errors);
+    luaL_unref(state, LUA_REGISTRYINDEX, callback);
+  }
+
   if (!errors.empty())
   {
     ShowErrors(errors);
@@ -2113,6 +2399,8 @@ void ClosePlugins()
 {
   watches.clear();
   timers.clear();
+  requests.clear();
+  CloseFetches();
 
   if (state != nullptr)
   {

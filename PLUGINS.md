@@ -159,6 +159,7 @@ argument whatever it holds, no shell sees it.
 | `mark(entries, options)` | action | marks the lines of entries in the window of the menu, as M does: the count marked |
 | `poll(descriptor, events, func)` | loading, action, callback | calls `func(flags)` when the descriptor is ready, between the events: a watch |
 | `timeout(milliseconds, func, periodic)` | loading, action, callback | calls `func()` after the time, again and again when periodic: a timer |
+| `fetch(request, func)` | loading, action, callback | a request over HTTP or HTTPS: with `func` its answer goes there later, without it the action waits for `code, body, headers` |
 | `execute(argv)` | action, callback | runs a command in the background: `true`, or `nil` and the reason when it has not started |
 | `output(argv)` | action, callback | runs a command in a window of its own: `true`, or `nil` and the reason |
 | `terminal(argv)` | action, callback | runs a command on the terminal: `how, code` |
@@ -368,12 +369,8 @@ client:settimeout(2)
 local done, failure = client:connect(host, 80)
 ```
 
-A request that may take long goes better through a program and `capture`, which gives it a dialog with Cancel and a
-timeout of its own:
-
-```lua
-local text, how, code = turbojedi.capture({ 'curl', '-fsS', '--max-time', '10', url }, { timeout = 15 })
-```
+A request to a web service goes better through `fetch`, below, which waits in a dialog with Cancel or not at all; any
+other one that may take long, through a program and `capture`, which does the same for it.
 
 A handler making the menu should not wait on the network at all: the budget of the menu bounds `query`, not a module.
 A socket that is to be read when something comes is better watched by `poll`, below.
@@ -410,6 +407,47 @@ local timer = turbojedi.timeout(5000, function() ... end, true)
   of the window of a menu.
 - A callback that fails is told about with its plugin and is not called again.
 - They stay until removed or cancelled, or until TurboJedi exits.
+
+### Requests over HTTP
+
+`fetch` asks a web service through libcurl of TurboJedi itself: a webhook of a chat, a ticket, a look at an address,
+a silence of Alertmanager. No program runs, and a token in a header is not on any command line.
+
+```lua
+-- An action waits for the answer, a dialog with Cancel comes up when it is late
+local code, answer = turbojedi.fetch {
+  url     = 'https://chat.example.com/hooks/' .. key,
+  method  = 'POST',
+  headers = { ['Content-Type'] = 'application/json' },
+  body    = '{"text": "' .. text .. '"}',
+  timeout = 10
+}
+
+if not code then
+  turbojedi.message('Not sent: ' .. answer)  -- nil and how: 'error', 'timeout' or 'cancel'
+elseif code ~= 200 then
+  turbojedi.message('The chat has answered ' .. code)
+end
+
+-- With a function nothing waits, the answer comes to it later
+local request = turbojedi.fetch('https://api.example.com/status', function(code, body, headers)
+  if code == 200 then turbojedi.copy(body) end
+end)
+```
+
+- The request is the address alone or a table: `url`, `method` (GET, POST with a `body`, or any other word), `headers`
+  as names and their texts, `body`, `timeout` in seconds of the whole request, 30 by default, 0 for no limit. A header
+  with an empty text takes out the one libcurl would send, such as `Accept`.
+- The answer is `code, body, headers`: the status of HTTP, the body, the headers of the last answer by their names in
+  lower case, the texts of a name told twice joined by commas. An answer of 404 or 500 is an answer as well; only a
+  request that has got none is `nil, how, text`, where `how` is `'error'`, `'timeout'` or `'cancel'`.
+- Only `http` and `https`, redirects are followed up to five. The proxy of `http_proxy`, `https_proxy` and `no_proxy`
+  is used, the certificates are of the system. An answer larger than 16 MiB is an error.
+- Without a function, `fetch` waits as `capture` does: only an action or a callback may do it. With a function, it is
+  also used while loading; the function is called as the ones of `poll` are, when no dialog is open, once.
+  `request:cancel()` drops a request whose answer has not come yet.
+- JSON is left to a module, such as `lua-cjson` where the distribution has it for Lua 5.4: `require('cjson').decode(body)`.
+  A text put into JSON by hand, as above, has to have its quotes and backslashes escaped.
 
 ## Examples
 

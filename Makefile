@@ -37,9 +37,12 @@ endif
 # Lua 5.4 runs the plugins of the Actions menu, distributions name its pkg-config module in their own ways
 LUA := $(firstword $(foreach module, lua5.4 lua-5.4 lua54 lua, $(shell $(PKG_CONFIG) --exists '$(module) >= 5.4' '$(module) < 5.5' && echo $(module))))
 
-ifeq ($(LUA), )
 ifeq ($(filter clean,$(MAKECMDGOALS)), )
+ifeq ($(LUA), )
 $(error Lua 5.4 is needed: liblua5.4-dev, lua-devel, lua54-devel or lua54 of the distribution)
+endif
+ifneq ($(shell $(PKG_CONFIG) --exists libcurl && echo yes), yes)
+$(error libcurl is needed: libcurl4-openssl-dev, libcurl-devel or curl of the distribution)
 endif
 endif
 
@@ -49,7 +52,8 @@ LIBRARIES := \
 DEPENDENCIES := \
 	libsystemd \
 	libpcre2-8 \
-	$(LUA)
+	$(LUA) \
+	libcurl
 
 OBJECTS := \
 	$(SOURCE)/TurboJedi.o \
@@ -84,16 +88,14 @@ OBJECTS := \
 	$(SOURCE)/DirectoryDialog.o \
 	$(SOURCE)/JediPlugins.o \
 	$(SOURCE)/JediProcess.o \
+	$(SOURCE)/JediFetch.o \
 	$(SOURCE)/JournalQuery.o \
 	$(SOURCE)/ActionDialogs.o
 
-# libcurl and the repository let the Help menu check for a newer release, without either the item is left out
+# The repository lets the Help menu check for a newer release, without it the item is left out
 ifneq ($(REPOSITORY), )
-ifeq ($(shell $(PKG_CONFIG) --exists libcurl && echo yes), yes)
-	DEPENDENCIES += libcurl
-	OBJECTS      += $(SOURCE)/JediUpdate.o $(SOURCE)/UpdateDialog.o
-	FLAGS        += -DUSE_UPDATE
-endif
+	OBJECTS += $(SOURCE)/JediUpdate.o $(SOURCE)/UpdateDialog.o
+	FLAGS   += -DUSE_UPDATE
 endif
 
 # The linker takes from an archive only what the objects in front of it need, it goes after all of them
@@ -127,7 +129,7 @@ $(SOURCE)/Version.h: FORCE
 	@printf '#define VERSION "%s"\n#define BUILT_FOR "%s"\n#define REPOSITORY "%s"\n' '$(VERSION)' '$(TARGET)' '$(REPOSITORY)' | cmp -s - $@ || \
 	 printf '#define VERSION "%s"\n#define BUILT_FOR "%s"\n#define REPOSITORY "%s"\n' '$(VERSION)' '$(TARGET)' '$(REPOSITORY)' > $@
 
-$(SOURCE)/TurboJedi.o $(SOURCE)/JediApplication.o $(SOURCE)/JediUpdate.o: $(SOURCE)/Version.h
+$(SOURCE)/TurboJedi.o $(SOURCE)/JediApplication.o $(SOURCE)/JediUpdate.o $(SOURCE)/JediFetch.o: $(SOURCE)/Version.h
 
 # Internal headers of Turbo Vision include each other from there, only the event source needs them
 $(SOURCE)/JournalSource.o: CXXFLAGS += -I$(TURBOVISION)/include/tvision
