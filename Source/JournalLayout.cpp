@@ -92,7 +92,8 @@ static const char* SetValue(JournalLayout& window, const std::string& key, const
     // A window of watches is told by its place and, for the lines, by the name of its watch
     if ((window.watches == LAYOUT_WATCH_LINES) && (key == "plugin")) return (window.plugin = value, nullptr);
     if ((window.watches == LAYOUT_WATCH_LINES) && (key == "title"))  return (window.title = value, nullptr);
-    return (window.watches == LAYOUT_WATCH_LINES) ? "[watchlines] takes bounds, plugin and title" : "[watchlist] takes bounds";
+    if ((window.watches == LAYOUT_WATCH_LINES) && (key == "index"))  return ParseNumber(value, 0, INT_MAX, &number) ? (window.index = number, nullptr) : "index takes a number";
+    return (window.watches == LAYOUT_WATCH_LINES) ? "[watchlines] takes bounds, plugin, title and index" : "[watchlist] takes bounds";
   }
 
   for (index = 0; index < JOURNAL_FIELD_COUNT; index ++)
@@ -293,6 +294,7 @@ bool LoadJournalLayout(const std::string& path, std::vector<JournalLayout>& wind
       memset(windows.back().bounds, 0, sizeof(windows.back().bounds));
       windows.back().timeline         = (line == "[timeline]");
       windows.back().watches          = 0;
+      windows.back().index            = 0;
       windows.back().step             = 0;
       windows.back().logarithmic      = false;
       windows.back().filter.merge     = false;
@@ -314,6 +316,7 @@ bool LoadJournalLayout(const std::string& path, std::vector<JournalLayout>& wind
       windows.back().step        = 0;
       windows.back().logarithmic = false;
       windows.back().watches     = (line == "[watchlist]") ? LAYOUT_WATCH_LIST : LAYOUT_WATCH_LINES;
+      windows.back().index       = 0;
       continue;
     }
 
@@ -372,6 +375,12 @@ bool SaveJournalLayout(const std::string& path, const std::vector<JournalLayout>
       {
         file << "plugin = " << window.plugin << '\n';
         file << "title = " << window.title << '\n';
+
+        if (window.index > 0)
+        {
+          // One of several of the same name
+          file << "index = " << window.index << '\n';
+        }
       }
 
       file << '\n';

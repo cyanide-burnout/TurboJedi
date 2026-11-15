@@ -3128,18 +3128,39 @@ JournalWatch* FindPluginWatch(int number)
   return FindJournalWatch(number);
 }
 
-JournalWatch* FindPluginWatch(const std::string& plugin, const std::string& title)
+// The watches of a plugin and a title in the order they have been set: the plugins set them again the same way at load,
+// a layout gives its ones back in that order too
+static std::vector<JournalWatch*> NamePluginWatches(const std::string& plugin, const std::string& title)
 {
+  std::vector<JournalWatch*> list;
+
   for (JournalWatch* watch : ListPluginWatches())
   {
     if ((watch->plugin == plugin) &&
         (watch->title == title))
     {
-      return watch;
+      list.push_back(watch);
     }
   }
 
-  return nullptr;
+  std::sort(list.begin(), list.end(), [] (const JournalWatch* one, const JournalWatch* other) { return one->order < other->order; });
+  return list;
+}
+
+JournalWatch* FindPluginWatch(const std::string& plugin, const std::string& title, int index)
+{
+  std::vector<JournalWatch*> list;
+
+  list = NamePluginWatches(plugin, title);
+  return ((index >= 0) && (index < (int)list.size())) ? list[index] : nullptr;
+}
+
+int IndexPluginWatch(const JournalWatch* watch)
+{
+  std::vector<JournalWatch*> list;
+
+  list = NamePluginWatches(watch->plugin, watch->title);
+  return std::find(list.begin(), list.end(), watch) - list.begin();
 }
 
 void RemovePluginWatch(int number)

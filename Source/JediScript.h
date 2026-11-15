@@ -43,7 +43,10 @@ void ForgetPluginWindow(JournalView* view);
 // Watches of journals for their windows: the ones there are, the one with the newest line first; one by its number
 std::vector<JournalWatch*> ListPluginWatches();
 JournalWatch* FindPluginWatch(int number);
-JournalWatch* FindPluginWatch(const std::string& plugin, const std::string& title);  // As a layout names one
+// As a layout names one: its plugin, its title, and its index among the ones of the same plugin and title by the order
+// they have been set, as a title need not be unique
+JournalWatch* FindPluginWatch(const std::string& plugin, const std::string& title, int index);
+int IndexPluginWatch(const JournalWatch* watch);
 
 void RemovePluginWatch(int number);                                            // Delete in the list of watches
 void ShowPluginWatchEntry(JournalWatch* watch, const JournalPosition& entry);  // Enter on a line: the entry in a window

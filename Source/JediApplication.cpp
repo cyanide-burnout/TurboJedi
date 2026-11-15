@@ -537,6 +537,7 @@ static void CollectWindow(TView* view, void* argument)
     layout.watches   = (lines != nullptr) ? LAYOUT_WATCH_LINES : LAYOUT_WATCH_LIST;
     layout.plugin    = (lines != nullptr) ? watch->plugin : "";
     layout.title     = (lines != nullptr) ? watch->title : "";
+    layout.index     = (lines != nullptr) ? IndexPluginWatch(watch) : 0;
 
     static_cast<std::vector<JournalLayout>*>(argument)->insert(static_cast<std::vector<JournalLayout>*>(argument)->begin(), layout);
     return;
@@ -555,6 +556,7 @@ static void CollectWindow(TView* view, void* argument)
     layout.step        = (timeline != nullptr) ? timeline->view->getStep() : 0;
     layout.logarithmic = (timeline != nullptr) && timeline->view->getLogarithmic();
     layout.watches     = 0;
+    layout.index       = 0;
 
     // The desktop walks from the front, the file keeps the order windows are opened in
     static_cast<std::vector<JournalLayout>*>(argument)->insert(static_cast<std::vector<JournalLayout>*>(argument)->begin(), layout);
@@ -664,9 +666,9 @@ bool JediApplication::load(const std::string& path, std::string& error)
     }
 
     if ((item.watches == LAYOUT_WATCH_LINES) &&
-        (FindPluginWatch(item.plugin, item.title) != nullptr))
+        (FindPluginWatch(item.plugin, item.title, item.index) != nullptr))
     {
-      PlaceWatchLog(FindPluginWatch(item.plugin, item.title)->number, bounds);
+      PlaceWatchLog(FindPluginWatch(item.plugin, item.title, item.index)->number, bounds);
     }
   }
 
