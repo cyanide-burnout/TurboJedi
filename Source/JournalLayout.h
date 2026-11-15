@@ -11,7 +11,11 @@
 #include "JournalTools.h"
 
 // One window of a layout file: an INI section [journal] with the bounds on the desktop, the filter and the columns,
-// or [timeline] with the bounds, the filter it counts, its step and scale
+// [timeline] with the bounds, the filter it counts, its step and scale, [watchlist] of the list of watches with its bounds,
+// or [watchlines] of the lines of a watch with its bounds and the plugin and the title the watch is found by
+
+#define LAYOUT_WATCH_LIST   1
+#define LAYOUT_WATCH_LINES  2
 
 struct JournalLayout
 {
@@ -20,6 +24,9 @@ struct JournalLayout
   bool timeline;
   int step;       // Seconds of an interval of a timeline, zero lets the window choose
   bool logarithmic;
+  int watches;          // LAYOUT_WATCH_LIST or LAYOUT_WATCH_LINES for a window of watches, zero for a journal or a timeline
+  std::string plugin;   // Of the watch of the lines
+  std::string title;
 };
 
 // Takes a whole file or nothing, the error tells the line and what is wrong there. The watches of plugins come from the

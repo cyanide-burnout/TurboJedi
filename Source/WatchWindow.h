@@ -95,6 +95,10 @@ class WatchLogWindow : public TWindow
 // Brings the list of watches to the front, or opens it, with the cursor on a watch unless it is zero
 void ShowWatchList(int number);
 
+// The windows of a layout: the list and the lines of a watch at their places
+void PlaceWatchList(const TRect& bounds);
+void PlaceWatchLog(int number, const TRect& bounds);
+
 // The same for the lines of a watch
 void ShowWatchLog(int number);
 

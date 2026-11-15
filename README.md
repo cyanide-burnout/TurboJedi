@@ -315,6 +315,20 @@ step = 3600
 scale = log
 ```
 
+The list of watches of plugins is a `[watchlist]` section with its `bounds`, the lines of a watch a `[watchlines]` section
+with `bounds` and the `plugin` and `title` of the watch, which is found by them when the layout opens; the watches
+themselves are kept by their plugins in a `[watches]` section, see [PLUGINS.md](PLUGINS.md):
+
+```
+[watchlist]
+bounds = 5 8 115 26
+
+[watchlines]
+bounds = 7 9 117 27
+plugin = tetrapack
+title = Context 41d48349-56d6-4e73-b2b9-bb45e9df0c97
+```
+
 ## Highlighting
 
 Rules are those of [grc](https://github.com/garabik/grc): `regexp=` with `colours=` for the match and its groups,

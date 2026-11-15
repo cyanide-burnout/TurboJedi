@@ -515,10 +515,32 @@ static void CollectWindow(TView* view, void* argument)
   TRect bounds;
   JournalWindow* window;
   TimelineWindow* timeline;
+  WatchLogWindow* lines;
+  JournalWatch* watch;
   JournalLayout layout;
 
   window   = dynamic_cast<JournalWindow*>(view);
   timeline = dynamic_cast<TimelineWindow*>(view);
+  lines    = dynamic_cast<WatchLogWindow*>(view);
+
+  if ((dynamic_cast<WatchWindow*>(view) != nullptr) ||
+      ((lines != nullptr) && ((watch = FindPluginWatch(lines->view->number)) != nullptr)))
+  {
+    // The list of watches, or the lines of a watch by its plugin and title: its number is not the same next time
+    bounds           = view->getBounds();
+    layout.bounds[0] = bounds.a.x;
+    layout.bounds[1] = bounds.a.y;
+    layout.bounds[2] = bounds.b.x;
+    layout.bounds[3] = bounds.b.y;
+    layout.timeline  = false;
+    layout.step      = 0;
+    layout.watches   = (lines != nullptr) ? LAYOUT_WATCH_LINES : LAYOUT_WATCH_LIST;
+    layout.plugin    = (lines != nullptr) ? watch->plugin : "";
+    layout.title     = (lines != nullptr) ? watch->title : "";
+
+    static_cast<std::vector<JournalLayout>*>(argument)->insert(static_cast<std::vector<JournalLayout>*>(argument)->begin(), layout);
+    return;
+  }
 
   if ((window != nullptr) ||
       (timeline != nullptr))
@@ -532,6 +554,7 @@ static void CollectWindow(TView* view, void* argument)
     layout.timeline    = (timeline != nullptr);
     layout.step        = (timeline != nullptr) ? timeline->view->getStep() : 0;
     layout.logarithmic = (timeline != nullptr) && timeline->view->getLogarithmic();
+    layout.watches     = 0;
 
     // The desktop walks from the front, the file keeps the order windows are opened in
     static_cast<std::vector<JournalLayout>*>(argument)->insert(static_cast<std::vector<JournalLayout>*>(argument)->begin(), layout);
@@ -552,7 +575,9 @@ static void CollectView(TView* view, void* argument)
 static void CloseWindow(TView* view, void* argument)
 {
   if ((dynamic_cast<JournalWindow*>(view) != nullptr) ||
-      (dynamic_cast<TimelineWindow*>(view) != nullptr))
+      (dynamic_cast<TimelineWindow*>(view) != nullptr) ||
+      (dynamic_cast<WatchWindow*>(view) != nullptr) ||
+      (dynamic_cast<WatchLogWindow*>(view) != nullptr))
   {
     // Closed after the walk, the desktop must not change under it
     static_cast<std::vector<TView*>*>(argument)->push_back(view);
@@ -597,6 +622,12 @@ bool JediApplication::load(const std::string& path, std::string& error)
     bounds  = TRect(item.bounds[0], item.bounds[1], item.bounds[2], item.bounds[3]);
     fitting = fitting && (bounds.b.x > bounds.a.x) && (bounds.b.y > bounds.a.y) && extent.contains(bounds.a) && (bounds.b.x <= extent.b.x) && (bounds.b.y <= extent.b.y);
 
+    if (item.watches != 0)
+    {
+      // After the watches are back, below
+      continue;
+    }
+
     if (item.timeline)
     {
       // Timelines go without numbers
@@ -620,6 +651,25 @@ bool JediApplication::load(const std::string& path, std::string& error)
 
   // Their plugins take the watches back, the problems are told once nothing modal is open
   RestorePluginWatches(watches, views, problems);
+
+  for (const JournalLayout& item : layout)
+  {
+    // The windows of the watches over the journals, a window of the lines of a watch not there any more is left out
+    bounds = TRect(item.bounds[0], item.bounds[1], item.bounds[2], item.bounds[3]);
+    bounds = ((bounds.b.x > bounds.a.x) && (bounds.b.y > bounds.a.y) && extent.contains(bounds.a) && (bounds.b.x <= extent.b.x) && (bounds.b.y <= extent.b.y)) ? bounds : extent;
+
+    if (item.watches == LAYOUT_WATCH_LIST)
+    {
+      PlaceWatchList(bounds);
+    }
+
+    if ((item.watches == LAYOUT_WATCH_LINES) &&
+        (FindPluginWatch(item.plugin, item.title) != nullptr))
+    {
+      PlaceWatchLog(FindPluginWatch(item.plugin, item.title)->number, bounds);
+    }
+  }
+
   return true;
 }
 

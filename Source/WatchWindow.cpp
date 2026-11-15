@@ -890,6 +890,16 @@ void ShowWatchLog(int number)
   window->select();
 }
 
+void PlaceWatchList(const TRect& bounds)
+{
+  TProgram::deskTop->insert(new WatchWindow(bounds));
+}
+
+void PlaceWatchLog(int number, const TRect& bounds)
+{
+  TProgram::deskTop->insert(new WatchLogWindow(bounds, number));
+}
+
 std::string DescribeWatches()
 {
   size_t unread;

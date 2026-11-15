@@ -87,6 +87,14 @@ static const char* SetValue(JournalLayout& window, const std::string& key, const
     return (value.find_first_not_of(' ', start) == std::string::npos) ? nullptr : "bounds takes four numbers: left, top, right and bottom";
   }
 
+  if (window.watches != 0)
+  {
+    // A window of watches is told by its place and, for the lines, by the name of its watch
+    if ((window.watches == LAYOUT_WATCH_LINES) && (key == "plugin")) return (window.plugin = value, nullptr);
+    if ((window.watches == LAYOUT_WATCH_LINES) && (key == "title"))  return (window.title = value, nullptr);
+    return (window.watches == LAYOUT_WATCH_LINES) ? "[watchlines] takes bounds, plugin and title" : "[watchlist] takes bounds";
+  }
+
   for (index = 0; index < JOURNAL_FIELD_COUNT; index ++)
   {
     if (key == fields[index])
@@ -284,6 +292,7 @@ bool LoadJournalLayout(const std::string& path, std::vector<JournalLayout>& wind
       sections.push_back(number);
       memset(windows.back().bounds, 0, sizeof(windows.back().bounds));
       windows.back().timeline         = (line == "[timeline]");
+      windows.back().watches          = 0;
       windows.back().step             = 0;
       windows.back().logarithmic      = false;
       windows.back().filter.merge     = false;
@@ -292,6 +301,19 @@ bool LoadJournalLayout(const std::string& path, std::vector<JournalLayout>& wind
       windows.back().filter.levels    = 0xff;
       windows.back().filter.columns   = JOURNAL_COLUMN_DEFAULT;
       windows.back().filter.highlight = JOURNAL_HIGHLIGHT_BUILTIN;
+      continue;
+    }
+
+    if ((line == "[watchlist]") ||
+        (line == "[watchlines]"))
+    {
+      windows.emplace_back();
+      sections.push_back(number);
+      memset(windows.back().bounds, 0, sizeof(windows.back().bounds));
+      windows.back().timeline    = false;
+      windows.back().step        = 0;
+      windows.back().logarithmic = false;
+      windows.back().watches     = (line == "[watchlist]") ? LAYOUT_WATCH_LIST : LAYOUT_WATCH_LINES;
       continue;
     }
 
@@ -340,6 +362,22 @@ bool SaveJournalLayout(const std::string& path, const std::vector<JournalLayout>
 
   for (const JournalLayout& window : windows)
   {
+    if (window.watches != 0)
+    {
+      // Its place, and the watch of the lines by its plugin and title
+      file << ((window.watches == LAYOUT_WATCH_LIST) ? "[watchlist]\n" : "[watchlines]\n");
+      file << "bounds = " << window.bounds[0] << ' ' << window.bounds[1] << ' ' << window.bounds[2] << ' ' << window.bounds[3] << '\n';
+
+      if (window.watches == LAYOUT_WATCH_LINES)
+      {
+        file << "plugin = " << window.plugin << '\n';
+        file << "title = " << window.title << '\n';
+      }
+
+      file << '\n';
+      continue;
+    }
+
     file << (window.timeline ? "[timeline]\n" : "[journal]\n");
     file << "bounds = " << window.bounds[0] << ' ' << window.bounds[1] << ' ' << window.bounds[2] << ' ' << window.bounds[3] << '\n';
 

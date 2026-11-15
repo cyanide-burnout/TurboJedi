@@ -3128,6 +3128,20 @@ JournalWatch* FindPluginWatch(int number)
   return FindJournalWatch(number);
 }
 
+JournalWatch* FindPluginWatch(const std::string& plugin, const std::string& title)
+{
+  for (JournalWatch* watch : ListPluginWatches())
+  {
+    if ((watch->plugin == plugin) &&
+        (watch->title == title))
+    {
+      return watch;
+    }
+  }
+
+  return nullptr;
+}
+
 void RemovePluginWatch(int number)
 {
   DropJournalWatch(number);
