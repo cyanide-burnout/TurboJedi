@@ -290,8 +290,11 @@ along with it.
 - **`execute`** runs in the background, with no window. Its end is told only when it is not `exit 0`: a dialog with
   the command, how it has ended and its standard error.
 - **`output`** opens a window of the output, standard output and error together in the order they come, with the
-  colors of their escape sequences. The outcome comes at the end, `[exit 0]`. The window is not modal; closing it
-  stops the command. Copy puts its text to the clipboard.
+  colors of their escape sequences, line by line as the command writes them: it runs through `stdbuf -oL -eL` when
+  coreutils has it, so that `tracepath` or `whois` do not hold their output until they end. Left of the buttons a
+  turning sign and the time tell that it runs, then how it has ended and after how long; the outcome also comes at the
+  end of the output, `[exit 0]`. The window is not modal; closing it stops the command. Copy puts its text to the
+  clipboard.
 - **`terminal`** gives the screen back to the terminal while the command runs on it, as Ctrl-O of Norton Commander:
   `ssh`, `less`, `top`, `vim` work as they do in a shell. Ctrl-C and Ctrl-\ go to the command. After it, Enter brings
   TurboJedi back.

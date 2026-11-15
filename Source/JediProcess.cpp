@@ -8,6 +8,7 @@
 #define Uses_TDialog
 #define Uses_TButton
 #define Uses_TStaticText
+#define Uses_TParamText
 #define Uses_TScrollBar
 #define Uses_TDrawBuffer
 #define Uses_TEvent
@@ -30,6 +31,7 @@
 #include <signal.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <sys/wait.h>
 
@@ -40,6 +42,7 @@
 #define OUTPUT_LIMIT    100000             // Lines a window of output keeps, the oldest go
 #define POLL_RUNNING    20                 // Milliseconds between looks at a running command
 #define POLL_BACKGROUND 200
+#define SPIN_INTERVAL   250                // Milliseconds a turn of the sign of a running command takes
 
 #define STREAM_INHERIT  -1  // Of TurboJedi, for a command on the terminal
 #define STREAM_NULL     -2  // /dev/null
@@ -187,6 +190,45 @@ static std::string Describe(const JediOutcome& outcome)
   if (outcome.how == "timeout") return "stopped after " + std::to_string(outcome.code) + " s";
   if (outcome.how == "cancel")  return "cancelled";
   return outcome.text;
+}
+
+// The path of a program as posix_spawnp() would find it, empty when there is none to run
+static std::string FindProgram(const std::string& name)
+{
+  size_t start;
+  size_t end;
+  const char* path;
+  std::string list;
+  std::string candidate;
+
+  if (name.find('/') != std::string::npos)
+  {
+    return (access(name.c_str(), X_OK) == 0) ? name : std::string();
+  }
+
+  path = getenv("PATH");
+  list = (path != nullptr) ? path : "/usr/local/bin:/usr/bin:/bin";
+
+  for (start = 0; start <= list.size(); start = end + 1)
+  {
+    end       = std::min(list.find(':', start), list.size());
+    candidate = ((end > start) ? list.substr(start, end - start) : std::string(".")) + "/" + name;
+
+    if (access(candidate.c_str(), X_OK) == 0)
+    {
+      return candidate;
+    }
+  }
+
+  return std::string();
+}
+
+static std::string FormatElapsed(int64_t milliseconds)
+{
+  char text[32];
+
+  snprintf(text, sizeof(text), "%lld:%02lld", (long long)(milliseconds / 60000), (long long)(milliseconds / 1000 % 60));
+  return text;
 }
 
 static void Stop(pid_t process)
@@ -667,10 +709,14 @@ class OutputWindow : public TDialog
 
     pid_t process;  // Zero once it has ended
     int handle;
+    int64_t started;
+    int64_t turn;   // Of the sign shown last
     std::string caption;
     OutputView* view;
+    TParamText* status;
 
     void read();
+    void tell();
     void copy();
 };
 
@@ -684,6 +730,8 @@ OutputWindow::OutputWindow(const TRect& bounds, const std::string& line, pid_t p
 
   this->process = process;
   this->handle  = handle;
+  started       = GetMilliseconds();
+  turn          = -1;
 
   caption    = line;
   flags     |= wfGrow | wfZoom;
@@ -696,11 +744,16 @@ OutputWindow::OutputWindow(const TRect& bounds, const std::string& line, pid_t p
   extent.b.y -= 3;
   view        = new OutputView(extent, horizontal, vertical);
 
+  // Left of the buttons: that it runs and for how long, then how it has ended
+  status = new TParamText(TRect(extent.a.x + 1, extent.b.y + 1, extent.b.x / 2 - 14, extent.b.y + 2));
+
   insert(view);
+  insert(status);
   insert(new TButton(TRect(extent.b.x / 2 - 13, extent.b.y + 1, extent.b.x / 2 - 1, extent.b.y + 3), "~C~opy",  cmPageCopy, bfNormal));
   insert(new TButton(TRect(extent.b.x / 2 + 1,  extent.b.y + 1, extent.b.x / 2 + 13, extent.b.y + 3), "C~l~ose", cmOK,       bfDefault));
 
   view->select();
+  tell();
 }
 
 OutputWindow::~OutputWindow()
@@ -724,6 +777,22 @@ const char* OutputWindow::getTitle(short size)
   // The command, with its end cut off to fit
   title = ((short)caption.size() > size) && (size > 3) ? (caption.substr(0, size - 3) + "...") : caption;
   return title.c_str();
+}
+
+void OutputWindow::tell()
+{
+  static const char signs[] = "|/-\\";
+  int64_t elapsed;
+
+  elapsed = GetMilliseconds() - started;
+
+  if ((process != 0) &&
+      (elapsed / SPIN_INTERVAL != turn))
+  {
+    // A sign that turns while it runs, an output that has stopped coming does not tell it apart from an end
+    turn = elapsed / SPIN_INTERVAL;
+    status->setText("%c Running %s", signs[turn % 4], FormatElapsed(elapsed).c_str());
+  }
 }
 
 void OutputWindow::read()
@@ -771,6 +840,7 @@ void OutputWindow::read()
   process = 0;
   outcome = Tell(status);
   view->finish(Describe(outcome));
+  this->status->setText("%s after %s", Describe(outcome).c_str(), FormatElapsed(GetMilliseconds() - started).c_str());
 }
 
 void OutputWindow::copy()
@@ -796,6 +866,7 @@ void OutputWindow::handleEvent(TEvent& event)
     // Read between the events like the journals, in short steps while it runs
     poll = static_cast<JournalPoll*>(event.message.infoPtr);
     read();
+    tell();
 
     if (process != 0)
     {
@@ -831,6 +902,21 @@ bool OpenOutput(const std::vector<std::string>& arguments, std::string& failure)
   int handles[2];
   pid_t process;
   TRect bounds;
+  std::string path;
+  std::string buffer;
+  std::vector<std::string> command;
+
+  command = arguments;
+
+  if ((!arguments.empty()) &&
+      (!(path = FindProgram(arguments[0])).empty()) &&
+      (!(buffer = FindProgram("stdbuf")).empty()))
+  {
+    // Into a pipe stdio writes by blocks, tracepath would show nothing until it ends: by lines as on a terminal. A program
+    // not there stays for posix_spawnp() to tell
+    command = { buffer, "-oL", "-eL", path };
+    command.insert(command.end(), arguments.begin() + 1, arguments.end());
+  }
 
   if (!OpenPipe(handles))
   {
@@ -839,7 +925,7 @@ bool OpenOutput(const std::vector<std::string>& arguments, std::string& failure)
   }
 
   // Standard output and error go into the window together, in the order they come
-  result = StartProcess(&process, arguments, STREAM_NULL, handles[1], handles[1], true);
+  result = StartProcess(&process, command, STREAM_NULL, handles[1], handles[1], true);
   close(handles[1]);
 
   if (result != 0)
