@@ -106,16 +106,35 @@ static std::string DescribeWatch(const JournalWatch* watch)
   return text;
 }
 
+// The horizontal bar of a view to the widest row: the columns scrolled away come back within it, ← and → move it
+static int ScrollRows(TScrollBar* bar, int left, int widest, int width)
+{
+  int range;
+
+  range = std::max(0, widest - width);
+  left  = std::clamp(left, 0, range);
+
+  if ((bar->value != left) || (bar->maxVal != range))
+  {
+    // Changed only when it differs, the bar tells the view about a change again
+    bar->setParams(left, 0, range, std::max(1, width - 1), 1);
+  }
+
+  return left;
+}
+
 // Rows of the views go by the palette of a scroller in a blue window: normal text, then the cursor
 static const char ScrollerColors[] = "\x06\x07";
 
 // WatchListView
 
-WatchListView::WatchListView(const TRect& bounds) :
+WatchListView::WatchListView(const TRect& bounds, TScrollBar* horizontal) :
   TView(bounds)
 {
+  bar       = horizontal;
   chosen    = 0;
   top       = 0;
+  left      = 0;
   helpCtx   = hcWatchList;
   growMode  = gfGrowHiX | gfGrowHiY;
   options  |= ofSelectable;
@@ -165,20 +184,23 @@ void WatchListView::draw()
   TDrawBuffer buffer;
   TColorAttr normal;
   TColorAttr cursor;
-  TColorAttr heading;
+  TColorAttr title;
   TColorAttr color;
+  int widest;
   std::string row;
+  std::string heading;
+  std::vector<std::string> rows;
   std::vector<JournalWatch*> watches;
 
   watches = ListPluginWatches();
   normal  = mapColor(1);
   cursor  = mapColor(2);
-  heading = normal;
+  title   = normal;
   front   = (owner != nullptr) && (owner->state & sfSelected);
   fresh   = false;
   current = -1;
 
-  heading.setForeground(TColorBIOS(0x0e));
+  title.setForeground(TColorBIOS(0x0e));
 
   for (index = 0; index < (int)watches.size(); index ++)
   {
@@ -203,8 +225,20 @@ void WatchListView::draw()
   // The cursor stays on the screen, a header row on top
   top = std::clamp(top, std::max(0, current - (size.y - 2)), std::max(0, current));
 
-  buffer.moveChar(0, ' ', heading, size.x);
-  buffer.moveStr(0, FitText("  " + FitText("Last line", TIME_WIDTH) + "  " + FitText("Plugin", PLUGIN_WIDTH) + "  " + FitText("Watch", TITLE_WIDTH) + "  Status", size.x), heading);
+  // Whole rows first, the window shows them from the columns scrolled away on
+  heading = "  " + FitText("Date/time", TIME_WIDTH) + "  " + FitText("Plugin", PLUGIN_WIDTH) + "  " + FitText("Watch", TITLE_WIDTH) + "  Status";
+  widest  = strwidth(heading);
+
+  for (JournalWatch* watch : watches)
+  {
+    rows.push_back(std::string((watch->unread() > 0) ? "* " : "  ") + FormatMoment(watch->latest) + "  " + FitText(watch->plugin, PLUGIN_WIDTH) + "  " + FitText(watch->title, TITLE_WIDTH) + "  " + DescribeWatch(watch));
+    widest = std::max(widest, (int)strwidth(rows.back()));
+  }
+
+  left = ScrollRows(bar, left, widest, size.x);
+
+  buffer.moveChar(0, ' ', title, size.x);
+  buffer.moveStr(0, heading, title, size.x, left);
   writeLine(0, 0, size.x, 1, buffer);
 
   for (y = 1; y < size.y; y ++)
@@ -240,9 +274,8 @@ void WatchListView::draw()
         }
       }
 
-      row = std::string((watch->unread() > 0) ? "* " : "  ") + FormatMoment(watch->latest) + "  " + FitText(watch->plugin, PLUGIN_WIDTH) + "  " + FitText(watch->title, TITLE_WIDTH) + "  " + DescribeWatch(watch);
       buffer.moveChar(0, ' ', color, size.x);
-      buffer.moveStr(0, FitText(row, size.x), color);
+      buffer.moveStr(0, rows[index], color, size.x, left);
     }
 
     writeLine(0, y, size.x, 1, buffer);
@@ -276,6 +309,15 @@ void WatchListView::handleEvent(TEvent& event)
       (event.message.command == cmJournalWatchesChanged))
   {
     // Never cleared, every window of watches takes it
+    drawView();
+    return;
+  }
+
+  if ((event.what == evBroadcast) &&
+      (event.message.command == cmScrollBarChanged) &&
+      (event.message.infoPtr == bar))
+  {
+    left = bar->value;
     drawView();
     return;
   }
@@ -362,12 +404,14 @@ void WatchListView::handleEvent(TEvent& event)
 
 // WatchLogView
 
-WatchLogView::WatchLogView(const TRect& bounds, int number) :
+WatchLogView::WatchLogView(const TRect& bounds, TScrollBar* horizontal, int number) :
   TView(bounds)
 {
   this->number = number;
+  bar          = horizontal;
   chosen       = 0;
   top          = 0;
+  left         = 0;
   helpCtx      = hcWatchLines;
   growMode     = gfGrowHiX | gfGrowHiY;
   options     |= ofSelectable;
@@ -447,6 +491,7 @@ void WatchLogView::draw()
   int first;
   int last;
   int index;
+  int widest;
   bool front;
   bool read;
   TDrawBuffer buffer;
@@ -495,6 +540,16 @@ void WatchLogView::draw()
 
   top = std::clamp(top, std::max(0, last - (size.y - 1)), std::max(0, first));
 
+  // The widest row of the watch, the window shows them from the columns scrolled away on
+  widest = 0;
+
+  for (index = 0; index < (int)rows.size(); index ++)
+  {
+    widest = std::max<int>(widest, TIME_WIDTH + 4 + strwidth(watch->lines[rows[index].line].text.substr(rows[index].start, rows[index].end - rows[index].start)));
+  }
+
+  left = ScrollRows(bar, left, widest, size.x);
+
   for (y = 0; y < size.y; y ++)
   {
     index = top + y;
@@ -521,7 +576,7 @@ void WatchLogView::draw()
       row += line.text.substr(rows[index].start, rows[index].end - rows[index].start);
 
       buffer.moveChar(0, ' ', color, size.x);
-      buffer.moveStr(0, FitText(row, size.x), color);
+      buffer.moveStr(0, row, color, size.x, left);
 
       if (line.unread)
       {
@@ -560,6 +615,15 @@ void WatchLogView::handleEvent(TEvent& event)
   if ((event.what == evBroadcast) &&
       (event.message.command == cmJournalWatchesChanged))
   {
+    drawView();
+    return;
+  }
+
+  if ((event.what == evBroadcast) &&
+      (event.message.command == cmScrollBarChanged) &&
+      (event.message.infoPtr == bar))
+  {
+    left = bar->value;
     drawView();
     return;
   }
@@ -686,7 +750,7 @@ WatchWindow::WatchWindow(const TRect& bounds) :
   growMode = gfGrowAll | gfGrowRel;
   extent   = getExtent();
   extent.grow(-1, -1);
-  view     = new WatchListView(extent);
+  view     = new WatchListView(extent, standardScrollBar(sbHorizontal | sbHandleKeyboard));
 
   insert(view);
   view->select();
@@ -723,7 +787,7 @@ WatchLogWindow::WatchLogWindow(const TRect& bounds, int number) :
   growMode = gfGrowAll | gfGrowRel;
   extent   = getExtent();
   extent.grow(-1, -1);
-  view     = new WatchLogView(extent, number);
+  view     = new WatchLogView(extent, standardScrollBar(sbHorizontal | sbHandleKeyboard), number);
 
   insert(view);
   view->select();

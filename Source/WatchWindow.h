@@ -8,6 +8,7 @@
 #define Uses_TWindow
 #define Uses_TView
 #define Uses_TPalette
+#define Uses_TScrollBar
 #include <tvision/tv.h>
 
 #include <stdint.h>
@@ -22,7 +23,7 @@ class WatchListView : public TView
 {
   public:
 
-    WatchListView(const TRect& bounds);
+    WatchListView(const TRect& bounds, TScrollBar* horizontal);
 
     void draw() override;
     TPalette& getPalette() const override;
@@ -35,6 +36,8 @@ class WatchListView : public TView
 
     int chosen;  // The watch under the cursor, kept by its number while the order changes
     int top;     // Index of the first row shown
+    int left;    // Columns scrolled away, the rows are wider than the window
+    TScrollBar* bar;
 
     void move(int index);
 };
@@ -43,7 +46,7 @@ class WatchLogView : public TView
 {
   public:
 
-    WatchLogView(const TRect& bounds, int number);
+    WatchLogView(const TRect& bounds, TScrollBar* horizontal, int number);
 
     void draw() override;
     TPalette& getPalette() const override;
@@ -56,6 +59,8 @@ class WatchLogView : public TView
 
     uint64_t chosen;  // The line under the cursor by its number
     int top;          // Index of the first row shown, a line of several rows takes them all
+    int left;         // Columns scrolled away
+    TScrollBar* bar;
 
     void move(int index);
 };
