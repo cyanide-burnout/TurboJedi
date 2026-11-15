@@ -390,6 +390,25 @@ names, `[sda]`, `dev nvme0n1`, `(sda1)`, when the system has it: Device (`lsblk`
 (`udevadm info`), SMART (`smartctl -a` of the disk, root) and Copy. It is an example since a name of a device comes up
 in messages that tell nothing about it.
 
+### Asterisk
+
+`/usr/share/turbojedi/examples/100-asterisk.lua` gives an item to every object an entry of Asterisk names, with its
+actions chosen in a list there:
+
+| Object | As the entry has it | Actions |
+|---|---|---|
+| Call | `VERBOSE[1234][C-0000001a]` | History, Mark history, Previous mention, Copy |
+| Channel | `PJSIP/2505-0000002b`, `Local/1@ctx-0000000a;1` | Show (`core show channel`), Hang up, and the ones of a call |
+| Endpoint | the one of a PJSIP channel, `Endpoint 2505 is now ...` | Show (`pjsip show endpoint`), Qualify |
+| AOR | `Contact 2505/sip:... is now ...` | Show (`pjsip show aor`) |
+| Module | `res_stir_shaken` in a message of the loader or a module | Show (`module show like`), Load, Reload |
+| Dialplan | `Executing [2505@from-internal:1]` | Show (`dialplan show`) |
+
+The commands go to the Asterisk of this machine through `asterisk -rx`, root or the group asterisk; a journal of another
+machine has only the actions of calls and channels in the journal. A value of the entry takes part in a command only
+when the CLI would take it as one argument. Hang up, Load and Reload ask first; it is an example since they change the
+PBX.
+
 ### fail2ban
 
 `/usr/share/turbojedi/examples/100-fail2ban.lua` offers Ban and Unban for every address in the message. Ban asks for

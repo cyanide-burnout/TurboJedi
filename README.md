@@ -333,8 +333,9 @@ brings plugins that only look:
   gdb
 
 Plugins that change things, or that would come up by chance, are examples in `/usr/share/turbojedi/examples` and are not
-run by themselves: `100-fail2ban.lua`, and `100-storage.lua`, the device, mounts, udev and SMART of a block device an
-entry of the kernel or smartd names.
+run by themselves: `100-fail2ban.lua`; `100-storage.lua`, the device, mounts, udev and SMART of a block device an
+entry of the kernel or smartd names; `100-asterisk.lua`, the calls, channels, endpoints, AORs, modules and dialplan of an entry
+of Asterisk, shown, traced in the journal, hung up or reloaded through `asterisk -rx`.
 
 The fail2ban example bans or unbans an address of the entry, after asking for the jail and a confirmation; it needs
 root. A link to it turns it on and follows the updates of the package, for the whole machine:
