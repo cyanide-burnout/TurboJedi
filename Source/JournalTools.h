@@ -138,9 +138,17 @@ std::string GetJournalFilterName(const JournalFilter& filter);
 bool ParseJournalTime(const std::string& text, uint64_t* stamp);
 bool IsJournalTimeUniversal(const std::string& text);  // UTC at the end
 
-// A time typed in one zone written in another: a date and time is counted over, a day takes the UTC at the end or
-// leaves it, now and spans from it stay; false, and the text as it is, when it is no time
+// The zone a time is written in, false for now and spans from it and for what is no time
+bool GetJournalTimeZone(const std::string& text, bool* utc);
+
+// A time written in one zone, the one of its UTC at the end or the given one, written in another: the moment stays, a
+// date or a day becomes the date and time of the other zone, now and spans from it stay as they are; in the same zone
+// only the UTC at the end follows; false, and the text as it is, when it is no time
 bool ConvertJournalTime(const std::string& text, bool from, bool to, std::string& result);
+
+// Start of the interval of a step a moment is in: hours and days start where the wall clock of the local zone says, or
+// the one of UTC
+uint64_t AlignJournalTime(uint64_t realtime, uint64_t step, bool utc);
 
 // A time the way ParseJournalTime takes it back: 2026-10-23 19:00:00 in local time, or with UTC at the end, a fraction of
 // a second when it has one

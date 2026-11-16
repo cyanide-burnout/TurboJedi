@@ -99,8 +99,9 @@ Source: unit, identifier, command, transport, boot, user, machine, PID, with lis
 Journals of the window: of this machine, of every machine there is, like \fBjournalctl \-\-merge\fR, or of a directory.
 .TP
 .B Ctrl-T
-Time range, in local time or with \fBUTC\fR checked in UTC: checking it turns the dates and times over, it starts
-checked when the window shows times in UTC.
+Time range, in local time or with \fBUTC\fR checked in UTC: checking it turns the times over to the same moments,
+\fBtoday\fR to the date and time of its midnight; it starts in the zone the range is written in, or as the window
+shows times when nothing in the range is of a zone.
 .TP
 .B Ctrl-K
 Columns: date, time, level, host, unit, identifier, PID; UTC, milliseconds, wrapped messages, hidden heading,

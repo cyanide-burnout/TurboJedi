@@ -268,7 +268,7 @@ window to the time of the selected line, and a layout keeps their directories fo
 | F4 | text filter |
 | F7 | source |
 | Shift-F7 | journals: of this machine, of every machine or of a directory |
-| Ctrl-T | time range, in local time or with UTC checked in UTC: checking it turns the dates and times over, it starts checked when the window shows times in UTC |
+| Ctrl-T | time range, in local time or with UTC checked in UTC: checking it turns the times over to the same moments, `today` to the date and time of its midnight, and back to `today` with nothing typed meanwhile; it starts in the zone the range is written in, or as the window shows times when nothing in the range is of a zone |
 | Ctrl-K | columns |
 | Ctrl-W | wrap long messages |
 | Ctrl-R | the newest entries on top or at the bottom; the title ends with ▲ when they are at the bottom, ▼ when on top, a click on it turns the order too |

@@ -11,6 +11,8 @@
 #define Uses_TParamText
 #include <tvision/tv.h>
 
+#include <string>
+
 #define TIME_LENGTH  64
 
 struct TimeData
@@ -36,6 +38,8 @@ class TimeDialog : public TDialog
     TCheckBoxes* zone;
     TParamText* told;      // The zone the times are typed in
     bool utc;              // As the times are written now
+    std::string before[2]; // What the fields have held before the check box has been turned, and what it has put
+    std::string after[2];  // there: turned back with nothing typed, the fields take their words again
 
     void pick(int index);
     void convert();

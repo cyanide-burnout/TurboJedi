@@ -56,22 +56,6 @@ static const uint8_t dots[2][5] =
 
 // Helpers
 
-static uint64_t AlignTime(uint64_t realtime, uint64_t step, bool utc)
-{
-  time_t second;
-  struct tm date;
-  int64_t offset;
-  int64_t local;
-
-  // Hours and days start where the clock on the wall says, or the one of UTC
-  second = realtime / 1000000;
-  localtime_r(&second, &date);
-  offset = utc ? 0 : (date.tm_gmtoff * 1000000LL);
-  local  = (int64_t)realtime + offset;
-
-  return local - (local % (int64_t)step) - offset;
-}
-
 static std::string FormatStep(uint64_t step)
 {
   char text[16];
@@ -782,13 +766,13 @@ void TimelineView::begin(uint64_t fixed)
   {
     step = steps[index] * 1000000ULL;
 
-    if (((last - AlignTime(first, step, universal())) / step) < width)
+    if (((last - AlignJournalTime(first, step, universal())) / step) < width)
     {
       break;
     }
   }
 
-  start = AlignTime(first, step, universal());
+  start = AlignJournalTime(first, step, universal());
   end   = last;
   done  = start;
 
@@ -1012,6 +996,7 @@ void TimelineView::narrow()
 
 void TimelineView::chooseTime()
 {
+  bool utc;
   bool valid;
   uint64_t stamp;
   Range range;
@@ -1019,11 +1004,12 @@ void TimelineView::chooseTime()
   std::string since;
   std::string until;
 
-  // The range of the timeline, or the one of its selection to correct before it is taken, in the zone of the timeline
+  // The range of the timeline, or the one of its selection to correct before it is taken
   range = (anchor >= 0) ? selected() : Range { filter.since, filter.until, 0 };
 
+  // In the zone the range is written in, the one of the timeline when nothing in it is of a zone
   memset(&data, 0, sizeof(data));
-  data.utc = universal() || IsJournalTimeUniversal(range.since) || IsJournalTimeUniversal(range.until);
+  data.utc = GetJournalTimeZone(range.since, &utc) ? utc : (GetJournalTimeZone(range.until, &utc) ? utc : universal());
   ConvertJournalTime(range.since, false, data.utc, since);
   ConvertJournalTime(range.until, false, data.utc, until);
   strncpy(data.since, since.c_str(), sizeof(data.since) - 1);

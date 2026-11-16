@@ -911,6 +911,15 @@ bool ParseJournalTime(const std::string& text, uint64_t* stamp)
     (ReadJournalTime(text, false, stamp) != TIME_UNKNOWN);
 }
 
+bool GetJournalTimeZone(const std::string& text, bool* utc)
+{
+  uint64_t stamp;
+
+  // A date, a time or a day is of a zone, now and spans from it are not
+  *utc = IsJournalTimeUniversal(text);
+  return *utc || (ReadJournalTime(text, false, &stamp) >= TIME_DAY);
+}
+
 bool ConvertJournalTime(const std::string& text, bool from, bool to, std::string& result)
 {
   int kind;
@@ -929,9 +938,10 @@ bool ConvertJournalTime(const std::string& text, bool from, bool to, std::string
     return bare.empty();
   }
 
+  // The moment stays: in the other zone a day becomes the date and time its midnight is there
   if (kind == TIME_RELATIVE)  result = bare;
-  else if ((kind == TIME_DAY) || (utc == to))  result = bare + (to ? " UTC" : "");  // As typed, a day is one of the zone
-  else  result = FormatJournalTime(stamp, to);
+  else if (utc == to)         result = bare + (to ? " UTC" : "");
+  else                        result = FormatJournalTime(stamp, to);
 
   return true;
 }
@@ -1226,4 +1236,31 @@ std::string FormatJournalTime(uint64_t stamp, bool utc)
   }
 
   return text;
+}
+
+uint64_t AlignJournalTime(uint64_t realtime, uint64_t step, bool utc)
+{
+  time_t second;
+  struct tm date;
+  int64_t offset;
+  int64_t local;
+
+  if (utc)
+  {
+    return realtime - (realtime % step);
+  }
+
+  // The wall clock of the moment, cut down to the step
+  second = realtime / 1000000;
+  localtime_r(&second, &date);
+  offset = date.tm_gmtoff * 1000000LL;
+  local  = (int64_t)realtime + offset;
+  local -= local % (int64_t)step;
+
+  // Back by the offset of the start, which differs on a day the clocks change: midnight of 2026-03-29 is still of
+  // winter time in Berlin while 10:00 is of summer time
+  second = (local - offset) / 1000000;
+  localtime_r(&second, &date);
+
+  return local - date.tm_gmtoff * 1000000LL;
 }

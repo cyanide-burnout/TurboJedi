@@ -2706,6 +2706,7 @@ void JournalView::chooseJournals()
 
 void JournalView::chooseTime()
 {
+  bool utc;
   bool valid;
   ushort result;
   uint64_t stamp;
@@ -2713,9 +2714,10 @@ void JournalView::chooseTime()
   std::string until;
   TimeData data;
 
-  // In the zone the window shows its times in, or in UTC the range has been given in
+  // In the zone the range is written in, so OK as it is changes nothing; in the one the window shows its times in when
+  // nothing in the range is of a zone
   memset(&data, 0, sizeof(data));
-  data.utc = ((filter.columns & JOURNAL_COLUMN_UTC) != 0) || IsJournalTimeUniversal(filter.since) || IsJournalTimeUniversal(filter.until);
+  data.utc = GetJournalTimeZone(filter.since, &utc) ? utc : (GetJournalTimeZone(filter.until, &utc) ? utc : ((filter.columns & JOURNAL_COLUMN_UTC) != 0));
   ConvertJournalTime(filter.since, false, data.utc, since);
   ConvertJournalTime(filter.until, false, data.utc, until);
   strncpy(data.since, since.c_str(), sizeof(data.since) - 1);

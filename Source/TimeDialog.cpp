@@ -95,13 +95,23 @@ void TimeDialog::convert()
 
   for (index = 0; index < 2; index ++)
   {
-    // What is no time stays as typed, OK tells about it
-    if (ConvertJournalTime(lines[index]->data, utc, now, text))
+    if ((after[index] == lines[index]->data) &&
+        (!before[index].empty()))
     {
-      memset(value, 0, sizeof(value));
-      strncpy(value, text.c_str(), sizeof(value) - 1);
-      lines[index]->setData(value);
+      // Turned back with nothing typed meanwhile: today stays today, not the date it has become
+      text = before[index];
     }
+    else if (!ConvertJournalTime(lines[index]->data, utc, now, text))
+    {
+      // What is no time stays as typed, OK tells about it
+      text = lines[index]->data;
+    }
+
+    before[index] = lines[index]->data;
+    after[index]  = text;
+    memset(value, 0, sizeof(value));
+    strncpy(value, text.c_str(), sizeof(value) - 1);
+    lines[index]->setData(value);
   }
 
   utc = now;
