@@ -285,7 +285,8 @@ def list_instances(arguments):
     others = 0
 
     if not found:
-        raise Failure(missing())
+        # Nothing runs: an answer, not a failure, with the reason the agent may tell
+        return {'instances': [], 'note': missing()}
 
     for pid in sorted(found):
         try:
@@ -467,7 +468,8 @@ SCREEN = ' The user sees it on their screen and in the status line of TurboJedi,
 TOOLS = [
     ('list_instances', list_instances, True,
      'Instances of TurboJedi running on this machine that answer this user: PID, user, host, version, start time and '
-     'their windows. Start here.',
+     'their windows. Start here. An empty list comes with a note why: TurboJedi is not running, or its D-Bus policy is '
+     'not installed.',
      {'type': 'object', 'properties': {}, 'additionalProperties': False}),
 
     ('describe', describe, True,
