@@ -384,9 +384,29 @@ def list_watches(arguments):
 
 def get_watch_lines(arguments):
     bus = connect()
-    lines = plain(call(bus, instance(bus, arguments), 'GetWatchLines', dbus.UInt32(number(arguments, 'watch_id'))))
+    name = instance(bus, arguments)
     limit = number(arguments, 'limit', 100, minimum=1)
-    return {'lines': lines[:limit], 'total': len(lines)}
+    front = plain(call(bus, name, 'Describe'))
+    identity = number(arguments, 'watch_id')
+
+    if identity is None:
+        # The watch the user has in front: the one under the cursor of the list, or the one whose lines are shown
+        if (front.get('front') not in ('watches', 'watch')) or not front.get('watch'):
+            raise Failure('the user has %s in front, not a watch: give watch_id from list_watches' %
+                          ('no watch under the cursor of the list' if front.get('front') == 'watches' else
+                           FRONTS.get(front.get('front'), 'a window of the journal' if front.get('front') else 'no window')))
+        identity = front['watch']
+
+    lines = plain(call(bus, name, 'GetWatchLines', dbus.UInt32(identity)))
+    answer = {'watch_id': identity, 'lines': lines[:limit], 'total': len(lines)}
+
+    if (front.get('front') == 'watch') and (front.get('watch') == identity) and front.get('line'):
+        # The line under the cursor of the user, wherever it is among the lines
+        for line in lines:
+            if line['number'] == front['line']:
+                answer['line'] = line
+
+    return answer
 
 
 def mark_entries(arguments):
@@ -524,9 +544,11 @@ TOOLS = [
 
     ('get_watch_lines', get_watch_lines, True,
      'The lines of a watch, the newest first: number, moment, text, unread, and the __CURSOR and time of its entry when '
-     'it has one, for get_entry and go_to_entry.',
-     schema({'watch_id': {'type': 'integer', 'description': 'watch_id from list_watches'},
-             'limit': {'type': 'integer', 'minimum': 1, 'description': 'lines, 100 by default'}}, ('watch_id',))),
+     'it has one, for get_entry and go_to_entry. Without watch_id, the watch the user has in front: the one under the '
+     'cursor of the list of watches, or the one whose lines are open. While its lines are open, line is the one under '
+     'the cursor of the user.',
+     schema({'watch_id': {'type': 'integer', 'description': 'watch_id from list_watches; the watch in front without it'},
+             'limit': {'type': 'integer', 'minimum': 1, 'description': 'lines, 100 by default'}})),
 
     ('mark_entries', mark_entries, False,
      'Marks the entries of the cursors in a window, as the user does with M, to show them what has been found. Older '

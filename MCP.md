@@ -120,7 +120,7 @@ The instances of other users do not answer: the agent is told how many there are
 | `query_journal` | entries of the journal by fields, text, priority and time, of the journal of a window or of the machine |
 | `list_actions` | the items of the Actions menu for an entry, the one under the cursor of the window in front by default, to name the one that helps |
 | `list_watches` | the watches of the plugins, their status and unread lines |
-| `get_watch_lines` | the lines of a watch with their entries |
+| `get_watch_lines` | the lines of a watch with their entries, of the one in front by default, and the line under your cursor |
 | `mark_entries` | marks entries in a window, as M does |
 | `go_to_entry` | the cursor of a window on an entry, the window in front |
 | `seek_window` | a window to a moment, as Ctrl-G does; the window stops following the end |
