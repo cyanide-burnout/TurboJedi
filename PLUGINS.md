@@ -166,6 +166,8 @@ argument whatever it holds, no shell sees it.
 | `poll(descriptor, events, func, ...)` | loading, action, callback | calls `func(flags, ...)` when the descriptor is ready, between the events: a poller |
 | `timeout(milliseconds, func, periodic, ...)` | loading, action, callback | calls `func(...)` after the time, again and again when periodic: a timer |
 | `fetch(request, func, ...)` | loading, action, callback | a request over HTTP or HTTPS: with `func` its answer goes to `func(code, body, headers, ...)` later, without it the action waits for `code, body, headers` |
+| `dbus(request, func, ...)` | loading, handler, action, callback | a method of a service on D-Bus: with `func` its answer goes to `func(reply, name, text, ...)` later, without it a handler, an action or a callback waits for `reply, name, text` |
+| `services(options)` | loading, handler, action, callback | the names on a bus that have an owner, with their process and unit |
 | `execute(argv)` | action, callback | runs a command in the background: `true`, or `nil` and the reason when it has not started |
 | `output(argv)` | action, callback | runs a command in a window of its own: `true`, or `nil` and the reason |
 | `terminal(argv)` | action, callback | runs a command on the terminal: `how, code` |
@@ -195,6 +197,7 @@ The functions tell two kinds of trouble apart, the way `io.open` of Lua does:
 | `execute`, `output` | `nil` and the reason the command has not started |
 | `capture`, `terminal` | `how` is `'error'`, `'timeout'` or `'cancel'` instead of `'exit'` or `'signal'` |
 | `fetch` | `nil, how, text`; an answer of 404 or 500 is an answer, its code tells it |
+| `dbus`, `services` | `nil, name, text`: the name of the error of D-Bus, `'cancel'` for Cancel |
 | `find` | `false` when nothing more is found |
 | `query` | the entries read, and why the reading has stopped: `'limit'`, `'scan'`, `'time'` or `'cancel'` |
 | `mark` | the count marked, fewer than given when some are not in the window; in a callback of a watch without a window, `nil` and the reason |
@@ -204,8 +207,8 @@ An error raised goes to the window of the plugins with the name of the plugin an
 
 - in a handler, the items it has added go and the other plugins make the menu;
 - in an action, the action ends there;
-- in a callback of `poll` or `timeout`, the poller or the timer goes and is not called again; a callback of `fetch` is
-  called once anyway;
+- in a callback of `poll` or `timeout`, the poller or the timer goes and is not called again; a callback of `fetch` or
+  `dbus` is called once anyway;
 - in a callback of a watch, the watch stops reading and stays in the list of watches as failed, with its lines.
 
 `pcall` catches an error raised as anywhere in Lua, when a plugin would rather go on. `remove()` of a poller or a watch and
@@ -566,6 +569,128 @@ turbojedi.fetch({ url = hook, body = text }, told, entry._SYSTEMD_UNIT, entry._H
 - An answer larger than 16 MiB is an error.
 - Waiting is allowed to an action and a callback, not to a handler making the menu, which never waits on the network.
 - Requests that are still going when TurboJedi exits are dropped.
+
+### Calls over D-Bus
+
+`dbus` calls a method of a service on the system bus or the bus of the user through sd-bus of TurboJedi itself:
+systemd, a daemon of your own, anything `busctl call` reaches. No program runs, and the values come typed, not as
+text to take apart:
+
+```lua
+local reply, name, text = turbojedi.dbus {
+  bus       = 'system',                           -- 'system' by default, or 'user'
+  service   = 'org.freedesktop.systemd1',
+  path      = '/org/freedesktop/systemd1',
+  interface = 'org.freedesktop.systemd1.Manager', -- may be left out, as D-Bus allows
+  method    = 'GetUnit',
+  signature = 's',                                -- of the arguments, as busctl takes it; none without them
+  arguments = { 'nginx.service' },
+  timeout   = 5                                   -- seconds, 25 by default as sd-bus has it
+}
+```
+
+**The answer.** `reply` is a table of the values of the answer in their order, `reply[1]`, `reply[2]`... A method
+without values gives an empty table: that is a success too, `if not reply` tells a failure. A failure is
+`nil, name, text`: `name` is the name of the error as D-Bus gives it, `text` its message:
+
+| `name` | |
+|---|---|
+| `org.freedesktop.DBus.Error.ServiceUnknown` | no such service on the bus |
+| `org.freedesktop.DBus.Error.UnknownMethod` | the service has no such method, or not with these arguments |
+| `org.freedesktop.DBus.Error.AccessDenied` | the policy of the bus does not let the call through |
+| `org.freedesktop.DBus.Error.NoReply` | no answer in time, the time of the menu included |
+| `org.freedesktop.systemd1.NoSuchUnit` and the like | an error of the service itself, by its own name |
+| `System.Error.ENOENT` and the like | an errno a service has answered with, or one of this side: root has no bus of a user, as a rule |
+| `'cancel'` | Cancel of the dialog, or `cancel()` of the call |
+
+Checking the name instead of the text keeps a plugin working whatever language the service speaks:
+
+```lua
+local reply, name = turbojedi.dbus { ... }
+
+if name == 'org.freedesktop.systemd1.NoSuchUnit' then
+  turbojedi.message('The unit is not loaded')
+elseif not reply then
+  turbojedi.message('No answer: ' .. name)
+end
+```
+
+**Types.** Values of Lua go to the arguments by the signature, values of the answer come back as Lua has them:
+
+| D-Bus | Lua |
+|---|---|
+| `y`, `n`, `q`, `i`, `u`, `x` | an integer, checked against the range of the type on the way there |
+| `t` | an integer; one above `math.maxinteger` comes negative, as `string.unpack('J')` has it, and goes back as it is, `math.ult` compares them: `UINT64_MAX`, which systemd uses for infinity, is `-1` |
+| `d` | a number |
+| `b` | `true` or `false` |
+| `s`, `o`, `g` | a string |
+| `ay` | a string of bytes |
+| an array `a...` | a sequence |
+| a dictionary `a{...}` | a table by its keys |
+| a struct `(...)` | a sequence |
+| a variant `v` | the value in it; going there, a string is `s`, an integer `x`, a number `d`, a boolean `b`, and `{ type = 'u', value = 5 }` names the type itself |
+| `h` | a descriptor of a file is not passed: a mistake in the arguments, `System.Error.ENOTSUP` in an answer |
+
+A value that does not fit the signature is a mistake of the plugin and is raised, as a wrong argument of any function.
+
+**Waiting.** As `fetch`: in an action and a callback, `dbus` without a function waits for the answer, a dialog with
+Cancel comes up when it is late and the windows go on meanwhile. A handler making the menu may call it too, without a
+dialog: the calls of all handlers share the 200 ms of the menu, and the time over is `NoReply`. The state of a unit in
+the title of an item is quick enough for it:
+
+```lua
+local function status(unit) ... end  -- the action, as in 010-systemd.lua
+
+turbojedi.registerHandler(function(entry, menu, context)
+  local unit = entry._SYSTEMD_UNIT
+  if (type(unit) ~= 'string') or (context.source ~= 'local') then return end
+
+  local found = turbojedi.dbus { service = 'org.freedesktop.systemd1', path = '/org/freedesktop/systemd1',
+    interface = 'org.freedesktop.systemd1.Manager', method = 'GetUnit', signature = 's', arguments = { unit } }
+  local state = found and turbojedi.dbus { service = 'org.freedesktop.systemd1', path = found[1],
+    interface = 'org.freedesktop.DBus.Properties', method = 'Get', signature = 'ss',
+    arguments = { 'org.freedesktop.systemd1.Unit', 'ActiveState' } }
+
+  menu:add(('Status of %s%s'):format(unit, state and (' (' .. state[1] .. ')') or ''), status, unit)
+end)
+```
+
+A plugin being loaded does not wait: `dbus` without a function then is a mistake.
+
+**Later.** With a function after the request, `dbus` gives back a handle at once and the answer comes to the function
+later, `reply, name, text` and the values after the function, when no dialog is open; `call:cancel()` drops it, and the
+function is not called then. This one also may start while the plugin is loaded:
+
+```lua
+local function told(reply, name, text, what)
+  if not reply then turbojedi.message(('%s has not answered: %s'):format(what, name)) end
+end
+
+local call = turbojedi.dbus({ service = 'me.example.Daemon', path = '/me/example/Daemon', method = 'Reload' },
+  told, 'The daemon')
+```
+
+Up to 64 calls of all plugins go on at once; one more is refused with `System.Error.EBUSY`.
+
+**Who is there.** `services` lists the names on a bus that have an owner, of a prefix or all, sorted, with the
+process that owns each:
+
+```lua
+for _, service in ipairs(turbojedi.services { bus = 'system', prefix = 'me.example.Daemon.' }) do
+  -- service.name, service.pid, service.uid, service.unit: the unit of systemd of the owner, nil without one
+  if (tostring(service.pid) == entry._PID) or (service.unit == entry._SYSTEMD_UNIT) then ... end
+end
+```
+
+It asks the bus itself and waits for it in any phase, up to 5 seconds, or within the time of the menu in a handler;
+a failure is `nil, name, text` as above.
+
+**Limits.**
+
+- The bus decides who may call what, by its policy and by polkit of the service, as it does for `busctl` of the same
+  user: TurboJedi run by a user calls as that user, run by root as root.
+- Signals are not listened to: a plugin asks, a service does not tell it by itself.
+- Calls that are still going when TurboJedi exits are dropped.
 
 ## Watches of the journal
 
