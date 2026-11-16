@@ -14,6 +14,16 @@ URL:            https://github.com/cyanide-burnout/TurboJedi
 # Turbo Vision of magiblot is linked in statically from the submodule
 Provides:       bundled(tvision) = %{turbojedi_tvision}
 
+# turbojedi-mcp.py gives the D-Bus interface to AI agents, TurboJedi itself needs no Python: the interpreter its line #!
+# names is not required
+%global __requires_exclude ^/usr/bin/python3$
+Recommends:     python3
+%if 0%{?suse_version}
+Recommends:     python3-dbus-python
+%else
+Recommends:     python3-dbus
+%endif
+
 BuildRequires:  gcc-c++
 BuildRequires:  make
 BuildRequires:  cmake
@@ -53,7 +63,7 @@ or rule files of grc, synchronized time across windows and saved layouts.
 
 %prep
 # What %%setup would unpack: %%license and %%doc take the names from the build directory
-cp -p "%{turbojedi_tree}/LICENSE" "%{turbojedi_tree}/README.md" "%{turbojedi_tree}/CHANGELOG.md" "%{turbojedi_tree}/PLUGINS.md" .
+cp -p "%{turbojedi_tree}/LICENSE" "%{turbojedi_tree}/README.md" "%{turbojedi_tree}/CHANGELOG.md" "%{turbojedi_tree}/PLUGINS.md" "%{turbojedi_tree}/DBUS.md" "%{turbojedi_tree}/MCP.md" .
 cp -p "%{turbojedi_tree}/Import/tvision/COPYRIGHT" tvision-COPYRIGHT
 
 %build
@@ -72,7 +82,9 @@ make install PREFIX=%{buildroot}%{_prefix}
 
 %files
 %license LICENSE tvision-COPYRIGHT
-%doc README.md CHANGELOG.md PLUGINS.md
+%doc README.md CHANGELOG.md PLUGINS.md DBUS.md MCP.md
 %{_bindir}/turbojedi
+%{_bindir}/turbojedi-mcp.py
+%{_datadir}/dbus-1/system.d/me.burnaway.TurboJedi.conf
 %{_mandir}/man1/turbojedi.1*
 %{_datadir}/turbojedi

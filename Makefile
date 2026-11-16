@@ -141,11 +141,19 @@ $(SOURCE)/JournalSource.o: CXXFLAGS += -I$(TURBOVISION)/include/tvision
 build: $(OBJECTS)
 	$(CXX) $(OBJECTS) $(FLAGS) $(LDFLAGS) $(LIBS) $(EXTRA) -o $(EXECUTABLE)
 
+# The policy of the bus goes to /usr/share of a package, dbus does not read /usr/local/share: an installation of its own
+# puts it to /etc. POLICY= names another directory
+POLICY ?= $(if $(filter %/usr,$(PREFIX)),$(PREFIX)/share/dbus-1/system.d,$(DESTDIR)/etc/dbus-1/system.d)
+
 install:
 	install -D -m 755 $(EXECUTABLE) $(PREFIX)/bin/$(EXECUTABLE)
 	install -D -m 644 $(EXECUTABLE).1 $(PREFIX)/share/man/man1/$(EXECUTABLE).1
 	install -D -m 644 -t $(PREFIX)/share/$(EXECUTABLE)/plugins Plugins/*.lua
 	install -D -m 644 -t $(PREFIX)/share/$(EXECUTABLE)/examples Plugins/Examples/*.lua
+	install -D -m 644 -t $(POLICY) me.burnaway.TurboJedi.conf
+	sed "s|^VERSION = 'unknown'|VERSION = '$(VERSION)'|" $(EXECUTABLE)-mcp.py > $(EXECUTABLE)-mcp.py.installed
+	install -D -m 755 $(EXECUTABLE)-mcp.py.installed $(PREFIX)/bin/$(EXECUTABLE)-mcp.py
+	rm -f $(EXECUTABLE)-mcp.py.installed
 
 # The package goes next to the directory of the project, as dpkg-buildpackage puts it,
 # DISTRIBUTION names another architecture of Debian to build for, such as amd64

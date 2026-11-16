@@ -13,6 +13,8 @@ url='https://github.com/cyanide-burnout/TurboJedi'
 license=('MIT')
 depends=('glibc' 'gcc-libs' 'systemd-libs' 'ncurses' 'pcre2' 'gpm' 'curl' 'lua54')
 makedepends=('cmake' 'git' 'pkgconf')
+optdepends=('python: turbojedi-mcp.py, the D-Bus interface for AI agents'
+            'python-dbus: turbojedi-mcp.py, the D-Bus interface for AI agents')
 
 build() {
   cd "${startdir}/.."
@@ -27,4 +29,6 @@ package() {
   install -D -m 644 README.md "${pkgdir}/usr/share/doc/${pkgname}/README.md"
   install -D -m 644 CHANGELOG.md "${pkgdir}/usr/share/doc/${pkgname}/CHANGELOG.md"
   install -D -m 644 PLUGINS.md "${pkgdir}/usr/share/doc/${pkgname}/PLUGINS.md"
+  install -D -m 644 DBUS.md "${pkgdir}/usr/share/doc/${pkgname}/DBUS.md"
+  install -D -m 644 MCP.md "${pkgdir}/usr/share/doc/${pkgname}/MCP.md"
 }
