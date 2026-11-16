@@ -22,7 +22,7 @@ All three are read whatever way TurboJedi is built and installed. There are no p
 not for code.
 
 - Every `*.lua` file of them is run once at start, in the order of the names: `010-systemd.lua` before
-  `100-fail2ban.lua`. The name of a plugin is the name of its file without the number and `.lua`: `fail2ban`.
+  `040-fail2ban.lua`. The name of a plugin is the name of its file without the number and `.lua`: `fail2ban`.
 - A file of the same name in a directory lower in the table takes the place of the one above: the user's file of the
   package, the machine's one of the package.
 - A plugin may be a link to a file elsewhere, an example of the package among them; under root the file it points to
@@ -854,20 +854,47 @@ alone, a PID alone may stand for several: Core dump shows `coredumpctl info` in 
 Debug runs `coredumpctl debug` on the terminal when gdb is installed and the journal is of this machine, where the core
 file is.
 
+### fail2ban
+
+`040-fail2ban.lua` of the package, where `fail2ban-client` is installed, offers Ban and Unban for every address in the
+message. Ban asks for the jail, starting on `sshd` for an entry of sshd, `sshd-session` or `sshd-auth`, and for a
+confirmation, which warns when the address is the one of your own SSH session: a ban of the wrong address locks its
+user out. An address of this machine itself, such as the one sshd tells as `to`, gets no items. `fail2ban-client`
+needs root.
+
 ### SSH attacks
 
-`040-ssh.lua` of the package watches the SSH server of this machine, where there is one, while TurboJedi is open: what
-no single entry tells, an attack put together from many. Every address that fails to log in has a line in the watch
-SSH attacks, the busiest on top: its failures in the last minute and in all, the user names it has tried, the time of
-its last try; Enter goes to that entry. An address silent for ten minutes leaves the list. The status tells the
+`/usr/share/turbojedi/examples/100-ssh.lua` watches the SSH server of this machine, where there is one, while TurboJedi
+is open: what no single entry tells, an attack put together from many. Every address that fails to log in has a line in
+the watch SSH attacks, the busiest on top: its failures in the last minute and in all, the user names it has tried, the
+time of its last try; Enter goes to that entry. An address silent for ten minutes leaves the list. The status tells the
 addresses, the failures of the last minute and the busiest one.
 
 Two things bring the list of watches up with a bell: a login after failures of the same address, and an address that
 tries more than 30 times a minute, once for it. A login from an address without failures is nobody's business. It only
-looks: banning is the business of fail2ban, among the examples.
+looks: banning is the business of fail2ban.
 
 One try may come in several lines, `Invalid user` and `Failed password for invalid user` of the same connection count
-once; sshd of OpenSSH 9.8 and later logs as `sshd-session` and `sshd-auth`, all of them are watched.
+once; sshd of OpenSSH 9.8 and later logs as `sshd-session` and `sshd-auth`, all of them are watched. It is an example
+since it watches and rings on every machine with sshd while TurboJedi is open.
+
+A link to it turns it on and follows the updates of the package, for the whole machine:
+
+```
+sudo mkdir -p /usr/local/share/turbojedi/plugins
+sudo ln -s /usr/share/turbojedi/examples/100-ssh.lua /usr/local/share/turbojedi/plugins/
+```
+
+or for one user alone:
+
+```
+mkdir -p ~/.config/turbojedi/plugins
+ln -s /usr/share/turbojedi/examples/100-ssh.lua ~/.config/turbojedi/plugins/
+```
+
+TurboJedi reads plugins at start, it takes the plugin when started again. Removing the link takes it away, a link left
+behind by a removed package is told about at start. A build installed by `make install` has the examples in
+`/usr/local/share/turbojedi/examples`.
 
 ### Block devices
 
@@ -915,7 +942,7 @@ raise      = yes
 
 A rule takes `unit`, `identifier`, `priority` (up to a level: `err`, `warning`...), `match = FIELD=VALUE` (several
 times), `text` with `regex = yes` and `case = yes`, and `raise = yes` to bring the list up with a bell for every entry.
-It is linked as the one of fail2ban below.
+It is linked as the one of SSH attacks above.
 
 ### Chat
 
@@ -940,33 +967,7 @@ format = slack
 | `ntfy` | `https://ntfy.sh/<topic>` or a server of your own | `token = <access token>` when the topic needs one |
 
 `token` gives the header `Authorization: Bearer` to any of them. The file holds a secret: `chmod 600`. It is linked as
-the one of fail2ban below.
-
-### fail2ban
-
-`/usr/share/turbojedi/examples/100-fail2ban.lua` offers Ban and Unban for every address in the message. Ban asks for
-the jail, starting on `sshd` for an entry of sshd, `sshd-session` or `sshd-auth`, and for a confirmation, which warns when the address is the one of
-your own SSH session. It is an example to copy on purpose: a ban of the wrong address locks its user out.
-`fail2ban-client` needs root.
-
-A link to it turns it on and follows the updates of the package, for the whole machine:
-
-```
-sudo mkdir -p /usr/local/share/turbojedi/plugins
-sudo ln -s /usr/share/turbojedi/examples/100-fail2ban.lua /usr/local/share/turbojedi/plugins/
-```
-
-or for root alone:
-
-```
-sudo mkdir -p /root/.config/turbojedi/plugins
-sudo ln -s /usr/share/turbojedi/examples/100-fail2ban.lua /root/.config/turbojedi/plugins/
-```
-
-TurboJedi reads plugins at start, it takes the plugin when started again. The items are there when `fail2ban-client`
-is in `PATH` and the message of the entry has an address. Removing the link takes it away, a link left behind by
-a removed package is told about at start. A build installed by
-`make install` has the example in `/usr/local/share/turbojedi/examples`.
+the one of SSH attacks above.
 
 ### A module of your own
 

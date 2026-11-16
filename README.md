@@ -39,8 +39,8 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd, PC
 - Actions of an entry by plugins in Lua 5.4: Alt-F10, A, F11, Shift-F10 or a right click opens the menu of what the
   plugins offer for it, each item named with its plugin. The plugins of the package only look: the status of the unit
   of the entry, its state told in the menu, its unit file and its process in top, the route, lookup, whois, ping and
-  path of an address, a core dump in coredumpctl and gdb, the attacks on the SSH server in a watch; fail2ban, block
-  devices, Asterisk, alerts and a chat are in the examples. Plugins ask with dialogs, run commands in the background,
+  path of an address, a core dump in coredumpctl and gdb, a ban in fail2ban after a confirmation; the attacks on the
+  SSH server in a watch, block devices, Asterisk, alerts and a chat are in the examples. Plugins ask with dialogs, run commands in the background,
   in a window or on the terminal, ask web services over HTTP, call services over D-Bus with typed values and keep
   sockets and timers going, see [PLUGINS.md](PLUGINS.md)
 - Watches of plugins: entries of a filter as they come, a status and lines of each in a list, F12; Watch 1/3 * in the
@@ -355,7 +355,7 @@ written the same way in `Source/JournalHighlighter.cpp`.
 
 The Actions menu of an entry, Alt-F10, A, F11, Shift-F10 or a right click, is made by plugins in Lua 5.4 from
 `/usr/share/turbojedi/plugins`, `/usr/local/share/turbojedi/plugins` and `~/.config/turbojedi/plugins`. The package
-brings plugins that only look:
+brings these:
 
 - `010-systemd.lua`: the status of the unit of the entry in a window or to the clipboard, its state and since when
   told in the title of the item by systemd over D-Bus, its unit file, its process in top
@@ -363,37 +363,36 @@ brings plugins that only look:
   there, the ones whose programs are installed
 - `030-coredump.lua`: for an entry of systemd-coredump, what coredumpctl knows of that dump, a copy of it, its stack in
   gdb
-- `040-ssh.lua`: a watch of the attacks on the SSH server of this machine while TurboJedi is open, an address a line
-  with its failures and the user names it has tried; a login after failures or a flood of tries brings the list of
-  watches up with a bell
+- `040-fail2ban.lua`, where fail2ban is installed: Ban and Unban of an address of the entry, after asking for the jail
+  and a confirmation, never for an address of this machine; it needs root
 
 Plugins that change things, or that would come up by chance, are examples in `/usr/share/turbojedi/examples` and are not
-run by themselves: `100-fail2ban.lua`; `100-storage.lua`, the device, mounts, udev and SMART of a block device an
+run by themselves: `100-ssh.lua`, a watch of the attacks on the SSH server of this machine while TurboJedi is open, an
+address a line with its failures and the user names it has tried, a login after failures or a flood of tries bringing
+the list of watches up with a bell; `100-storage.lua`, the device, mounts, udev and SMART of a block device an
 entry of the kernel or smartd names; `100-asterisk.lua`, the calls, channels, endpoints, AORs, modules and dialplan of an entry
 of Asterisk, shown, traced in the journal, hung up or reloaded through `asterisk -rx`; `100-alert.lua`, watches of the
 journal by rules of `~/.config/turbojedi/alert.conf`, while TurboJedi is open; `100-chat.lua`, the entry or the
 marked ones sent to Slack, Mattermost, Rocket.Chat, Discord, Telegram or ntfy through a webhook told in
 `~/.config/turbojedi/chat.conf`.
 
-The fail2ban example bans or unbans an address of the entry, after asking for the jail and a confirmation; it needs
-root. A link to it turns it on and follows the updates of the package, for the whole machine:
+A link to an example turns it on and follows the updates of the package, for the whole machine:
 
 ```
 sudo mkdir -p /usr/local/share/turbojedi/plugins
-sudo ln -s /usr/share/turbojedi/examples/100-fail2ban.lua /usr/local/share/turbojedi/plugins/
+sudo ln -s /usr/share/turbojedi/examples/100-ssh.lua /usr/local/share/turbojedi/plugins/
 ```
 
-or for root alone:
+or for one user alone:
 
 ```
-sudo mkdir -p /root/.config/turbojedi/plugins
-sudo ln -s /usr/share/turbojedi/examples/100-fail2ban.lua /root/.config/turbojedi/plugins/
+mkdir -p ~/.config/turbojedi/plugins
+ln -s /usr/share/turbojedi/examples/100-ssh.lua ~/.config/turbojedi/plugins/
 ```
 
-TurboJedi reads plugins at start, it takes the plugin when started again. The items are there when `fail2ban-client`
-is in `PATH` and the message of the entry has an address. Removing the link takes it away, a link left behind by
-a removed package is told about at start. A build installed by
-`make install` has the example in `/usr/local/share/turbojedi/examples`.
+TurboJedi reads plugins at start, it takes the plugin when started again. Removing the link takes it away, a link left
+behind by a removed package is told about at start. A build installed by `make install` has the examples in
+`/usr/local/share/turbojedi/examples`.
 
 How to write a plugin: [PLUGINS.md](PLUGINS.md).
 

@@ -5,7 +5,8 @@
 -- Attacks on the SSH server of this machine as they come, in a watch while TurboJedi is open: an address a line with its
 -- failures in the last minute and in all, the user names it has tried and the time of its last try, the busiest on top.
 -- A login after failures from the same address brings the list of watches up with a bell, so does an address that tries
--- more than FLOOD times in a minute, once. It only looks: banning is the business of fail2ban
+-- more than FLOOD times in a minute, once. It only looks: banning is the business of fail2ban. An example to link into a
+-- directory of plugins on purpose: it watches and rings on every machine with sshd while TurboJedi is open
 
 if not turbojedi.watch then return end
 

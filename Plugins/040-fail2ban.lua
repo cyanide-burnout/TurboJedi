@@ -2,9 +2,11 @@
 -- https://github.com/cyanide-burnout/TurboJedi
 -- Artem Prilutskiy, 2026
 
--- Bans or unbans an address of an entry in fail2ban. An example to copy into a directory of plugins on purpose:
--- a ban of the wrong address can lock its user out, the own one included
+-- Bans or unbans an address of an entry in fail2ban. A ban of the wrong address can lock its user out, the own one
+-- included: Ban asks for the jail and a confirmation, warns about the address of the own SSH session and is never
+-- offered for an address of this machine
 
+-- Only where fail2ban is installed
 if not turbojedi.which('fail2ban-client') then
   return
 end
