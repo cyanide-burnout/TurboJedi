@@ -20,8 +20,11 @@ alike. The name is for finding an instance and nothing else. Trust does not rest
 busctl --system list | grep me.burnaway.TurboJedi
 ```
 
-A program lists the names with `ListNames()` of `org.freedesktop.DBus` and keeps the ones of the prefix. To find who
-owns a name, ask `GetConnectionUnixUser(name)` there.
+A program lists the names with `ListNames()` of `org.freedesktop.DBus` and keeps the ones of the prefix. The policy lets
+anyone take a name of the prefix, so a careful program keeps a name only when `GetConnectionUnixUser(name)` and
+`GetConnectionUnixProcessID(name)` there give the UID and the PID the name says, as `turbojedi-mcp.py` does. This keeps
+a process from passing for an instance of another user or another process; it does not prove that the owner is
+TurboJedi.
 
 ### Policy
 
@@ -108,9 +111,11 @@ A window of `ListWindows()`:
 | `following` | b | the window follows the end of its journal |
 | `selected` | u | entries marked and selected |
 
-`ListActions()` calls the handlers of the plugins as opening the menu does. The handlers have no dialogs and no
-commands in that phase, and `query()` has the 200 ms budget of a menu. Nothing is run. The call waits while a dialog is
-open or Lua is busy, as the calls of the next section do. An entry that is not in the journal of the window gives
+`ListActions()` calls the handlers of the plugins as opening the menu does, and never the functions of the items. The
+functions of TurboJedi give the handlers no dialogs and no commands in that phase, and `query()` has the 200 ms budget of
+a menu. A handler is still Lua with its standard libraries: it is code of a plugin, trusted as the plugins are, and is to
+make the menu and nothing else, as [PLUGINS.md](PLUGINS.md) asks. The call waits while a dialog is open or Lua is busy,
+as the calls of the next section do. An entry that is not in the journal of the window gives
 `me.burnaway.TurboJedi.Error.NoEntry`.
 
 A watch of `ListWatches()`:

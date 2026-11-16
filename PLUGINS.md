@@ -51,6 +51,10 @@ put to `/usr/local/bin` anyway. A plugin that is left out is told about with the
 A plugin registers handlers when it is loaded. When the menu is opened, every handler is called with the entry and adds
 the items it has for it, or none. When an item is chosen, its function is called.
 
+A handler only makes the menu and changes nothing: it is also called without the menu being shown, when a caller of
+the D-Bus interface asks which actions an entry has, see [DBUS.md](DBUS.md). Whatever changes something belongs to the
+function of an item, which only the user runs.
+
 ```lua
 turbojedi.registerHandler(function(entry, menu, context)
   local unit = entry._SYSTEMD_UNIT
