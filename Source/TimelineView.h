@@ -56,6 +56,7 @@ class TimelineView : public TScroller
       std::string since;  // Of the filter, as typed or as a zoom has put it
       std::string until;
       uint64_t chosen;
+      uint64_t moment;    // Of the cursor to come back to, or of the tail; zero keeps it where it is
     };
 
     struct Interval
@@ -79,6 +80,9 @@ class TimelineView : public TScroller
     uint64_t step;     // Microseconds of an interval
     uint64_t chosen;   // Microseconds of the step chosen by + and -, zero lets the width of the window choose
     uint64_t end;      // Time of the newest entry the step has been chosen for
+    uint64_t low;      // Bounds of the interval located last, the next entry is likely in it as well
+    uint64_t high;
+    size_t hit;
     uint64_t done;     // Time of the entry read last, for the progress
     bool closed;       // An entry after the range has been met, nothing is read anymore
     bool pending;      // Reading has stopped at the end of its batch, the next poll goes on
@@ -113,7 +117,11 @@ class TimelineView : public TScroller
     void reveal();
     void synchronize();
     void zoom(int direction);
-    void restart(uint64_t fixed);
+    void restart(uint64_t fixed, uint64_t moment = 0);
+    uint64_t here();                   // Time of the cursor for the history
+    bool calendar();                   // Intervals of the wall clock rather than of equal length
+    uint64_t boundary(size_t index);   // Start of an interval, of the one after the last for its end
+    size_t locate(uint64_t realtime);  // Interval of a time
     void changeScale();
     void changeBars();
     void changeZone();

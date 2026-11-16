@@ -25,6 +25,7 @@
 #define READ_STEP       20000   // Entries counted at once, the rest comes with the next polls
 #define INTERVAL_LIMIT  100000  // Columns the finest step may take, the reading stops there
 #define LABEL_SPACING   12      // Columns between the times under the graph
+#define MOMENT_TAIL     UINT64_MAX  // A cursor that follows the tail, in the history
 #define RANGE_HISTORY   64      // Ranges Ctrl-Z goes back through
 
 #define GROUP_ERROR    0
@@ -92,6 +93,9 @@ TimelineView::TimelineView(const TRect& bounds, TScrollBar* horizontal, const Jo
   chosen      = seconds * 1000000ULL;
   end         = 0;
   done        = 0;
+  low         = 0;
+  high        = 0;
+  hit         = 0;
   closed      = false;
   pending     = false;
   follow      = true;
@@ -113,6 +117,9 @@ TimelineView::TimelineView(const TRect& bounds, TScrollBar* horizontal, const Ti
   chosen      = source.chosen;
   end         = source.end;
   done        = source.done;
+  low         = 0;
+  high        = 0;
+  hit         = 0;
   closed      = source.closed;
   pending     = source.pending;
   logarithmic = source.logarithmic;
@@ -219,14 +226,14 @@ void TimelineView::draw()
   }
 
   // Heading tells about the interval under the cursor and the state of the reading
-  realtime = start + cursor * step;
+  realtime = boundary(cursor);
   line     = " " + label(realtime, true) + " +" + FormatStep(step);
 
   if (selection(first, last))
   {
     // The selection instead of the cursor: its bounds, how many intervals and the counts of them all
     sums = { 0, 0, 0 };
-    line = " " + label(start + first * step, true) + " \xe2\x80\x93 " + label(start + (last + 1) * step, true) + " " +
+    line = " " + label(boundary(first), true) + " \xe2\x80\x93 " + label(boundary(last + 1), true) + " " +
       std::to_string(last - first + 1) + "\xc3\x97" + FormatStep(step);
 
     for (index = first; index <= last; index ++)
@@ -373,7 +380,7 @@ void TimelineView::draw()
     {
       if (((delta.x + x) % LABEL_SPACING) == 0)
       {
-        time = label(start + (delta.x + x) * share() * step, false);
+        time = label(boundary((delta.x + x) * share()), false);
         buffer.moveStr(x, time, stamp, std::min<int>(time.size(), size.x - x));
       }
     }
@@ -630,7 +637,7 @@ bool TimelineView::getCounted(uint64_t& first, uint64_t& last, uint64_t& interva
   }
 
   first    = start;
-  last     = start + intervals.size() * step;
+  last     = boundary(intervals.size());
   interval = step;
   return true;
 }
@@ -652,8 +659,8 @@ bool TimelineView::getFocus(uint64_t& first, uint64_t& last, std::array<uint64_t
     upper = lower;
   }
 
-  first  = start + lower * step;
-  last   = start + (upper + 1) * step;
+  first  = boundary(lower);
+  last   = boundary(upper + 1);
   counts = { 0, 0, 0 };
 
   for (size_t index = lower; index <= upper; index ++)
@@ -775,6 +782,8 @@ void TimelineView::begin(uint64_t fixed)
   start = AlignJournalTime(first, step, universal());
   end   = last;
   done  = start;
+  low   = 0;
+  high  = 0;
 
   // Counting starts over from the beginning of the range
   if (since != 0) sd_journal_seek_realtime_usec(journal, since);
@@ -870,7 +879,7 @@ bool TimelineView::add(uint64_t realtime, int priority)
   Interval* interval;
 
   // Entries of merged journals may come a bit out of order around the start
-  index = (realtime > start) ? ((realtime - start) / step) : 0;
+  index = locate(realtime);
 
   if (index >= INTERVAL_LIMIT)
   {
@@ -976,9 +985,10 @@ TimelineView::Range TimelineView::selected()
   // Whole intervals up to the last microsecond of the last one, until takes it in; one that reaches the newest of a
   // range open at the end keeps it open, the timeline follows on
   selection(lower, upper);
-  range.since  = FormatJournalTime(start + lower * step, universal());
-  range.until  = ((upper == (intervals.size() - 1)) && (until == 0)) ? std::string() : FormatJournalTime(start + (upper + 1) * step - 1, universal());
+  range.since  = FormatJournalTime(boundary(lower), universal());
+  range.until  = ((upper == (intervals.size() - 1)) && (until == 0)) ? std::string() : FormatJournalTime(boundary(upper + 1) - 1, universal());
   range.chosen = 0;
+  range.moment = 0;
 
   return range;
 }
@@ -1043,13 +1053,13 @@ void TimelineView::chooseTime()
     return;
   }
 
-  change(Range { data.since, data.until, 0 });
+  change(Range { data.since, data.until, 0, 0 });
 }
 
 void TimelineView::change(const Range& range)
 {
   // The range left goes into the history, a new one ends the way forward
-  back.push_back(Range { filter.since, filter.until, chosen });
+  back.push_back(Range { filter.since, filter.until, chosen, here() });
   ahead.clear();
 
   if (back.size() > RANGE_HISTORY)
@@ -1093,7 +1103,7 @@ void TimelineView::apply(const Range& range)
     return;
   }
 
-  restart(chosen);
+  restart(chosen, range.moment);
 }
 
 void TimelineView::retreat()
@@ -1107,7 +1117,7 @@ void TimelineView::retreat()
 
   range = back.back();
   back.pop_back();
-  ahead.push_back(Range { filter.since, filter.until, chosen });
+  ahead.push_back(Range { filter.since, filter.until, chosen, here() });
   apply(range);
 }
 
@@ -1122,7 +1132,7 @@ void TimelineView::advance()
 
   range = ahead.back();
   ahead.pop_back();
-  back.push_back(Range { filter.since, filter.until, chosen });
+  back.push_back(Range { filter.since, filter.until, chosen, here() });
   apply(range);
 }
 
@@ -1142,7 +1152,7 @@ void TimelineView::synchronize()
 
   // The first entry of the interval, or its start when it is empty, every journal window goes there
   moment.source   = nullptr;
-  moment.realtime = ((cursor < intervals.size()) && (intervals[cursor].first != 0)) ? intervals[cursor].first : (start + cursor * step);
+  moment.realtime = ((cursor < intervals.size()) && (intervals[cursor].first != 0)) ? intervals[cursor].first : boundary(cursor);
 
   message(TProgram::deskTop, evBroadcast, cmJournalSyncTo, &moment);
 }
@@ -1173,7 +1183,7 @@ void TimelineView::zoom(int direction)
   }
 
   // A step of the history as a range is, Ctrl-Z goes back to the step before
-  change(Range { filter.since, filter.until, next });
+  change(Range { filter.since, filter.until, next, 0 });
 }
 
 void TimelineView::changeScale()
@@ -1218,21 +1228,82 @@ bool TimelineView::universal()
   return (filter.columns & JOURNAL_COLUMN_UTC) != 0;
 }
 
-void TimelineView::restart(uint64_t fixed)
+void TimelineView::restart(uint64_t fixed, uint64_t moment)
 {
-  uint64_t moment;
-
-  // The cursor stays at its time unless it follows the tail
-  moment = start + cursor * step;
+  // The cursor stays at its time unless it follows the tail, or goes to the time it is given
+  moment = (moment != 0) ? moment : here();
+  follow = (moment == MOMENT_TAIL);
   begin(fixed);
 
   if (!follow)
   {
     // Within the new range: up to the interval of its newest entry, those after it are read in later batches
-    cursor = (moment > start) ? std::min((moment - start) / step, (end - start) / step) : 0;
+    cursor = std::min(locate(moment), locate(end));
     reveal();
     drawView();
   }
+}
+
+uint64_t TimelineView::here()
+{
+  return (follow || intervals.empty()) ? MOMENT_TAIL : boundary(cursor);
+}
+
+bool TimelineView::calendar()
+{
+  // Hours above one and days of the local zone go by the wall clock: a day the clocks change has 23 or 25 hours
+  return (!universal()) && (step > 3600000000ULL) && ((step % 3600000000ULL) == 0);
+}
+
+uint64_t TimelineView::boundary(size_t index)
+{
+  time_t second;
+  struct tm date;
+
+  if (!calendar())
+  {
+    return start + index * step;
+  }
+
+  second = start / 1000000;
+  localtime_r(&second, &date);
+
+  if ((step % 86400000000ULL) == 0) date.tm_mday += index * (step / 86400000000ULL);
+  else                              date.tm_hour += index * (step / 3600000000ULL);
+
+  date.tm_isdst = -1;
+  return mktime(&date) * 1000000ULL;
+}
+
+size_t TimelineView::locate(uint64_t realtime)
+{
+  size_t index;
+
+  if (realtime <= start)
+  {
+    return 0;
+  }
+
+  // Entries come in order, most of them fall into the interval of the one before
+  if ((realtime >= low) &&
+      (realtime < high))
+  {
+    return hit;
+  }
+
+  index = (realtime - start) / step;
+
+  if (calendar())
+  {
+    // Off by the changes of the clocks the range has gone through, an interval a change at most
+    while ((index > 0) && (boundary(index) > realtime))  index --;
+    while (boundary(index + 1) <= realtime)              index ++;
+  }
+
+  hit  = index;
+  low  = boundary(index);
+  high = boundary(index + 1);
+  return index;
 }
 
 int TimelineView::share()
