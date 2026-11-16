@@ -45,10 +45,8 @@ TRect JournalWindow::prepare(TScrollBar*& horizontal, TScrollBar*& vertical)
 {
   TRect extent;
 
-  // Windows lie on the desktop flat, dialogs over them keep their shadows
   options  |= ofTileable;
   growMode  = gfGrowAll | gfGrowRel;
-  state    &= ~sfShadow;
 
   horizontal = standardScrollBar(sbHorizontal | sbHandleKeyboard);
   vertical   = standardScrollBar(sbVertical   | sbHandleKeyboard);

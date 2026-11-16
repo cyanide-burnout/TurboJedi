@@ -10,6 +10,7 @@
 #include "JediClipboard.h"
 #include "JediScript.h"
 #include "JediService.h"
+#include "JediShadow.h"
 
 #include <time.h>
 #include <stdio.h>
@@ -29,6 +30,7 @@
 #define DEFAULT_HISTORY  1000
 #define LAST_LAYOUT      "last.jedi"
 #define UPDATE_SETTINGS  "update.ini"
+#define SCREEN_SETTINGS  "screen.ini"
 #define PLUGIN_DIRECTORY "plugins"
 #define FILE_LIMIT        65536  // Open files the soft limit is raised to at most
 
@@ -363,6 +365,9 @@ int main(int count, char* const* arguments)
 
   // Plugins are run before the windows, their problems are told once the windows are up
   LoadPlugins(GetConfigPath(PLUGIN_DIRECTORY), problems);
+
+  // Shadows of the windows are the user's, whatever layout or command line comes
+  LoadJediShadow(GetConfigPath(SCREEN_SETTINGS));
 
   application = new JediApplication(filter, history, layout, GetConfigPath(UPDATE_SETTINGS));
   application->tell(problems);

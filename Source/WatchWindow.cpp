@@ -777,9 +777,7 @@ WatchWindow::WatchWindow(const TRect& bounds) :
 {
   TRect extent;
 
-  // Flat as a journal window
   growMode = gfGrowAll | gfGrowRel;
-  state   &= ~sfShadow;
   extent   = getExtent();
   extent.grow(-1, -1);
   view     = new WatchListView(extent, standardScrollBar(sbHorizontal | sbHandleKeyboard));
@@ -817,7 +815,6 @@ WatchLogWindow::WatchLogWindow(const TRect& bounds, int number) :
   }
 
   growMode = gfGrowAll | gfGrowRel;
-  state   &= ~sfShadow;
   extent   = getExtent();
   extent.grow(-1, -1);
   view     = new WatchLogView(extent, standardScrollBar(sbHorizontal | sbHandleKeyboard), number);

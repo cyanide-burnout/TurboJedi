@@ -291,6 +291,7 @@ window to the time of the selected line, and a layout keeps their directories fo
 | F8 | clear the window |
 | Ctrl-O, Ctrl-S | open, save a layout; both start at the layout opened or saved last, Save offers its file again |
 | F5, Ctrl-F5, F6, F9, Alt-F3 | zoom, size, next, tile, close |
+| Window → Shadows | of every window and dialog: off, light, medium as Turbo Vision has them, or dark; kept in `$XDG_CONFIG_HOME/turbojedi/screen.ini` whatever layout comes |
 | Alt-0 | list of the windows to go to, the one used before is under the cursor |
 | F12 | watches of plugins with their status, Enter shows the lines of one, Delete or Backspace removes it, U turns their times to UTC and back |
 | Alt-X | exit |

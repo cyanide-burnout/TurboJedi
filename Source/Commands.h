@@ -62,6 +62,7 @@ enum
   cmTimelineScale,             // L there: linear or logarithmic
   cmTimelineZoom,              // Z there: the selection becomes the range
   cmTimelineZone,              // U there: hours and days of UTC or of the local zone
+  cmJournalShadows,            // Window, Shadows...: none, light, medium or dark under the windows
   cmJournalSourceList,         // One per source field, then one for PID
   cmJournalTimePick   = 1100,  // Since, then Until
   cmJournalTimePreset = 1110   // One per preset of the time picker

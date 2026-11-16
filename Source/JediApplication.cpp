@@ -16,6 +16,10 @@
 #define Uses_TFileInputLine
 #define Uses_MsgBox
 #define Uses_THardwareInfo
+#define Uses_TDialog
+#define Uses_TRadioButtons
+#define Uses_TSItem
+#define Uses_TButton
 #include "Version.h"
 #include "JediApplication.h"
 #include "PageDialog.h"
@@ -34,6 +38,7 @@
 #include "JediService.h"
 #include "ActionDialogs.h"
 #include "WatchWindow.h"
+#include "JediShadow.h"
 
 #include <time.h>
 #include <stdio.h>
@@ -56,6 +61,9 @@ JediApplication::JediApplication(const JournalFilter& filter, int history, const
 
   this->filter  = filter;
   this->history = history;
+
+  // TProgram has set the shadows of the screen before, the level chosen goes over them
+  ApplyJediShadow();
 
   focused = nullptr;
   number  = 0;
@@ -199,6 +207,7 @@ TMenuBar* JediApplication::initMenuBar(TRect bounds)
       *new TMenuItem("~P~revious",    cmPrev,           kbShiftF6, hcNoContext, "Shift-F6") +
       *new TMenuItem("~L~ist...",     cmJournalWindows, kbAlt0,    hcNoContext, "Alt-0") +
       *new TMenuItem("Wa~t~ches",     cmJournalWatches, kbF12,     hcNoContext, "F12") +
+      *new TMenuItem("Shado~w~s...",  cmJournalShadows, kbNoKey) +
       *new TMenuItem("~C~lose",       cmClose,          kbAltF3,   hcNoContext, "Alt-F3") +
     *new TSubMenu("~H~elp", kbAltH) +
       *new TMenuItem("~K~eys",              cmJournalHelp,   kbF1,      hcNoContext, "F1") +
@@ -303,6 +312,7 @@ void JediApplication::handleEvent(TEvent& event)
       case cmJournalNew:       open(filter);       break;
       case cmJournalClone:     clone();            break;
       case cmJournalWindows:   chooseWindow();     break;
+      case cmJournalShadows:   chooseShadow();     break;
       case cmJournalOpen:      chooseOpen();       break;
       case cmJournalSave:      chooseSave();       break;
       case cmJournalHelp:      showHelp();         break;
@@ -490,6 +500,38 @@ static void CollectTitle(TView* view, void* argument)
   {
     // The desktop walks from the front, the focused window comes first
     static_cast<std::vector<TWindow*>*>(argument)->push_back(window);
+  }
+}
+
+void JediApplication::initScreen()
+{
+  // A new mode of the screen sets the shadows of Turbo Vision again
+  TProgram::initScreen();
+  ApplyJediShadow();
+}
+
+void JediApplication::chooseShadow()
+{
+  ushort level;
+  TDialog* dialog;
+
+  dialog = new TDialog(TRect(0, 0, 34, 11), "Shadows");
+  dialog->options |= ofCentered;
+  dialog->insert(new TRadioButtons(TRect(3, 2, 31, 6),
+    new TSItem("O~f~f, flat",
+    new TSItem("~L~ight",
+    new TSItem("~M~edium, of Turbo Vision",
+    new TSItem("~D~ark", nullptr))))));
+  dialog->insert(new TButton(TRect(5, 7, 15, 9), "~O~K", cmOK, bfDefault));
+  dialog->insert(new TButton(TRect(18, 7, 30, 9), "Cancel", cmCancel, bfNormal));
+  dialog->selectNext(False);
+
+  // Of every window and dialog
+  level = GetJediShadow();
+
+  if (executeDialog(dialog, &level) == cmOK)
+  {
+    SetJediShadow(level);
   }
 }
 
@@ -836,6 +878,7 @@ void JediApplication::showHelp()
     "  F5, Ctrl-F5     Zoom, size or move the window",
     "  F9              Tile the windows",
     "  Alt-F3          Close the window",
+    "  Window menu     Shadows of every window and dialog: off, light, medium or dark",
     "  Ctrl-O, Ctrl-S  Open, save the layout of all windows",
     "",
     "Filter of the window, the journal applies it when asked",

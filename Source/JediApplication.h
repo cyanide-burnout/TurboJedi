@@ -31,6 +31,7 @@ class JediApplication : public TApplication
     void getEvent(TEvent& event) override;
     void handleEvent(TEvent& event) override;
     void idle() override;
+    void initScreen() override;
 
     bool save(const std::string& path);
 
@@ -57,6 +58,7 @@ class JediApplication : public TApplication
     JournalWindow* open(const JournalFilter& filter);
     void clone();
     void chooseWindow();
+    void chooseShadow();
     bool load(const std::string& path, std::string& error);
     void recall(TFileDialog* dialog, bool named);
     void chooseOpen();
