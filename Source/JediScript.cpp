@@ -3361,6 +3361,17 @@ static void CollectActions(JournalView* view, const std::vector<std::pair<std::s
   origin = nullptr;
 }
 
+// The menu with one line that tells why there is nothing to choose, instead of a dialog with OK: Esc, a click or the key
+// that has opened it closes it, as any menu
+static void ShowActionNote(TPoint where, const std::string& text)
+{
+  TMenuItem* item;
+
+  item           = new TMenuItem(Fit(text, TProgram::deskTop->size.x - 8).c_str(), cmJournalAction, kbNoKey, hcNoContext);
+  item->disabled = True;
+  popupMenu(where, *item, nullptr);
+}
+
 void ShowActions(JournalView* view, const std::string& cursor, TPoint where, bool keyboard)
 {
   const JournalFilter& filter = view->getFilter();
@@ -3389,8 +3400,8 @@ void ShowActions(JournalView* view, const std::string& cursor, TPoint where, boo
   if ((cursor.empty()) ||
       ((fields = ReadJournalFields(filter, cursor)).empty()))
   {
-    // Rotated away meanwhile
-    ShowActionText("Actions", "The entry is not in the journal anymore");
+    // Rotated away meanwhile, or the journal cannot be opened
+    ShowActionNote(where, DescribeJournalLoss(filter));
     return;
   }
 
@@ -3407,7 +3418,7 @@ void ShowActions(JournalView* view, const std::string& cursor, TPoint where, boo
   {
     if (errors.empty())
     {
-      ShowActionText("Actions", "No actions for this entry");
+      ShowActionNote(where, "No actions for this entry");
     }
 
     lua_settop(state, base);
