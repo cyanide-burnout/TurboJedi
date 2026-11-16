@@ -718,7 +718,12 @@ static int GetMarked(sd_bus_message* message, void*, sd_bus_error* error)
 
   return Reply(message, [&] (sd_bus_message* reply)
   {
-    return std::min(AppendEntries(reply, records), sd_bus_message_append(reply, "u", (uint32_t)total));
+    int result;
+
+    // One after the other: the order of the arguments of a call is not defined, amd64 appends the last one first
+    result = AppendEntries(reply, records);
+    result = std::min(result, sd_bus_message_append(reply, "u", (uint32_t)total));
+    return result;
   });
 }
 
@@ -1087,7 +1092,11 @@ static bool Step(Operation& operation, bool paused, int64_t now)
 
     Answer(operation, [&] (sd_bus_message* reply)
     {
-      return std::min(AppendEntries(reply, operation.query->records), sd_bus_message_append(reply, "s", (operation.query->stopped != nullptr) ? operation.query->stopped : ""));
+      int result;
+
+      result = AppendEntries(reply, operation.query->records);
+      result = std::min(result, sd_bus_message_append(reply, "s", (operation.query->stopped != nullptr) ? operation.query->stopped : ""));
+      return result;
     });
 
     return true;
