@@ -714,6 +714,13 @@ void TimelineView::begin(uint64_t fixed)
     first = (since != 0) ? since : (time(nullptr) * 1000000ULL);
   }
 
+  if ((until != 0) &&
+      (first > until))
+  {
+    // The first entry after the start is after the end as well: the range has none, it starts where it is told to
+    first = (since != 0) ? since : until;
+  }
+
   if (until != 0) sd_journal_seek_realtime_usec(journal, until + 1);
   else            sd_journal_seek_tail(journal);
 
@@ -883,12 +890,9 @@ void TimelineView::move(int64_t index, bool extend)
 
 void TimelineView::point(int64_t cell, bool extend)
 {
-  int64_t from;
-
-  // A cell of Braille has two intervals: the cursor stays on the one it is on, a selection takes the whole cell
-  from = (anchor >= 0) ? anchor : (int64_t)cursor;
-
-  if (extend)                                    move(((cell * share()) >= from) ? (cell * share() + share() - 1) : (cell * share()), true);
+  // A cell of Braille has two intervals: the cursor stays on the one it is on, a selection takes whole cells at both
+  // ends, as dragging does
+  if (extend)                                    stretch(((anchor >= 0) ? anchor : (int64_t)cursor) / share(), cell);
   else if ((int64_t)(cursor / share()) == cell)  move(cursor, false);
   else                                           move(cell * share(), false);
 }
@@ -1141,7 +1145,8 @@ void TimelineView::restart(uint64_t fixed)
 
   if (!follow)
   {
-    cursor = (moment > start) ? ((moment - start) / step) : 0;
+    // Within the new range: up to the interval of its newest entry, those after it are read in later batches
+    cursor = (moment > start) ? std::min((moment - start) / step, (end - start) / step) : 0;
     reveal();
     drawView();
   }
