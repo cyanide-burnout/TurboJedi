@@ -1029,15 +1029,20 @@ void TimelineView::apply(const Range& range)
 {
   TimelineWindow* window;
 
-  filter.since = range.since;
-  filter.until = range.until;
-  chosen       = range.chosen;
-  since        = 0;
-  until        = 0;
+  chosen = range.chosen;
 
-  // Checked when it has been taken, a relative time is taken from now again
-  if (!filter.since.empty()) ParseJournalTime(filter.since, &since);
-  if (!filter.until.empty()) ParseJournalTime(filter.until, &until);
+  if ((range.since != filter.since) ||
+      (range.until != filter.until))
+  {
+    // Checked when it has been taken, a relative time is taken from now again; a new step alone keeps the range
+    filter.since = range.since;
+    filter.until = range.until;
+    since        = 0;
+    until        = 0;
+
+    if (!filter.since.empty()) ParseJournalTime(filter.since, &since);
+    if (!filter.until.empty()) ParseJournalTime(filter.until, &until);
+  }
 
   if ((window = dynamic_cast<TimelineWindow*>(owner)) != nullptr)
   {
@@ -1132,8 +1137,8 @@ void TimelineView::zoom(int direction)
     return;
   }
 
-  chosen = next;
-  restart(chosen);
+  // A step of the history as a range is, Ctrl-Z goes back to the step before
+  change(Range { filter.since, filter.until, next });
 }
 
 void TimelineView::changeScale()

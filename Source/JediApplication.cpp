@@ -894,7 +894,8 @@ void JediApplication::showHelp()
     "  Z               Zoom into the selection, also double click in it; a selection",
     "                  up to the newest interval keeps following",
     "  Ctrl-T          Time range of the timeline, the one of the selection to correct",
-    "  Ctrl-Z, Ctrl-Y  Back and forward along the ranges, Ctrl-Z also by a right click",
+    "  Ctrl-Z, Ctrl-Y  Back and forward along the ranges and the steps, Ctrl-Z also by",
+    "                  a right click",
     "  +, -            Finer or coarser intervals",
     "  L               Linear or logarithmic scale",
     "  B               Bars of blocks, or of Braille dots with two intervals a cell"
