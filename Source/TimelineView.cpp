@@ -86,16 +86,22 @@ static std::string FormatStep(uint64_t step)
   return text;
 }
 
-// A time a range takes, in local time as the dialog takes it: intervals start on whole seconds
+// A time a range takes, in local time as the dialog takes it: intervals start on whole seconds, the last microsecond
+// of one is told with its fraction
 static std::string FormatStamp(uint64_t realtime)
 {
   time_t second;
   struct tm date;
-  char text[32];
+  char text[48];
 
   second = realtime / 1000000;
   localtime_r(&second, &date);
   strftime(text, sizeof(text), "%F %T", &date);
+
+  if ((realtime % 1000000) != 0)
+  {
+    snprintf(text + strlen(text), sizeof(text) - strlen(text), ".%06u", (unsigned)(realtime % 1000000));
+  }
 
   return text;
 }
@@ -947,10 +953,11 @@ TimelineView::Range TimelineView::selected()
   size_t upper;
   Range range;
 
-  // Whole intervals; one that reaches the newest of a range open at the end keeps it open, the timeline follows on
+  // Whole intervals up to the last microsecond of the last one, until takes it in; one that reaches the newest of a
+  // range open at the end keeps it open, the timeline follows on
   selection(lower, upper);
   range.since  = FormatStamp(start + lower * step);
-  range.until  = ((upper == (intervals.size() - 1)) && (until == 0)) ? std::string() : FormatStamp(start + (upper + 1) * step);
+  range.until  = ((upper == (intervals.size() - 1)) && (until == 0)) ? std::string() : FormatStamp(start + (upper + 1) * step - 1);
   range.chosen = 0;
 
   return range;

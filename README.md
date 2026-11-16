@@ -185,7 +185,7 @@ turbojedi [options] [FIELD=VALUE ...]
 | `-c`, `--layout FILE` | windows of a saved layout |
 | `--clipboard-copy COMMAND` | command of `sh` that takes copied lines on its standard input, over `$TURBOJEDI_CLIPBOARD_COPY` |
 
-`TIME` is `2026-10-23 19:00[:00]`, `2026-10-23`, `19:00`, `now`, `today`, `yesterday`, `tomorrow` or a relative
+`TIME` is `2026-10-23 19:00[:00[.000000]]`, `2026-10-23`, `19:00`, `now`, `today`, `yesterday`, `tomorrow` or a relative
 one as journalctl takes it: `-1h`, `+30m`, `-1h 30min`, `-2days`, `5min ago` (`us`, `ms`, `s`, `min`, `h`, `d`, `w`,
 `M`, `y` and their longer names).
 

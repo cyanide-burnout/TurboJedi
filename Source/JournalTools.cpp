@@ -775,6 +775,39 @@ static bool MoveJournalTime(time_t now, int64_t span, uint64_t* stamp)
   return true;
 }
 
+// What strptime() leaves after the seconds: nothing, or a fraction of up to six digits as journalctl takes it,
+// 17:40:59.999999 the last microsecond of a second
+static bool ParseJournalFraction(const char* rest, bool seconds, uint64_t* micro)
+{
+  int count;
+
+  *micro = 0;
+
+  if (*rest == '\0')
+  {
+    return true;
+  }
+
+  if ((!seconds) ||
+      (*rest != '.'))
+  {
+    return false;
+  }
+
+  for (count = 0, rest ++; (*rest >= '0') && (*rest <= '9') && (count < 6); count ++, rest ++)
+  {
+    *micro = *micro * 10 + (*rest - '0');
+  }
+
+  for (; count < 6; count ++)
+  {
+    // Tenths, hundredths and so on in microseconds
+    *micro *= 10;
+  }
+
+  return (*rest == '\0') && (rest[-1] != '.');
+}
+
 bool ParseJournalTime(const std::string& text, uint64_t* stamp)
 {
   static const char* const dates[]  = { "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d" };
@@ -783,6 +816,7 @@ bool ParseJournalTime(const std::string& text, uint64_t* stamp)
   int64_t span;
   time_t now;
   struct tm date;
+  uint64_t micro;
   const char* rest;
 
   now = time(nullptr);
@@ -830,11 +864,11 @@ bool ParseJournalTime(const std::string& text, uint64_t* stamp)
     memset(&date, 0, sizeof(date));
 
     if (((rest = strptime(text.c_str(), format, &date)) != nullptr) &&
-        (*rest == '\0'))
+        (ParseJournalFraction(rest, strstr(format, "%S") != nullptr, &micro)))
     {
       // Full date, local time
       date.tm_isdst = -1;
-      *stamp = mktime(&date) * 1000000ULL;
+      *stamp = mktime(&date) * 1000000ULL + micro;
       return true;
     }
   }
@@ -845,11 +879,11 @@ bool ParseJournalTime(const std::string& text, uint64_t* stamp)
     date.tm_sec = 0;
 
     if (((rest = strptime(text.c_str(), format, &date)) != nullptr) &&
-        (*rest == '\0'))
+        (ParseJournalFraction(rest, strstr(format, "%S") != nullptr, &micro)))
     {
       // Time of today
       date.tm_isdst = -1;
-      *stamp = mktime(&date) * 1000000ULL;
+      *stamp = mktime(&date) * 1000000ULL + micro;
       return true;
     }
   }
