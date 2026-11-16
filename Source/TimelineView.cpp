@@ -505,6 +505,15 @@ void TimelineView::handleEvent(TEvent& event)
   TScroller::handleEvent(event);
 
   if ((event.what == evMouseDown) &&
+      (event.mouse.buttons & mbRightButton))
+  {
+    // Back to the range before, as Ctrl-Z: zoomed in by the left button, out by the right one
+    retreat();
+    clearEvent(event);
+    return;
+  }
+
+  if ((event.what == evMouseDown) &&
       (event.mouse.buttons & mbLeftButton))
   {
     cell = delta.x + makeLocal(event.mouse.where).x;
