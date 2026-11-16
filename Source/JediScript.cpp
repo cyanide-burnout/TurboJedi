@@ -851,7 +851,7 @@ static bool MakeFilter(lua_State* state, int index, const JournalFilter& base, J
   if ((GetOption(state, index, "since", filter.since) && !ParseJournalTime(filter.since, &stamp)) ||
       (GetOption(state, index, "until", filter.until) && !ParseJournalTime(filter.until, &stamp)))
   {
-    error = "unknown time " + (filter.until.empty() ? filter.since : filter.until);
+    error = "not a time TurboJedi knows, or one before 1970: " + (filter.until.empty() ? filter.since : filter.until);
     return false;
   }
 

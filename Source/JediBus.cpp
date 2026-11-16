@@ -543,13 +543,13 @@ static bool MakeFilter(const Options& options, JournalFilter& filter, std::strin
 
   if (((text = options.texts.find("since")) != options.texts.end()) && (!ParseJournalTime(filter.since = text->second, &stamp)))
   {
-    error = "unknown time " + text->second;
+    error = "not a time TurboJedi knows, or one before 1970: " + text->second;
     return false;
   }
 
   if (((text = options.texts.find("until")) != options.texts.end()) && (!ParseJournalTime(filter.until = text->second, &stamp)))
   {
-    error = "unknown time " + text->second;
+    error = "not a time TurboJedi knows, or one before 1970: " + text->second;
     return false;
   }
 
