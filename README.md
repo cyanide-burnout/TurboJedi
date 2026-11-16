@@ -363,8 +363,8 @@ brings these:
   there, the ones whose programs are installed
 - `030-coredump.lua`: for an entry of systemd-coredump, what coredumpctl knows of that dump, a copy of it, its stack in
   gdb
-- `040-fail2ban.lua`, where fail2ban is installed: Ban and Unban of an address of the entry, after asking for the jail
-  and a confirmation, never for an address of this machine; it needs root
+- `040-fail2ban.lua`, for root where fail2ban is installed: Ban and Unban of an address of the entry, after asking for
+  the jail and a confirmation, never for an address of this machine
 
 Plugins that change things, or that would come up by chance, are examples in `/usr/share/turbojedi/examples` and are not
 run by themselves: `100-ssh.lua`, a watch of the attacks on the SSH server of this machine while TurboJedi is open, an

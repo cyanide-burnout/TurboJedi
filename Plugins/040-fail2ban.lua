@@ -6,8 +6,21 @@
 -- included: Ban asks for the jail and a confirmation, warns about the address of the own SSH session and is never
 -- offered for an address of this machine
 
--- Only where fail2ban is installed
+-- Only where fail2ban is installed, and for root: fail2ban-client answers nobody else, the items would only fail
 if not turbojedi.which('fail2ban-client') then
+  return
+end
+
+-- The effective one of real, effective, saved and file system UIDs
+local status = io.open('/proc/self/status')
+local uid
+
+if status then
+  uid = status:read('a'):match('\nUid:%s+%d+%s+(%d+)')
+  status:close()
+end
+
+if uid ~= '0' then
   return
 end
 
