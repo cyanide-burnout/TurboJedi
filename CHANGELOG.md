@@ -3,6 +3,34 @@
 Every release has a theme of its own, the patch releases after it finish the same one. Packages of every release are on
 the [releases page](https://github.com/cyanide-burnout/TurboJedi/releases).
 
+## 0.15 — 2026-11-16
+
+Watches of the journal, and the workspace given to scripts and AI agents over D-Bus.
+
+- Plugins watch the journal by `watch()`: the entries of a filter come to them as they are written, while TurboJedi is
+  open, with a status and lines of their own; a watch keeps its place over rotations of the journal and tells the gaps
+  it has not seen
+- F12, a click on Watch 1/3 * in the status line or Window → Watches lists the watches with their status, Enter shows
+  the lines of one and Enter on a line its entry in a window; an important line brings the list up with a bell.
+  Backspace removes as Delete does, ← and → scroll the rows wider than the window, U turns the times to UTC and back
+- Layouts keep the watches of the plugins in `[watches]`, and the list and the lines of a watch where they have been;
+  `registerRestore()` gives the lines back to their plugin, `key` of `watch()` names a watch to it
+- The plugin `040-ssh.lua` watches the attacks on the SSH server of the machine by address, with their failures and the
+  user names tried; a login after failures or a flood of tries rings. The example `100-alert.lua` watches the journal
+  by the rules of `~/.config/turbojedi/alert.conf`
+- Every TurboJedi is on the system bus as `me.burnaway.TurboJedi.U<uid>.P<pid>` and answers its own user and root, and
+  the user of sudo of an instance of root: its windows, what is in front, the entry under the cursor, the marked
+  entries, queries of the journal, the actions of an entry and the watches. It changes only the screen, marks, the
+  cursor, the moment of a window, a new window, and says so in the status line as `API: ...`; such a call waits while
+  a dialog is open. See [DBUS.md](DBUS.md)
+- `turbojedi-mcp.py` gives that to an AI agent such as Claude Code or Codex over SSH, as a server of the Model Context
+  Protocol: the agent points, the user acts, no action of a plugin or command is run from there. See [MCP.md](MCP.md);
+  the packages recommend Python 3 and dbus-python for it and bring the policy of the bus
+- Relative times are read as journalctl reads them: `-1min`, `-1h 30min`, `-2days`, `5min ago`, `2 hours left`
+- Keys are not held back while a journal that has changed is read
+- PLUGINS.md tells when a plugin raises an error and when it gives one back, and that the text of a filter is matched
+  against `identifier[pid]: message`
+
 ## 0.14.1 — 2026-11-15
 
 - A window of output shows the lines of a command as it writes them, `tracepath` and `whois` among them, which kept
