@@ -18,6 +18,7 @@ import sys
 import traceback
 
 VERSION = 'unknown'  # Of TurboJedi, set when installed
+API = 1              # Of the D-Bus interface this proxy speaks: within it fields and methods are only added
 
 PROTOCOLS = ('2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05')  # The newest first
 STRUCTURED = ('2025-11-25', '2025-06-18')                              # Versions that know structuredContent
@@ -141,8 +142,58 @@ def missing():
     return 'no instance of TurboJedi is on the system bus: TurboJedi is not running on this machine'
 
 
+def release(text):
+    '''A version of git describe as numbers to compare, v0.14.1-34-g86f7b2e as (0, 14, 1, 34); None for another one'''
+    match = re.match(r'^v?(\d+)\.(\d+)(?:\.(\d+))?(?:-(\d+)-g[0-9a-f]+)?(?:-dirty)?$', text or '')
+    return tuple(int(part or 0) for part in match.groups()) if match else None
+
+
+def annotate(item):
+    '''An instance as Describe() tells it, with a note when it and this proxy do not match'''
+    api = item.get('api', 0)
+    version = item.get('version')
+
+    if api > API:
+        item['unsupported'] = True
+        item['note'] = ('TurboJedi %s speaks version %d of its D-Bus interface, this turbojedi-mcp.py knows up to %d: '
+                        'update turbojedi-mcp.py, the package of TurboJedi has it' % (version, api, API))
+    elif (VERSION != 'unknown') and version and (version != VERSION):
+        own = release(VERSION)
+        theirs = release(version)
+
+        if own and theirs and (theirs < own):
+            # Started before the package was updated: the fields and the tools of the newer one are not there
+            item['outdated'] = True
+            item['note'] = ('this instance runs %s, older than turbojedi-mcp.py %s: it has been started before '
+                            'TurboJedi was updated, some fields and tools work only once TurboJedi is restarted' %
+                            (version, VERSION))
+        else:
+            item['note'] = 'this instance runs %s, turbojedi-mcp.py is %s' % (version, VERSION)
+
+    return item
+
+
+checked = {}  # The versions of the interface of the instances by their names, asked once
+
+
+def supported(bus, name):
+    '''The name of an instance this proxy can speak to'''
+    if name not in checked:
+        checked[name] = plain(call(bus, name, 'Describe')).get('api', 0)
+
+    if checked[name] > API:
+        raise Failure('this TurboJedi speaks version %d of its D-Bus interface, this turbojedi-mcp.py knows up to %d: '
+                      'update turbojedi-mcp.py, the package of TurboJedi has it' % (checked[name], API))
+
+    return name
+
+
 def instance(bus, arguments):
     '''The name of the instance the arguments name by pid, the only one there is without it'''
+    return supported(bus, choose(bus, arguments))
+
+
+def choose(bus, arguments):
     found = names(bus)
     pid = arguments.get('pid')
 
@@ -290,9 +341,10 @@ def list_instances(arguments):
 
     for pid in sorted(found):
         try:
-            item = plain(call(bus, found[pid], 'Describe'))
-            item['windows'] = [{'window_id': window['id'], 'window': window['window'], 'title': window['title']}
-                               for window in plain(call(bus, found[pid], 'ListWindows'))]
+            item = annotate(plain(call(bus, found[pid], 'Describe')))
+            if not item.get('unsupported'):
+                item['windows'] = [{'window_id': window['id'], 'window': window['window'], 'title': window['title']}
+                                   for window in plain(call(bus, found[pid], 'ListWindows'))]
             result.append(item)
         except Failure as failure:
             if 'Denied' in str(failure):
@@ -314,7 +366,7 @@ def list_instances(arguments):
 
 def describe(arguments):
     bus = connect()
-    return plain(call(bus, instance(bus, arguments), 'Describe'))
+    return annotate(plain(call(bus, choose(bus, arguments), 'Describe')))
 
 
 def list_windows(arguments):
@@ -489,7 +541,8 @@ TOOLS = [
     ('list_instances', list_instances, True,
      'Instances of TurboJedi running on this machine that answer this user: PID, user, host, version, start time and '
      'their windows. Start here. An empty list comes with a note why: TurboJedi is not running, or its D-Bus policy is '
-     'not installed.',
+     'not installed. outdated marks an instance started before TurboJedi was updated, it lacks some fields until it is '
+     'restarted; unsupported, one this proxy cannot speak to. Tell the user the note of either.',
      {'type': 'object', 'properties': {}, 'additionalProperties': False}),
 
     ('describe', describe, True,

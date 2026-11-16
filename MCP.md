@@ -152,6 +152,8 @@ The calls the agent makes are the D-Bus interface of [DBUS.md](DBUS.md), which a
 | instances of other users do not answer | they belong to another user: come in as that user, or start TurboJedi with `sudo` as yourself |
 | Busy: a dialog is open | a dialog of TurboJedi was open for the whole 30 seconds: close it, and the agent tries again |
 | TurboJedi has not answered | the instance is stuck or the call took longer than 40 seconds |
+| an instance is outdated | it was started before TurboJedi was updated and lacks what is new: restart TurboJedi |
+| an instance is unsupported | it speaks a newer D-Bus interface than this `turbojedi-mcp.py`: update the package on the server |
 
 When the agent does not start the server at all, run its command by hand, such as `ssh server turbojedi-mcp.py
 --version`: SSH tells what is wrong.
