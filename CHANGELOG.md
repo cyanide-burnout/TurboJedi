@@ -3,6 +3,23 @@
 Every release has a theme of its own, the patch releases after it finish the same one. Packages of every release are on
 the [releases page](https://github.com/cyanide-burnout/TurboJedi/releases).
 
+## 0.15.1 — 2026-11-16
+
+- Plugins call a method of a service on the system or the user bus by `dbus()`, with typed values, waiting in an action
+  or calling back later as `fetch()` does; an error comes back by its D-Bus name, a broken connection ends its calls
+  and is opened anew. `services()` lists the names of a prefix with the process, the user and the unit that own them.
+  See PLUGINS.md
+- The status of a unit in the Actions menu tells its state and since when, as systemd tells it over D-Bus
+- fail2ban comes with the package as `040-fail2ban.lua`, for root where `fail2ban-client` is installed. A link to the
+  example `100-fail2ban.lua` left behind is told about at start and is to be removed; a copy of it is to be removed as
+  well, or its items come twice
+- The watch of SSH attacks is an example now, `100-ssh.lua`, to link as PLUGINS.md tells: it watches and rings on every
+  machine with sshd while TurboJedi is open
+- The soft limit of open files goes up to 65536, as every window and watch keeps every file of its journal open; an
+  entry not read for want of descriptors is told so, not as gone from the journal
+- An entry without actions, or no entry, is told by a line in the Actions menu itself instead of a dialog with OK
+- `Describe` over D-Bus tells the descriptors TurboJedi has open and its limit
+
 ## 0.15 — 2026-11-16
 
 Watches of the journal, and the workspace given to scripts and AI agents over D-Bus.
