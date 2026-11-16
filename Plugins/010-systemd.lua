@@ -2,7 +2,8 @@
 -- https://github.com/cyanide-burnout/TurboJedi
 -- Artem Prilutskiy, 2026
 
--- The unit and the process of an entry: they are only looked at, nothing is changed
+-- The unit and the process of an entry: they are only looked at, nothing is changed. The state of the unit comes from
+-- systemd over D-Bus into the title of its status
 
 if not turbojedi.which('systemctl') then
   return
@@ -32,6 +33,37 @@ local function top(pid)
   turbojedi.terminal { 'top', '-p', pid }
 end
 
+-- Times in the zone the user has chosen for the watches, UTC or local; os.date() before TurboJedi had date()
+local date = turbojedi.date or os.date
+
+-- The state of the unit for the title of its status, as systemd tells it over D-Bus within the time of the menu:
+-- ' (failed since 03:12)', or nothing when systemd does not know the unit or does not answer in time
+local function state(unit)
+  if not turbojedi.dbus then return '' end
+
+  local found = turbojedi.dbus { service = 'org.freedesktop.systemd1', path = '/org/freedesktop/systemd1',
+    interface = 'org.freedesktop.systemd1.Manager', method = 'GetUnit', signature = 's', arguments = { unit } }
+  if not found then return '' end
+
+  local all = turbojedi.dbus { service = 'org.freedesktop.systemd1', path = found[1],
+    interface = 'org.freedesktop.DBus.Properties', method = 'GetAll', signature = 's',
+    arguments = { 'org.freedesktop.systemd1.Unit' } }
+  local properties = all and all[1]
+  if not (properties and properties.ActiveState) then return '' end
+
+  local text = properties.ActiveState
+  if properties.SubState and (properties.SubState ~= text) then text = text .. ', ' .. properties.SubState end
+
+  local changed = properties.StateChangeTimestamp
+  if changed and (changed > 0) then
+    -- The time alone today, the date as well before
+    local seconds = changed // 1000000
+    text = text .. ' since ' .. date((date('%F', seconds) == date('%F')) and '%H:%M' or '%F %H:%M', seconds)
+  end
+
+  return ' (' .. text .. ')'
+end
+
 turbojedi.registerHandler(function(entry, menu, context)
   -- Units and processes belong to this machine, a journal of other ones tells about theirs
   if context.source ~= 'local' then
@@ -41,7 +73,7 @@ turbojedi.registerHandler(function(entry, menu, context)
   local unit = entry._SYSTEMD_UNIT
 
   if type(unit) == 'string' then
-    menu:add('Status of ' .. unit, status, unit)
+    menu:add('Status of ' .. unit .. state(unit), status, unit)
     menu:add('Copy status of ' .. unit, copy, unit)
     menu:add('Unit file of ' .. unit, file, unit)
   end
