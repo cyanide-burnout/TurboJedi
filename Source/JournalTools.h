@@ -128,7 +128,9 @@ bool CheckJournalMatch(const std::string& match);
 // Short form of a filter for window titles: [levels], source fields, matches, times and /text/ the way sed writes it
 std::string GetJournalFilterName(const JournalFilter& filter);
 
-// Microseconds of 2026-10-23 19:00[:00], 2026-10-23, 19:00[:00] (today), now, today, yesterday, tomorrow, -1h, +30m (s, m, h, d)
+// Microseconds of 2026-10-23 19:00[:00], 2026-10-23, 19:00[:00] (today), now, today, yesterday, tomorrow, and relative
+// ones as journalctl takes them: -1h, +30m, -1h 30min, -2days, 5min ago, 1 hour left (us, ms, s, min, h, d, w, M, y and
+// their longer names)
 bool ParseJournalTime(const std::string& text, uint64_t* stamp);
 
 #endif

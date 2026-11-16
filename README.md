@@ -181,7 +181,8 @@ turbojedi [options] [FIELD=VALUE ...]
 | `--clipboard-copy COMMAND` | command of `sh` that takes copied lines on its standard input, over `$TURBOJEDI_CLIPBOARD_COPY` |
 
 `TIME` is `2026-10-23 19:00[:00]`, `2026-10-23`, `19:00`, `now`, `today`, `yesterday`, `tomorrow` or a relative
-`-1h`, `+30m` (`s`, `m`, `h`, `d`).
+one as journalctl takes it: `-1h`, `+30m`, `-1h 30min`, `-2days`, `5min ago` (`us`, `ms`, `s`, `min`, `h`, `d`, `w`,
+`M`, `y` and their longer names).
 
 Reading the whole journal needs root or the `systemd-journal` group, others see their own entries only.
 

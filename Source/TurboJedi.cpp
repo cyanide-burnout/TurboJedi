@@ -150,7 +150,8 @@ static void PrintUsage(const char* name)
   printf("without a layout and filter options\n");
   printf("\n");
   printf("FIELD=VALUE matches any journal field. Matches of the same field are joined by OR, of different fields by AND\n");
-  printf("TIME is 2026-10-23 19:00[:00], 2026-10-23, 19:00 (today), now, today, yesterday, tomorrow or -1h, +30m (s, m, h, d)\n");
+  printf("TIME is 2026-10-23 19:00[:00], 2026-10-23, 19:00 (today), now, today, yesterday, tomorrow or relative as\n");
+  printf("journalctl takes it: -1h, +30m, \"-1h 30min\", \"5min ago\" (us, ms, s, min, h, d, w, M, y and their longer names)\n");
   printf("Options set the filter of the first window, F7 changes the source of a window, F3 its levels, F4 its text,\n");
   printf("Ctrl-T its time range, F1 shows all the keys\n");
 }

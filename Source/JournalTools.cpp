@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include <dirent.h>
 #include <sys/vfs.h>
 #include <sys/mman.h>
@@ -651,13 +652,79 @@ bool CheckJournalMatch(const std::string& match)
     (match.find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_") == equal);
 }
 
+// A span of time as systemd writes it, without a sign: 30min, 1h 30min, 2 days, 90 (seconds); in microseconds
+static bool ParseJournalSpan(const char* text, int64_t* span)
+{
+  static const struct { const char* name; int64_t size; } units[] =
+  {
+    { "us", 1LL },               { "usec", 1LL },
+    { "ms", 1000LL },            { "msec", 1000LL },
+    { "s", 1000000LL },          { "sec", 1000000LL },        { "second", 1000000LL },      { "seconds", 1000000LL },
+    { "m", 60000000LL },         { "min", 60000000LL },       { "minute", 60000000LL },     { "minutes", 60000000LL },
+    { "h", 3600000000LL },       { "hr", 3600000000LL },      { "hour", 3600000000LL },     { "hours", 3600000000LL },
+    { "d", 86400000000LL },      { "day", 86400000000LL },    { "days", 86400000000LL },
+    { "w", 604800000000LL },     { "week", 604800000000LL },  { "weeks", 604800000000LL },
+    { "M", 2629800000000LL },    { "month", 2629800000000LL },{ "months", 2629800000000LL },  // 30.44 days, as systemd counts
+    { "y", 31557600000000LL },   { "year", 31557600000000LL },{ "years", 31557600000000LL }   // 365.25 days
+  };
+
+  bool any;
+  long long value;
+  char* end;
+  size_t length;
+  int64_t size;
+
+  any   = false;
+  *span = 0;
+
+  while (true)
+  {
+    while (*text == ' ') text ++;
+
+    if (*text == '\0')
+    {
+      return any;
+    }
+
+    if (!isdigit((unsigned char)*text))
+    {
+      return false;
+    }
+
+    value = strtoll(text, &end, 10);
+
+    for (text = end; *text == ' '; text ++);
+    for (length = 0; isalpha((unsigned char)text[length]); length ++);
+
+    // A number without a unit is seconds; the case of a unit matters, m is a minute and M a month
+    size = (length == 0) ? 1000000LL : 0;
+
+    for (const auto& unit : units)
+    {
+      if ((strlen(unit.name) == length) &&
+          (strncmp(unit.name, text, length) == 0))
+      {
+        size = unit.size;
+      }
+    }
+
+    if (size == 0)
+    {
+      return false;
+    }
+
+    *span += value * size;
+    text  += length;
+    any    = true;
+  }
+}
+
 bool ParseJournalTime(const std::string& text, uint64_t* stamp)
 {
   static const char* const dates[]  = { "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d" };
   static const char* const clocks[] = { "%H:%M:%S", "%H:%M" };
 
-  long value;
-  char* end;
+  int64_t span;
   time_t now;
   struct tm date;
   const char* rest;
@@ -685,22 +752,31 @@ bool ParseJournalTime(const std::string& text, uint64_t* stamp)
     return true;
   }
 
-  if ((text.size() > 2) &&
+  if ((text.size() > 1) &&
       ((text[0] == '-') || (text[0] == '+')))
   {
-    // Relative to now
-    value = strtol(text.c_str(), &end, 10);
-
-    if ((end[0] != '\0') &&
-        (end[1] == '\0') &&
-        (strchr("smhd", end[0]) != nullptr))
+    // Relative to now, as journalctl takes it: -1h, -1h 30min, +2days
+    if (!ParseJournalSpan(text.c_str() + 1, &span))
     {
-      value *= (end[0] == 'm') ? 60 : ((end[0] == 'h') ? 3600 : ((end[0] == 'd') ? 86400 : 1));
-      *stamp = (now + value) * 1000000ULL;
-      return true;
+      return false;
     }
 
-    return false;
+    *stamp = now * 1000000LL + ((text[0] == '-') ? -span : span);
+    return true;
+  }
+
+  if ((text.size() > 4) &&
+      ((text.compare(text.size() - 4, 4, " ago") == 0) ||
+       ((text.size() > 5) && (text.compare(text.size() - 5, 5, " left") == 0))))
+  {
+    // The same the other way: 5min ago, 2 hours left
+    if (!ParseJournalSpan(text.substr(0, text.rfind(' ')).c_str(), &span))
+    {
+      return false;
+    }
+
+    *stamp = now * 1000000LL + ((text.back() == 'o') ? -span : span);
+    return true;
   }
 
   for (const char* format : dates)
