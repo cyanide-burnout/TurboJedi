@@ -13,6 +13,7 @@ import base64
 import datetime
 import json
 import os
+import re
 import sys
 import traceback
 
@@ -85,15 +86,29 @@ def plain(value):
 
 
 def names(bus):
-    '''Names of the instances by their PID'''
+    '''Names of the instances by their PID. The policy lets anyone take a name of the prefix: a name counts only when
+    the bus tells that its owner has the UID and the PID the name says'''
     found = {}
+    daemon = dbus.Interface(bus.get_object('org.freedesktop.DBus', '/org/freedesktop/DBus'), 'org.freedesktop.DBus')
 
     for name in bus.list_names():
-        if name.startswith(PREFIX):
-            try:
-                found[int(name.rsplit('.P', 1)[1])] = str(name)
-            except (IndexError, ValueError):
-                pass
+        match = re.match(r'^me\.burnaway\.TurboJedi\.U(\d+)\.P(\d+)$', name)
+
+        if not match:
+            continue
+
+        try:
+            uid = int(daemon.GetConnectionUnixUser(name))
+            pid = int(daemon.GetConnectionUnixProcessID(name))
+        except dbus.exceptions.DBusException:
+            # Gone meanwhile
+            continue
+
+        if (uid, pid) != (int(match.group(1)), int(match.group(2))):
+            sys.stderr.write('turbojedi-mcp.py: %s belongs to UID %d, PID %d, not to the ones it names\n' % (name, uid, pid))
+            continue
+
+        found[pid] = str(name)
 
     return found
 
@@ -455,8 +470,9 @@ TOOLS = [
 
     ('list_actions', list_actions, True,
      'The items of the Actions menu of TurboJedi for an entry of a window, title and plugin: what the user can do with '
-     'it, such as the status of its unit or a ban of its address. They are not run from here: name the one that helps '
-     'and the user runs it with Alt-F10 or A on the entry.',
+     'it, such as the status of its unit or a ban of its address. The handlers of the plugins make the menu as opening '
+     'it does, the items are not run from here: name the one that helps and the user runs it with Alt-F10 or A on the '
+     'entry.',
      schema({'window_id': WINDOW, 'cursor': CURSOR}, ('window_id', 'cursor'))),
 
     ('list_watches', list_watches, True,
