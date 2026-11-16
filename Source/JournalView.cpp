@@ -1863,8 +1863,8 @@ void JournalView::details()
   if ((lines[index].cursor.empty()) ||
       ((fields = ReadJournalEntry(filter, lines[index].cursor)).empty()))
   {
-    // Rotated away meanwhile
-    messageBox("The entry is not in the journal anymore", mfInformation | mfOKButton);
+    // Rotated away meanwhile, or the journal cannot be opened
+    messageBox(DescribeJournalLoss(filter).c_str(), mfInformation | mfOKButton);
     return;
   }
 

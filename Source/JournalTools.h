@@ -66,6 +66,10 @@ extern const char* const JournalFieldNames[JOURNAL_FIELD_COUNT];
 // Journals the filter names: of this machine, of every machine or of a directory
 int OpenJournal(sd_journal** journal, const JournalFilter& filter);
 
+// Why an entry of the journal of a filter has not been read: it is gone, or the journal itself cannot be opened, Too many
+// open files and the like
+std::string DescribeJournalLoss(const JournalFilter& filter);
+
 // Journal with the matches of a filter, everything but its text and times
 int OpenJournalQuery(sd_journal** journal, const JournalFilter& filter);
 

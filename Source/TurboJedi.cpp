@@ -22,6 +22,7 @@
 #include <syslog.h>
 #include <strings.h>
 #include <sys/stat.h>
+#include <sys/resource.h>
 
 #include <systemd/sd-id128.h>
 
@@ -29,6 +30,7 @@
 #define LAST_LAYOUT      "last.jedi"
 #define UPDATE_SETTINGS  "update.ini"
 #define PLUGIN_DIRECTORY "plugins"
+#define FILE_LIMIT        65536  // Open files the soft limit is raised to at most
 
 static int GetPriorityLevel(const char* value)
 {
@@ -97,6 +99,21 @@ static void RestoreTitle()
 {
   // Turbo Vision turns its extensions off when its statics go, that is one more title for tmux, the kept one comes back over it
   WriteTerminal("\x1b[23;2t");
+}
+
+// Every window and every watch keeps every file of its journal open, the archives included: a dozen of them over a few
+// hundred files go past the usual soft limit of 1024, and sd-journal leaves the files past it out without a word. The
+// soft limit goes up to the hard one, not past FILE_LIMIT, which the commands of the plugins take along
+static void RaiseFileLimit()
+{
+  struct rlimit limit;
+
+  if ((getrlimit(RLIMIT_NOFILE, &limit) == 0) &&
+      (limit.rlim_cur < std::min<rlim_t>(limit.rlim_max, FILE_LIMIT)))
+  {
+    limit.rlim_cur = std::min<rlim_t>(limit.rlim_max, FILE_LIMIT);
+    setrlimit(RLIMIT_NOFILE, &limit);
+  }
 }
 
 static std::string GetConfigPath(const char* name)
@@ -336,6 +353,7 @@ int main(int count, char* const* arguments)
   layout = (layout.empty() && !custom) ? last : layout;
 
   SetTextLocale();
+  RaiseFileLimit();
 
   SetClipboardCommand(clipboard);
 

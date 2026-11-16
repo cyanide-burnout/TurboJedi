@@ -61,6 +61,32 @@ int OpenJournal(sd_journal** journal, const JournalFilter& filter)
   return result;
 }
 
+std::string DescribeJournalLoss(const JournalFilter& filter)
+{
+  int probe;
+  int result;
+  sd_journal* journal;
+
+  if ((result = OpenJournal(&journal, filter)) < 0)
+  {
+    return std::string("The journal cannot be opened: ") + strerror(-result);
+  }
+
+  // sd-journal opens the files it can and leaves the rest out without a word: one descriptor more tells whether the
+  // limit of open files has been reached on the way
+  probe  = fcntl(STDIN_FILENO, F_DUPFD_CLOEXEC, 0);
+  result = errno;
+  sd_journal_close(journal);
+
+  if (probe >= 0)
+  {
+    close(probe);
+    return "The entry is not in the journal anymore";
+  }
+
+  return std::string("The journal cannot be opened wholly: ") + strerror(result);
+}
+
 int OpenJournalQuery(sd_journal** journal, const JournalFilter& filter)
 {
   int field;
