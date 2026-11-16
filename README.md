@@ -40,6 +40,10 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd and
   sockets and timers going, see [PLUGINS.md](PLUGINS.md)
 - Watches of plugins: entries of a filter as they come, a status and lines of each in a list, F12; Watch 1/3 * in the
   status line tells about new ones, an important one brings the list up with a bell
+- AI agents: every instance offers its workspace on the system bus, and `turbojedi-mcp.py` gives it to an agent such
+  as Claude Code or Codex over SSH: the windows, the entry under the cursor, the marked entries, queries of the journal
+  and the watches. The agent marks entries, puts the cursor on one, takes a window to a moment or opens one, the status
+  line tells it; it runs nothing, the user acts. See [MCP.md](MCP.md), the interface itself in [DBUS.md](DBUS.md)
 - Selection with the keyboard or the mouse, copy to the clipboard (OSC 52 over SSH), export to a file
 - Timeline: entries of the filter of a window by intervals of time, errors, warnings and the rest stacked
   in a column per interval; a column takes every journal window to its time
@@ -386,6 +390,21 @@ a removed package is told about at start. A build installed by
 `make install` has the example in `/usr/local/share/turbojedi/examples`.
 
 How to write a plugin: [PLUGINS.md](PLUGINS.md).
+
+## AI agents
+
+`turbojedi-mcp.py` is a server of the Model Context Protocol: an agent on your machine starts it over SSH and sees the
+TurboJedi you have open on the server, its windows, cursor, marks, watches and the journal. The agent points, you act:
+it marks entries, moves the cursor, takes a window to a moment or opens a window of its own, and `API: ...` in the
+status line tells you so; it never runs the actions of the plugins or commands. With Python 3 and dbus-python on the
+server:
+
+```
+claude mcp add turbojedi -- ssh server turbojedi-mcp.py
+```
+
+How to connect Claude Code, Codex or another client, and what to ask: [MCP.md](MCP.md). The interface on the system
+bus, for scripts of your own: [DBUS.md](DBUS.md).
 
 ## Last layout
 

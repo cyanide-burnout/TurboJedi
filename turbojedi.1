@@ -207,6 +207,12 @@ Plugins of the user in Lua 5.4, \fI~/.config/turbojedi/plugins\fR without XDG_CO
 .TP
 .I /usr/share/turbojedi/plugins, /usr/local/share/turbojedi/plugins
 Plugins of the package and of the machine; \fI/usr/share/turbojedi/examples\fR has more of them to copy.
+.TP
+.I /usr/share/dbus-1/system.d/me.burnaway.TurboJedi.conf
+The policy that lets TurboJedi take its name on the system bus, \fI/etc/dbus-1/system.d\fR for \fBmake install\fR.
+.TP
+.I /usr/bin/turbojedi-mcp.py
+The server of the Model Context Protocol for AI agents.
 .SH PLUGINS
 The Actions menu of an entry is made by plugins in Lua 5.4: the \fI*.lua\fR files of the directories above, run
 once at start in the order of their names. A file of the same name in the directory of the user takes the place
@@ -215,6 +221,13 @@ or the group root or staff of /usr/local, can change it and every directory abov
 of a list of arguments, never a line of a shell, and changes nothing without being chosen. A plugin may also watch the
 journal for the entries of a filter as they come while TurboJedi is open, with a status and lines of its own in the list
 of F12; a layout keeps such watches for their plugins. PLUGINS.md of the package tells how to write them.
+.SH D-BUS
+Every instance takes the name \fBme.burnaway.TurboJedi.U\fIuid\fB.P\fIpid\fR on the system bus and answers its own
+user and root, and the user of \fBsudo\fR of an instance of root. It reads the windows, the entries, the journal and
+the watches, and changes only the screen: marks, the cursor, the moment of a window, a new window, shown in the status
+line as \fBAPI: ...\fR until a key is pressed; such calls wait while a dialog is open. Without the policy above there
+is no interface and nothing else changes. \fBturbojedi\-mcp.py\fR gives the interface to an AI agent over stdio,
+\fBssh server turbojedi\-mcp.py\fR from the machine of the agent. DBUS.md and MCP.md of the package tell more.
 .SH NOTES
 Reading the whole journal needs root or the \fBsystemd-journal\fR group.
 .SH AUTHOR
