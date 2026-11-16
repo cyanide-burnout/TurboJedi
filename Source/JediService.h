@@ -1,5 +1,5 @@
-#ifndef JEDIBUS_H
-#define JEDIBUS_H
+#ifndef JEDISERVICE_H
+#define JEDISERVICE_H
 
 // TurboJedi, Turbo Journald Interface
 // https://github.com/cyanide-burnout/TurboJedi
@@ -14,18 +14,18 @@
 // events, the answer goes when they are over
 
 // Connects and takes the name; false without a bus or without the policy that lets it, TurboJedi goes on without
-bool OpenBus();
+bool OpenService();
 
 // Calls and the steps of the ones going on, paused while a dialog is open: milliseconds until the next look, 0 while work
 // goes on, the time to the deadline of a call that waits for a dialog to close, -1 for none: a call wakes the application
 // by the descriptor of the bus
-int PollBus(bool paused);
+int PollService(bool paused);
 
 // What a caller of the bus has done on the screen last, for the status line, empty when the user has acted since
-std::string DescribeBusNotice();
-bool ClearBusNotice();   // The user has acted: true when there has been one
-bool TakeBusChange();    // The notice has changed since the last time
+std::string DescribeServiceNotice();
+bool ClearServiceNotice();  // The user has acted: true when there has been one
+bool TakeServiceChange();   // The notice has changed since the last time
 
-void CloseBus();
+void CloseService();
 
 #endif

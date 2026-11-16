@@ -10,7 +10,7 @@
 #include "JournalWindow.h"
 #include "WatchWindow.h"
 #include "JediScript.h"
-#include "JediBus.h"
+#include "JediService.h"
 #include "Commands.h"
 
 #include <stdio.h>
@@ -33,7 +33,7 @@ const char* JediStatusLine::hint(ushort context)
   // Watches of plugins first, whatever window is in front: a click on them opens their list
   indicator = DescribeWatches();
   status    = indicator;
-  notice    = DescribeBusNotice();
+  notice    = DescribeServiceNotice();
 
   if (!notice.empty())
   {
@@ -79,7 +79,7 @@ void JediStatusLine::handleEvent(TEvent& event)
   {
     // Every key passes here first, the ones of the status line become commands before the application sees them: the
     // user acts, what a caller of the bus has done is not news anymore
-    ClearBusNotice();
+    ClearServiceNotice();
   }
 
   if ((event.what == evMouseDown) &&

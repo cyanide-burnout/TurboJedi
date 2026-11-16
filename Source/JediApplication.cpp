@@ -31,7 +31,7 @@
 #endif
 #include "JediProcess.h"
 #include "JediScript.h"
-#include "JediBus.h"
+#include "JediService.h"
 #include "ActionDialogs.h"
 #include "WatchWindow.h"
 
@@ -234,7 +234,7 @@ void JediApplication::getEvent(TEvent& event)
   if (event.what & (evKeyDown | evMouseDown))
   {
     // The user acts: what a caller of the bus has done is not news anymore, idle() draws the status line without it
-    ClearBusNotice();
+    ClearServiceNotice();
   }
 
   if (event.what != evNothing)
@@ -383,7 +383,7 @@ void JediApplication::idle()
     poll.timeout = std::min(poll.timeout, wait);
   }
 
-  if ((wait = PollBus(TopView() != this)) >= 0)
+  if ((wait = PollService(TopView() != this)) >= 0)
   {
     // Calls of the bus: queries read on, changes of the screen wait while a dialog is open
     poll.timeout = std::min(poll.timeout, wait);
@@ -414,7 +414,7 @@ void JediApplication::idle()
     statusLine->drawView();
   }
 
-  if (TakeBusChange())
+  if (TakeServiceChange())
   {
     // A caller has changed the screen, or the user has acted since
     statusLine->drawView();

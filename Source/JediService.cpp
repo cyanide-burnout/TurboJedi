@@ -8,7 +8,7 @@
 #include <tvision/tv.h>
 
 #include "Version.h"
-#include "JediBus.h"
+#include "JediService.h"
 #include "JediScript.h"
 #include "JournalWindow.h"
 #include "TimelineWindow.h"
@@ -1282,7 +1282,7 @@ static bool Step(Operation& operation, bool paused, int64_t now)
 
 // Interface
 
-bool OpenBus()
+bool OpenService()
 {
   int result;
   char name[128];
@@ -1318,7 +1318,7 @@ bool OpenBus()
   return true;
 }
 
-int PollBus(bool paused)
+int PollService(bool paused)
 {
   int count;
   int64_t now;
@@ -1370,12 +1370,12 @@ int PollBus(bool paused)
   return (int)wait;
 }
 
-std::string DescribeBusNotice()
+std::string DescribeServiceNotice()
 {
   return notice;
 }
 
-bool ClearBusNotice()
+bool ClearServiceNotice()
 {
   if (notice.empty())
   {
@@ -1387,7 +1387,7 @@ bool ClearBusNotice()
   return true;
 }
 
-bool TakeBusChange()
+bool TakeServiceChange()
 {
   bool result;
 
@@ -1396,7 +1396,7 @@ bool TakeBusChange()
   return result;
 }
 
-void CloseBus()
+void CloseService()
 {
   if (bus == nullptr)
   {
