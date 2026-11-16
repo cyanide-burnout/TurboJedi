@@ -15,6 +15,9 @@ class JournalSource;
 JournalSource* CreateJournalSource(int handle);
 void ReleaseJournalSource(JournalSource* source);
 
+// A new round of idle(): every source may wake the application once again
+void TurnJournalSources();
+
 // Poll of the windows from idle()
 struct JournalPoll
 {

@@ -348,6 +348,7 @@ void JediApplication::idle()
   uint64_t ticks;
 
   TApplication::idle();
+  TurnJournalSources();
   clock->update();
 
   // Nothing else happens on its own, the wait for events lasts until the clock turns to the next second

@@ -32,12 +32,16 @@ namespace
 
 // JournalSource
 
+// Rounds of the application: a source wakes it once a round
+static unsigned rounds;
+
 class JournalSource : public tvision::EventSource
 {
   public:
 
     JournalSource(int handle) :
-      tvision::EventSource(handle)
+      tvision::EventSource(handle),
+      round(rounds - 1)
     {
     }
 
@@ -48,10 +52,23 @@ class JournalSource : public tvision::EventSource
 
     bool getEvent(TEvent& event) noexcept override
     {
+      if (round == rounds)
+      {
+        // Turbo Vision reads events into its queue as long as a source gives one, and polls the descriptors again for
+        // each: a descriptor stays readable until idle() clears it, the queue would fill with nothing up to its end and
+        // the keys would wait for it to empty. The second time the turn goes on to the other sources, the keyboard
+        return false;
+      }
+
       // Nothing to hand over, the windows read their journals in idle() and clear inotify that way
+      round      = rounds;
       event.what = evNothing;
       return true;
     }
+
+  private:
+
+    unsigned round;  // The last one it has woken the application in
 };
 
 // Interface
@@ -78,6 +95,11 @@ JournalSource* CreateJournalSource(int handle)
   source = new JournalSource(handle);
   GetEventWaiter().addSource(*source);
   return source;
+}
+
+void TurnJournalSources()
+{
+  rounds ++;
 }
 
 void ReleaseJournalSource(JournalSource* source)
