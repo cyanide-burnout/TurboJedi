@@ -86,10 +86,10 @@ class JournalView : public TScroller
     // Clear takes the other marks off first. The count of the entries marked, fewer when some are not in the window
     size_t mark(const std::set<std::string>& cursors, uint64_t oldest, bool clear);
 
-    // The same by parts for a caller of the bus, without a dialog: what has come read in, the history brought in by steps
-    // up to the deadline in milliseconds of CLOCK_MONOTONIC, true once the oldest is there; then the marks of the lines
-    // the window has
-    void settle();
+    // The same by parts for a caller of the bus, without a dialog: what has come read in and the history brought in by
+    // steps up to the deadline in milliseconds of CLOCK_MONOTONIC, true once all of it or the oldest is there; then the
+    // marks of the lines the window has. settle() without a deadline reads all there is at once
+    bool settle(int64_t deadline = INT64_MAX);
     bool bring(uint64_t oldest, int64_t deadline);
     uint64_t earliest();     // Microseconds of the oldest entry the window has, zero without one
     size_t markLoaded(const std::set<std::string>& cursors, bool clear);

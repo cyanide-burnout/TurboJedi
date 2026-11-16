@@ -75,6 +75,13 @@ void JediStatusLine::handleEvent(TEvent& event)
   int start;
   TPoint where;
 
+  if (event.what & (evKeyDown | evMouseDown))
+  {
+    // Every key passes here first, the ones of the status line become commands before the application sees them: the
+    // user acts, what a caller of the bus has done is not news anymore
+    ClearBusNotice();
+  }
+
   if ((event.what == evMouseDown) &&
       (!indicator.empty()))
   {

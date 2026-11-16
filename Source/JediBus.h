@@ -16,7 +16,9 @@
 // Connects and takes the name; false without a bus or without the policy that lets it, TurboJedi goes on without
 bool OpenBus();
 
-// Calls and the steps of the ones going on, paused while a dialog is open: milliseconds until the next look, -1 for none
+// Calls and the steps of the ones going on, paused while a dialog is open: milliseconds until the next look, 0 while work
+// goes on, the time to the deadline of a call that waits for a dialog to close, -1 for none: a call wakes the application
+// by the descriptor of the bus
 int PollBus(bool paused);
 
 // What a caller of the bus has done on the screen last, for the status line, empty when the user has acted since

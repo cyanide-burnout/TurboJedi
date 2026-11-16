@@ -157,31 +157,51 @@ static uint64_t GetCursorTime(const std::string& cursor)
   return (place != std::string::npos) ? strtoull(cursor.c_str() + place + 3, nullptr, 16) : 0;
 }
 
-// A value D-Bus takes as a string: UTF-8 without NUL
+// A value D-Bus takes as a string: UTF-8 without NUL, each character in its shortest form, no surrogates, nothing past
+// U+10FFFF; sd-bus refuses the message otherwise
 static bool IsText(const std::string& value)
 {
   size_t index;
   size_t count;
+  uint32_t code;
   unsigned char byte;
 
   for (index = 0; index < value.size(); index += count + 1)
   {
-    byte  = value[index];
-    count = (byte < 0x80) ? 0 : ((byte & 0xe0) == 0xc0) ? 1 : ((byte & 0xf0) == 0xe0) ? 2 : ((byte & 0xf8) == 0xf0) ? 3 : 4;
+    byte = value[index];
 
-    if ((byte == 0) ||
-        (count > 3) ||
-        (index + count >= value.size() + ((count == 0) ? 1 : 0)))
+    if      (byte == 0x00)          return false;
+    else if (byte <  0x80)          count = 0, code = byte;
+    else if ((byte & 0xe0) == 0xc0) count = 1, code = byte & 0x1f;
+    else if ((byte & 0xf0) == 0xe0) count = 2, code = byte & 0x0f;
+    else if ((byte & 0xf8) == 0xf0) count = 3, code = byte & 0x07;
+    else                            return false;
+
+    if (count >= value.size() - index)
     {
+      // Cut short
       return false;
     }
 
     for (size_t next = 1; next <= count; next ++)
     {
-      if ((static_cast<unsigned char>(value[index + next]) & 0xc0) != 0x80)
+      byte = value[index + next];
+
+      if ((byte & 0xc0) != 0x80)
       {
         return false;
       }
+
+      code = (code << 6) | (byte & 0x3f);
+    }
+
+    if (((count == 1) && (code < 0x80)) ||
+        ((count == 2) && (code < 0x800)) ||
+        ((count == 3) && (code < 0x10000)) ||
+        ((code >= 0xd800) && (code <= 0xdfff)) ||
+        (code > 0x10ffff))
+    {
+      return false;
     }
   }
 
@@ -1025,6 +1045,17 @@ static void ReplyError(Operation& operation, const char* name, const std::string
   sd_bus_reply_method_errorf(operation.message, name, "%s", text.c_str());
 }
 
+// The answer to a call made later: one that cannot be made is told as an error, the caller is not left waiting
+template <typename Function> static void Answer(Operation& operation, Function make)
+{
+  int result;
+
+  if ((result = Reply(operation.message, make)) < 0)
+  {
+    sd_bus_reply_method_errorf(operation.message, SD_BUS_ERROR_FAILED, "the answer cannot be made: %s", strerror(-result));
+  }
+}
+
 // One step of a call answered later: true once it is answered
 static bool Step(Operation& operation, bool paused, int64_t now)
 {
@@ -1054,7 +1085,7 @@ static bool Step(Operation& operation, bool paused, int64_t now)
       operation.query->stop("time");
     }
 
-    Reply(operation.message, [&] (sd_bus_message* reply)
+    Answer(operation, [&] (sd_bus_message* reply)
     {
       return std::min(AppendEntries(reply, operation.query->records), sd_bus_message_append(reply, "s", (operation.query->stopped != nullptr) ? operation.query->stopped : ""));
     });
@@ -1062,24 +1093,21 @@ static bool Step(Operation& operation, bool paused, int64_t now)
     return true;
   }
 
-  if (!operation.begun)
+  if ((paused) ||
+      (!IsPluginIdle()))
   {
+    // Not under a dialog the user answers, nor while Lua runs: a call that has begun to bring the history in waits as
+    // well, the window would come to the front over the dialog when it is done
     if (now >= operation.deadline)
     {
-      // The user has not closed the dialog for the whole time of the call
       ReplyError(operation, BUS_ERROR "Busy", "a dialog is open in TurboJedi");
       return true;
     }
 
-    if ((paused) ||
-        (!IsPluginIdle()))
-    {
-      // Not under a dialog the user answers, nor while Lua runs
-      return false;
-    }
-
-    operation.begun = true;
+    return false;
   }
+
+  operation.begun = true;
 
   if (operation.kind == DO_OPEN)
   {
@@ -1114,7 +1142,7 @@ static bool Step(Operation& operation, bool paused, int64_t now)
       return true;
     }
 
-    Reply(operation.message, [&] (sd_bus_message* reply)
+    Answer(operation, [&] (sd_bus_message* reply)
     {
       int result;
 
@@ -1135,10 +1163,10 @@ static bool Step(Operation& operation, bool paused, int64_t now)
     return true;
   }
 
-  // What has come first, then the history down to the time by steps, without a dialog; a window goes to it only when it
-  // is there, as the window itself would bring it in at once
-  window->view->settle();
-  over = window->view->bring(operation.time, std::min(now + BUS_STEP, operation.deadline));
+  // What has come first, then the history down to the time, by steps of the same budget, without a dialog; a window
+  // goes to it only when it is there, as the window itself would bring it in at once
+  over = window->view->settle(std::min(now + BUS_STEP, operation.deadline)) &&
+         window->view->bring(operation.time, std::min(now + BUS_STEP, operation.deadline));
 
   if ((!over) &&
       (now < operation.deadline))
@@ -1223,6 +1251,7 @@ int PollBus(bool paused)
 {
   int count;
   int64_t now;
+  int64_t wait;
   bool working;
   std::list<Operation>::iterator operation;
 
@@ -1237,6 +1266,7 @@ int PollBus(bool paused)
   }
 
   now     = GetQueryMilliseconds();
+  wait    = -1;
   working = false;
 
   for (operation = operations.begin(); operation != operations.end(); )
@@ -1248,20 +1278,25 @@ int PollBus(bool paused)
       continue;
     }
 
-    working = working || operation->begun;
+    // A query reads on under a dialog, a change of the screen goes on once there is none. One that waits for a dialog to
+    // close needs no look until its deadline: the user closing the dialog wakes the application
+    working = working || (operation->kind == DO_QUERY) || ((operation->begun) && (!paused));
+    wait    = ((wait < 0) || (operation->deadline - now < wait)) ? std::max<int64_t>(operation->deadline - now, 0) : wait;
     ++ operation;
   }
 
   // The answers go out at once
   sd_bus_flush(bus);
 
-  if (operations.empty())
+  if ((working) ||
+      (count >= 64))
   {
-    // The next call wakes the application by itself
-    return (count >= 64) ? 0 : -1;
+    // Work goes on between the events, or more calls have come than a round takes
+    return 0;
   }
 
-  return working ? 0 : 50;
+  // The next call wakes the application by its descriptor, the deadline of one that waits by the time
+  return (int)wait;
 }
 
 std::string DescribeBusNotice()

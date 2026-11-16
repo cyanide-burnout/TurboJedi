@@ -1950,19 +1950,24 @@ void JournalView::jump(uint64_t realtime)
   seek(realtime, false);
 }
 
-void JournalView::settle()
+bool JournalView::settle(int64_t deadline)
 {
-  if (journal != nullptr)
+  if (journal == nullptr)
   {
-    // A watch of a plugin or a caller of the bus may have read the entry before the window: what has come is read in first
-    sd_journal_process(journal);
-
-    do
-    {
-      read();
-    }
-    while (pending);
+    return true;
   }
+
+  // A watch of a plugin or a caller of the bus may have read the entry before the window: what has come is read in first
+  sd_journal_process(journal);
+
+  do
+  {
+    read();
+  }
+  while ((pending) &&
+         (GetQueryMilliseconds() < deadline));
+
+  return !pending;
 }
 
 bool JournalView::bring(uint64_t oldest, int64_t deadline)
