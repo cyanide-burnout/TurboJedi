@@ -31,6 +31,7 @@ class WatchListView : public TView
     void setState(ushort state, Boolean enable) override;
 
     void choose(int number);  // Puts the cursor on a watch
+    int current() const;      // The watch under the cursor, zero without one
 
   private:
 
@@ -54,6 +55,8 @@ class WatchLogView : public TView
     void setState(ushort state, Boolean enable) override;
 
     int number;  // Of the watch
+
+    uint64_t current() const;  // The number of the line under the cursor, zero without one
 
   private:
 

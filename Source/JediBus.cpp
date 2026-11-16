@@ -11,6 +11,8 @@
 #include "JediBus.h"
 #include "JediScript.h"
 #include "JournalWindow.h"
+#include "TimelineWindow.h"
+#include "WatchWindow.h"
 #include "JournalView.h"
 #include "JournalWatch.h"
 #include "JournalQuery.h"
@@ -134,6 +136,32 @@ static void CollectWindows(TView* view, void* argument)
     // The desktop walks from the front
     static_cast<std::vector<JournalWindow*>*>(argument)->push_back(window);
   }
+}
+
+// The window the user has in front: of a journal, a timeline, the list of watches or the lines of one. A dialog or a
+// menu over it is not a window of these
+static bool IsFrontWindow(TView* view, void*)
+{
+  return (dynamic_cast<JournalWindow*>(view) != nullptr) ||
+         (dynamic_cast<TimelineWindow*>(view) != nullptr) ||
+         (dynamic_cast<WatchWindow*>(view) != nullptr) ||
+         (dynamic_cast<WatchLogWindow*>(view) != nullptr);
+}
+
+static TView* FindFrontWindow()
+{
+  // The desktop goes from the front
+  return (TProgram::deskTop != nullptr) ? TProgram::deskTop->firstThat(IsFrontWindow, nullptr) : nullptr;
+}
+
+// The title of a window of a journal as the frame shows it, without the signs of following and the order
+static std::string TitleWindow(JournalWindow* window)
+{
+  std::string title;
+
+  title  = (window->title != nullptr) ? window->title : "";
+  title += (*window->view->name() != '\0') ? (std::string(" ") + window->view->name()) : std::string();
+  return title;
 }
 
 // How a notice names a window: by its number on the screen, by its id without one
@@ -548,6 +576,7 @@ static int Describe(sd_bus_message* message, void*, sd_bus_error* error)
 {
   int result;
   char host[256];
+  TView* front;
   struct passwd* user;
 
   if ((result = Allow(message, error)) < 0)
@@ -561,11 +590,16 @@ static int Describe(sd_bus_message* message, void*, sd_bus_error* error)
   }
 
   host[sizeof(host) - 1] = '\0';
-  user = getpwuid(getuid());
+  user  = getpwuid(getuid());
+  front = FindFrontWindow();
 
   return Reply(message, [&] (sd_bus_message* reply)
   {
     int result;
+    JournalWindow* journal;
+    TimelineWindow* timeline;
+    WatchWindow* watches;
+    WatchLogWindow* lines;
 
     result = std::min(0, sd_bus_message_open_container(reply, 'a', "{sv}"));
     result = std::min(result, sd_bus_message_append(reply, "{sv}", "pid", "u", (uint32_t)getpid()));
@@ -582,6 +616,35 @@ static int Describe(sd_bus_message* message, void*, sd_bus_error* error)
       result = std::min(result, sd_bus_message_append(reply, "{sv}", "sudo", "u", (uint32_t)delegate));
     }
 
+    // What the user has in front, and whether a dialog or a menu is open over it: the changes of the screen wait then
+    if ((journal = dynamic_cast<JournalWindow*>(front)) != nullptr)
+    {
+      result = std::min(result, AppendString(reply, "front", "journal"));
+      result = std::min(result, sd_bus_message_append(reply, "{sv}", "window", "u", (uint32_t)journal->view->id()));
+      result = std::min(result, AppendString(reply, "title", TitleWindow(journal)));
+    }
+    else if ((timeline = dynamic_cast<TimelineWindow*>(front)) != nullptr)
+    {
+      result = std::min(result, AppendString(reply, "front", "timeline"));
+      result = std::min(result, AppendString(reply, "title", (timeline->title != nullptr) ? timeline->title : ""));
+    }
+    else if ((watches = dynamic_cast<WatchWindow*>(front)) != nullptr)
+    {
+      result = std::min(result, AppendString(reply, "front", "watches"));
+      result = std::min(result, sd_bus_message_append(reply, "{sv}", "watch", "u", (uint32_t)std::max(watches->view->current(), 0)));
+    }
+    else if ((lines = dynamic_cast<WatchLogWindow*>(front)) != nullptr)
+    {
+      result = std::min(result, AppendString(reply, "front", "watch"));
+      result = std::min(result, sd_bus_message_append(reply, "{sv}", "watch", "u", (uint32_t)std::max(lines->view->number, 0)));
+      result = std::min(result, sd_bus_message_append(reply, "{sv}", "line", "t", lines->view->current()));
+    }
+    else
+    {
+      result = std::min(result, AppendString(reply, "front", ""));
+    }
+
+    result = std::min(result, sd_bus_message_append(reply, "{sv}", "dialog", "b", (int)(TProgram::application->TopView() != TProgram::application)));
     result = std::min(result, sd_bus_message_close_container(reply));
     return result;
   });
@@ -591,7 +654,7 @@ static int ListWindows(sd_bus_message* message, void*, sd_bus_error* error)
 {
   int result;
   size_t total;
-  std::string title;
+  TView* front;
   std::string levels;
   std::vector<JournalWindow*> windows;
 
@@ -601,6 +664,7 @@ static int ListWindows(sd_bus_message* message, void*, sd_bus_error* error)
   }
 
   TProgram::deskTop->forEach(CollectWindows, &windows);
+  front = FindFrontWindow();
 
   return Reply(message, [&] (sd_bus_message* reply)
   {
@@ -624,10 +688,7 @@ static int ListWindows(sd_bus_message* message, void*, sd_bus_error* error)
       result = std::min(result, sd_bus_message_open_container(reply, 'a', "{sv}"));
       result = std::min(result, sd_bus_message_append(reply, "{sv}", "id", "u", (uint32_t)window->view->id()));
       result = std::min(result, sd_bus_message_append(reply, "{sv}", "window", "i", (int32_t)((window->number != wnNoNumber) ? window->number : 0)));
-      // As the frame shows it, without the signs of following and the order
-      title  = (window->title != nullptr) ? window->title : "";
-      title += (*window->view->name() != '\0') ? (std::string(" ") + window->view->name()) : std::string();
-      result = std::min(result, AppendString(reply, "title", title));
+      result = std::min(result, AppendString(reply, "title", TitleWindow(window)));
       result = std::min(result, AppendString(reply, "directory", filter.directory));
       result = std::min(result, sd_bus_message_append(reply, "{sv}", "merge", "b", (int)filter.merge));
       result = std::min(result, AppendString(reply, "text", filter.text));
@@ -651,6 +712,7 @@ static int ListWindows(sd_bus_message* message, void*, sd_bus_error* error)
       if (!filter.until.empty())    result = std::min(result, AppendString(reply, "until", filter.until));
 
       result = std::min(result, sd_bus_message_append(reply, "{sv}", "following", "b", (int)window->view->following()));
+      result = std::min(result, sd_bus_message_append(reply, "{sv}", "active", "b", (int)(window == front)));
       result = std::min(result, sd_bus_message_append(reply, "{sv}", "selected", "u", (uint32_t)total));
       result = std::min(result, sd_bus_message_close_container(reply));
     }

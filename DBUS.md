@@ -83,7 +83,7 @@ These calls are answered at once, also while the user has a dialog open.
 
 | Method | Signature | |
 |---|---|---|
-| `Describe()` | `→ a{sv}` | `pid` u, `uid` u, `user` s, `host` s, `version` s, `started` t (microseconds), `api` u; `sudo` u, the user of `SUDO_UID` an instance of root answers as well |
+| `Describe()` | `→ a{sv}` | `pid` u, `uid` u, `user` s, `host` s, `version` s, `started` t (microseconds), `api` u; `sudo` u, the user of `SUDO_UID` an instance of root answers as well; what the user has in front, see below |
 | `ListWindows()` | `→ aa{sv}` | the windows of the journal, the front one first, see below |
 | `GetCursor(id)` | `u → a{sv}` | the entry under the cursor of the window, the one Enter and the actions take |
 | `GetMarked(id, limit)` | `uu → (aa{sv}u)` | the marked and selected entries of the window, the oldest first, up to `limit` (0 gives 1000), and how many there are in all, as `context.marked` of a plugin |
@@ -110,6 +110,18 @@ A window of `ListWindows()`:
 | `since`, `until` | s | the range as given, when set |
 | `following` | b | the window follows the end of its journal |
 | `selected` | u | entries marked and selected |
+| `active` | b | the window the user has in front; none is while a timeline or the watches are in front |
+
+What the user has in front, in `Describe()`:
+
+| Key | Type | |
+|---|---|---|
+| `front` | s | `journal`, a window of the journal; `timeline`; `watches`, the list of watches; `watch`, the lines of a watch; empty without a window |
+| `window` | u | `journal`: its `id` |
+| `title` | s | `journal` and `timeline`: the title of the window |
+| `watch` | u | `watches`: the watch under the cursor, 0 without one; `watch`: the watch whose lines these are |
+| `line` | t | `watch`: the `number` of the line under the cursor, 0 without one |
+| `dialog` | b | a dialog or a menu is open over it: the calls that change the screen wait |
 
 `ListActions()` calls the handlers of the plugins as opening the menu does, and never the functions of the items. The
 functions of TurboJedi give the handlers no dialogs and no commands in that phase, and `query()` has the 200 ms budget of

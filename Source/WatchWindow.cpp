@@ -153,6 +153,12 @@ void WatchListView::setState(ushort state, Boolean enable)
   }
 }
 
+int WatchListView::current() const
+{
+  // A watch removed meanwhile is none
+  return (FindPluginWatch(chosen) != nullptr) ? chosen : 0;
+}
+
 void WatchListView::choose(int number)
 {
   chosen = number;
@@ -413,6 +419,11 @@ void WatchListView::handleEvent(TEvent& event)
 }
 
 // WatchLogView
+
+uint64_t WatchLogView::current() const
+{
+  return chosen;
+}
 
 WatchLogView::WatchLogView(const TRect& bounds, TScrollBar* horizontal, int number) :
   TView(bounds)
