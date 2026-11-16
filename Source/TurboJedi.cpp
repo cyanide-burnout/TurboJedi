@@ -9,6 +9,7 @@
 #include "JournalHighlighter.h"
 #include "JediClipboard.h"
 #include "JediScript.h"
+#include "JediBus.h"
 
 #include <time.h>
 #include <stdio.h>
@@ -347,6 +348,9 @@ int main(int count, char* const* arguments)
   application = new JediApplication(filter, history, layout, GetConfigPath(UPDATE_SETTINGS));
   application->tell(problems);
 
+  // The programming interface on the system bus, for agents through turbojedi-mcp.py; without the bus or its policy none
+  OpenBus();
+
   // Journals of sshfs and NFS may lose their files under the mapping, the windows open them again instead of a crash;
   // after Turbo Vision has set its handlers, other faults go on to them
   SetJournalFaultHandler();
@@ -362,6 +366,7 @@ int main(int count, char* const* arguments)
     application->save(last);
   }
 
+  CloseBus();
   TObject::destroy(application);
   ClosePlugins();
 

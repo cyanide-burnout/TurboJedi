@@ -105,9 +105,14 @@ static size_t GetLineSize(const JournalLine& line)
 
 // JournalView
 
+// The identities of the windows only grow, a closed one is never taken for another
+static unsigned identities;
+
 JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar* vertical, const JournalFilter& filter, int history, size_t capacity) :
   TScroller(bounds, horizontal, vertical)
 {
+  identity = ++ identities;
+
   this->filter    = filter;
   this->history   = history;
   this->capacity  = capacity;
@@ -145,6 +150,8 @@ JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar
   TScroller(bounds, horizontal, vertical)
 {
   size_t index;
+
+  identity = ++ identities;
 
   memcpy(counts, source.counts, sizeof(counts));
   memcpy(widths, source.widths, sizeof(widths));
@@ -1943,11 +1950,11 @@ void JournalView::jump(uint64_t realtime)
   seek(realtime, false);
 }
 
-void JournalView::reach(const std::string& cursor, uint64_t realtime)
+void JournalView::settle()
 {
   if (journal != nullptr)
   {
-    // The entry may be newer than what the window has read
+    // A watch of a plugin or a caller of the bus may have read the entry before the window: what has come is read in first
     sd_journal_process(journal);
 
     do
@@ -1956,7 +1963,30 @@ void JournalView::reach(const std::string& cursor, uint64_t realtime)
     }
     while (pending);
   }
+}
 
+bool JournalView::bring(uint64_t oldest, int64_t deadline)
+{
+  while (GetQueryMilliseconds() < deadline)
+  {
+    if (lines.empty() || (edge(false).realtime <= oldest) || (back() == 0))
+    {
+      // There, or the journal, the range or the capacity has ended
+      return true;
+    }
+  }
+
+  return false;
+}
+
+uint64_t JournalView::earliest()
+{
+  return lines.empty() ? 0 : edge(false).realtime;
+}
+
+bool JournalView::reach(const std::string& cursor, uint64_t realtime)
+{
+  settle();
   seek(realtime, true);
 
   for (size_t index = 0; index < lines.size(); index ++)
@@ -1966,12 +1996,25 @@ void JournalView::reach(const std::string& cursor, uint64_t realtime)
     {
       // The first line of the entry itself
       select(index, false);
-      break;
+      return true;
     }
   }
+
+  return false;
 }
 
 size_t JournalView::mark(const std::set<std::string>& cursors, uint64_t oldest, bool clear)
+{
+  settle();
+
+  // Older entries come in by batches until the oldest asked for is there, the journal, the range or the capacity ends;
+  // a long way back gets a dialog, Cancel marks what has come so far
+  RunSteps("Bringing older entries into the window", [this, oldest] (int64_t deadline) { return bring(oldest, deadline); }, 0);
+
+  return markLoaded(cursors, clear);
+}
+
+size_t JournalView::markLoaded(const std::set<std::string>& cursors, bool clear)
 {
   size_t index;
   std::set<std::string> found;
@@ -1980,33 +2023,6 @@ size_t JournalView::mark(const std::set<std::string>& cursors, uint64_t oldest, 
   {
     marks.clear();
   }
-
-  if (journal != nullptr)
-  {
-    // A watch of a plugin may have read the entry before the window: what has come is read in first
-    sd_journal_process(journal);
-
-    do
-    {
-      read();
-    }
-    while (pending);
-  }
-
-  // Older entries come in by batches until the oldest asked for is there, the journal, the range or the capacity ends;
-  // a long way back gets a dialog, Cancel marks what has come so far
-  RunSteps("Bringing older entries into the window", [this, oldest] (int64_t deadline)
-  {
-    while (GetQueryMilliseconds() < deadline)
-    {
-      if (lines.empty() || (edge(false).realtime <= oldest) || (back() == 0))
-      {
-        return true;
-      }
-    }
-
-    return false;
-  }, 0);
 
   for (index = 0; index < lines.size(); index ++)
   {
@@ -2020,6 +2036,24 @@ size_t JournalView::mark(const std::set<std::string>& cursors, uint64_t oldest, 
 
   refresh();
   return found.size();
+}
+
+std::string JournalView::current()
+{
+  size_t index;
+
+  // The entry Enter and the actions take
+  return ((index = focus()) < lines.size()) ? lines[index].cursor : std::string();
+}
+
+bool JournalView::following() const
+{
+  return follow;
+}
+
+unsigned JournalView::id() const
+{
+  return identity;
 }
 
 std::vector<std::string> JournalView::pickedCursors(size_t limit, size_t& total)

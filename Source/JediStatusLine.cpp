@@ -10,6 +10,7 @@
 #include "JournalWindow.h"
 #include "WatchWindow.h"
 #include "JediScript.h"
+#include "JediBus.h"
 #include "Commands.h"
 
 #include <stdio.h>
@@ -25,12 +26,20 @@ JediStatusLine::JediStatusLine(const TRect& bounds, TStatusDef& definitions) :
 const char* JediStatusLine::hint(ushort context)
 {
   char buffer[160];
+  std::string notice;
   JournalWindow* window;
   const uint64_t* counts;
 
   // Watches of plugins first, whatever window is in front: a click on them opens their list
   indicator = DescribeWatches();
   status    = indicator;
+  notice    = DescribeBusNotice();
+
+  if (!notice.empty())
+  {
+    // What a caller of the bus has done on the screen, until the user acts
+    status += (status.empty() ? "" : " \xe2\x94\x82 ") + notice;
+  }
 
   if ((TProgram::deskTop != nullptr) &&
       ((dynamic_cast<WatchWindow*>(TProgram::deskTop->current) != nullptr) ||

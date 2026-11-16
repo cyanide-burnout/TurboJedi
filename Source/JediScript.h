@@ -37,6 +37,13 @@ int PollPlugins(bool paused);
 bool HasPluginEvents();
 void DispatchPluginEvents();
 
+// Lua runs nothing now: the bus may make a menu
+bool IsPluginIdle();
+
+// The items of the Actions menu of the entry of a cursor in a window, title and plugin in the order of the menu, nothing
+// run; false when Lua is busy or the entry is gone
+bool ListPluginActions(JournalView* view, const std::string& cursor, std::vector<std::pair<std::string, std::string>>& actions);
+
 // A window is closed, the watches that have gone to their entries in it open another one next time
 void ForgetPluginWindow(JournalView* view);
 

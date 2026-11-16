@@ -2493,41 +2493,18 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
   phase = PHASE_IDLE;
 }
 
-void ShowActions(JournalView* view, const std::string& cursor, TPoint where, bool keyboard)
+// The items the handlers make for an entry of a window: on the stack from the base on Trace, the entry, the context, the
+// items of all handlers, the handlers and their names; the errors of the handlers that fail go to the errors
+static void CollectActions(JournalView* view, const std::vector<std::pair<std::string, std::string>>& fields, std::vector<std::string>& errors)
 {
   const JournalFilter& filter = view->getFilter();
   int base;
   int count;
-  int width;
   int index;
-  int arguments;
-  ushort command;
-  TMenuItem* first;
-  TMenuItem* last;
-  TMenuItem* item;
-  std::string title;
-  std::string name;
-  std::string previous;
   size_t total;
-  std::vector<std::string> errors;
+  std::string title;
   std::vector<std::string> cursors;
-  std::vector<std::pair<std::string, std::string>> fields;
   std::vector<std::vector<std::pair<std::string, std::string>>> records;
-
-  if ((state == nullptr) ||
-      (phase != PHASE_IDLE))
-  {
-    // Lua is not entered twice: an action runs, its dialog keeps the windows going
-    return;
-  }
-
-  if ((cursor.empty()) ||
-      ((fields = ReadJournalFields(filter, cursor)).empty()))
-  {
-    // Rotated away meanwhile
-    ShowActionText("Actions", "The entry is not in the journal anymore");
-    return;
-  }
 
   base = lua_gettop(state);
 
@@ -2600,7 +2577,44 @@ void ShowActions(JournalView* view, const std::string& cursor, TPoint where, boo
 
   phase  = PHASE_IDLE;
   origin = nullptr;
-  count  = std::min<int>(lua_rawlen(state, base + 4), ACTION_LIMIT);
+}
+
+void ShowActions(JournalView* view, const std::string& cursor, TPoint where, bool keyboard)
+{
+  const JournalFilter& filter = view->getFilter();
+  int base;
+  int count;
+  int width;
+  int index;
+  int arguments;
+  ushort command;
+  TMenuItem* first;
+  TMenuItem* last;
+  TMenuItem* item;
+  std::string title;
+  std::string name;
+  std::string previous;
+  std::vector<std::string> errors;
+  std::vector<std::pair<std::string, std::string>> fields;
+
+  if ((state == nullptr) ||
+      (phase != PHASE_IDLE))
+  {
+    // Lua is not entered twice: an action runs, its dialog keeps the windows going
+    return;
+  }
+
+  if ((cursor.empty()) ||
+      ((fields = ReadJournalFields(filter, cursor)).empty()))
+  {
+    // Rotated away meanwhile
+    ShowActionText("Actions", "The entry is not in the journal anymore");
+    return;
+  }
+
+  base = lua_gettop(state);
+  CollectActions(view, fields, errors);
+  count = std::min<int>(lua_rawlen(state, base + 4), ACTION_LIMIT);
 
   if (!errors.empty())
   {
@@ -3492,4 +3506,44 @@ void SetPluginUniversal(bool value)
 {
   universal = value;
   changed   = true;
+}
+
+bool IsPluginIdle()
+{
+  return (state != nullptr) && (phase == PHASE_IDLE);
+}
+
+bool ListPluginActions(JournalView* view, const std::string& cursor, std::vector<std::pair<std::string, std::string>>& actions)
+{
+  int base;
+  int count;
+  std::vector<std::string> errors;
+  std::vector<std::pair<std::string, std::string>> fields;
+
+  actions.clear();
+
+  if ((!IsPluginIdle()) ||
+      (cursor.empty()) ||
+      ((fields = ReadJournalFields(view->getFilter(), cursor)).empty()))
+  {
+    // Lua runs something else, or the entry is not in the journal anymore
+    return false;
+  }
+
+  // As the menu is made, nothing is run: a handler only adds items, the errors of a failing one stay with the user
+  base = lua_gettop(state);
+  CollectActions(view, fields, errors);
+  count = std::min<int>(lua_rawlen(state, base + 4), ACTION_LIMIT);
+
+  for (int index = 1; index <= count; index ++)
+  {
+    lua_rawgeti(state, base + 4, index);
+    lua_getfield(state, -1, "title");
+    lua_getfield(state, -2, "plugin");
+    actions.emplace_back(lua_tostring(state, -2), lua_tostring(state, -1));
+    lua_pop(state, 3);
+  }
+
+  lua_settop(state, base);
+  return true;
 }

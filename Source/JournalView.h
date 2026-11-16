@@ -78,13 +78,25 @@ class JournalView : public TScroller
     void jump(uint64_t realtime);
 
     // The cursor on the entry of a cursor, what has come read in and the history brought in as for a time; near its time
-    // when the window does not show it
-    void reach(const std::string& cursor, uint64_t realtime);
+    // when the window does not show it, false then
+    bool reach(const std::string& cursor, uint64_t realtime);
 
     // Marks the lines of the entries of the cursors as M does, every line of a message; the history comes in down to the
     // oldest of them, in microseconds, as far as the window holds, by steps with a dialog and Cancel when it takes long.
     // Clear takes the other marks off first. The count of the entries marked, fewer when some are not in the window
     size_t mark(const std::set<std::string>& cursors, uint64_t oldest, bool clear);
+
+    // The same by parts for a caller of the bus, without a dialog: what has come read in, the history brought in by steps
+    // up to the deadline in milliseconds of CLOCK_MONOTONIC, true once the oldest is there; then the marks of the lines
+    // the window has
+    void settle();
+    bool bring(uint64_t oldest, int64_t deadline);
+    uint64_t earliest();     // Microseconds of the oldest entry the window has, zero without one
+    size_t markLoaded(const std::set<std::string>& cursors, bool clear);
+
+    std::string current();   // Cursor of the entry Enter and the actions take, empty without one
+    bool following() const;  // The window follows the end of its journal
+    unsigned id() const;     // Of the window as long as it is open, the bus calls it so
 
     // Cursors of the entries of the selection and the marks, the oldest first whatever the order, up to the limit; total
     // tells how many entries there are. None when only the cursor is there
@@ -100,6 +112,7 @@ class JournalView : public TScroller
 
   private:
 
+    unsigned identity;
     sd_journal* journal;
     JournalSource* notifier;  // Wakes the application when the journal changes
     bool blind;               // Its file system tells nothing about the changes, it is read on every poll

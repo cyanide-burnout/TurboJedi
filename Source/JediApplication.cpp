@@ -31,6 +31,7 @@
 #endif
 #include "JediProcess.h"
 #include "JediScript.h"
+#include "JediBus.h"
 #include "ActionDialogs.h"
 #include "WatchWindow.h"
 
@@ -230,6 +231,12 @@ void JediApplication::getEvent(TEvent& event)
     event.message.infoPtr = nullptr;
   }
 
+  if (event.what & (evKeyDown | evMouseDown))
+  {
+    // The user acts: what a caller of the bus has done is not news anymore, idle() draws the status line without it
+    ClearBusNotice();
+  }
+
   if (event.what != evNothing)
   {
     // Whatever the event has changed, idle() tells the status line and the windows about it at once
@@ -375,6 +382,12 @@ void JediApplication::idle()
     poll.timeout = std::min(poll.timeout, wait);
   }
 
+  if ((wait = PollBus(TopView() != this)) >= 0)
+  {
+    // Calls of the bus: queries read on, changes of the screen wait while a dialog is open
+    poll.timeout = std::min(poll.timeout, wait);
+  }
+
 #ifdef USE_UPDATE
   if (update.busy())
   {
@@ -397,6 +410,12 @@ void JediApplication::idle()
   {
     // Watches have read, been told about or been looked at: their windows and the indicator once per round
     message(deskTop, evBroadcast, cmJournalWatchesChanged, nullptr);
+    statusLine->drawView();
+  }
+
+  if (TakeBusChange())
+  {
+    // A caller has changed the screen, or the user has acted since
     statusLine->drawView();
   }
 
