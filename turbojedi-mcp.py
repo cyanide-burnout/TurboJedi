@@ -127,8 +127,17 @@ def call(bus, name, method, *arguments):
             raise Failure('the instance has exited')
         if kind == 'NoReply':
             raise Failure('TurboJedi has not answered in %d seconds' % TIMEOUT)
+        if kind == 'UnknownMethod':
+            # An instance started before TurboJedi was updated: the interface only grows within its version
+            raise Failure(older('has no %s() yet' % method))
 
         raise Failure('%s: %s' % (kind, text) if kind else text)
+
+
+def older(what, instead=None):
+    '''What an instance older than this proxy cannot do, and what to do about it'''
+    return 'this TurboJedi %s: it is older than turbojedi-mcp.py, restart it after the update%s' % \
+           (what, ', or %s' % instead if instead else '')
 
 
 def missing():
@@ -322,9 +331,13 @@ def window(bus, name, arguments):
         if item.get('active'):
             return item['id']
 
-    front = plain(call(bus, name, 'Describe')).get('front', '')
+    front = plain(call(bus, name, 'Describe'))
+
+    if 'front' not in front:
+        raise Failure(older('does not tell which window the user has in front', 'give window_id from list_windows'))
+
     raise Failure('the user has %s in front, not a window of the journal: give window_id from list_windows' %
-                  FRONTS.get(front, 'no window'))
+                  FRONTS.get(front['front'], 'no window'))
 
 
 # Tools
@@ -443,6 +456,9 @@ def get_watch_lines(arguments):
 
     if identity is None:
         # The watch the user has in front: the one under the cursor of the list, or the one whose lines are shown
+        if 'front' not in front:
+            raise Failure(older('does not tell which watch the user has in front', 'give watch_id from list_watches'))
+
         if (front.get('front') not in ('watches', 'watch')) or not front.get('watch'):
             raise Failure('the user has %s in front, not a watch: give watch_id from list_watches' %
                           ('no watch under the cursor of the list' if front.get('front') == 'watches' else
