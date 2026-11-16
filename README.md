@@ -37,12 +37,12 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd, PC
 - Go to a time, and every other window to the time of the selected line: what happened elsewhere at that moment
 - Details of an entry with all its fields, a field there opens a window narrowed to it
 - Actions of an entry by plugins in Lua 5.4: Alt-F10, A, F11, Shift-F10 or a right click opens the menu of what the
-  plugins offer for it, each item named with its plugin. The plugins of the package only look: the status of the unit
-  of the entry, its state told in the menu, its unit file and its process in top, the route, lookup, whois, ping and
+  plugins offer for it, each item named with its plugin. The plugins of the package: the status of the unit of the
+  entry, its state told in the menu, its unit file and its process in htop or top, the route, lookup, whois, ping and
   path of an address, a core dump in coredumpctl and gdb, a ban in fail2ban after a confirmation; the attacks on the
-  SSH server in a watch, block devices, Asterisk, alerts and a chat are in the examples. Plugins ask with dialogs, run commands in the background,
-  in a window or on the terminal, ask web services over HTTP, call services over D-Bus with typed values and keep
-  sockets and timers going, see [PLUGINS.md](PLUGINS.md)
+  SSH server in a watch, block devices, Asterisk, alerts and a chat are in the examples. Plugins ask with dialogs, run
+  commands in the background, in a window or on the terminal, ask web services over HTTP, call services over D-Bus
+  with typed values and keep sockets and timers going, see [PLUGINS.md](PLUGINS.md)
 - Watches of plugins: entries of a filter as they come, a status and lines of each in a list, F12; Watch 1/3 * in the
   status line tells about new ones, an important one brings the list up with a bell
 - AI agents: every instance offers its workspace on the system bus, and `turbojedi-mcp.py` gives it to an agent such
@@ -358,7 +358,7 @@ The Actions menu of an entry, Alt-F10, A, F11, Shift-F10 or a right click, is ma
 brings these:
 
 - `010-systemd.lua`: the status of the unit of the entry in a window or to the clipboard, its state and since when
-  told in the title of the item by systemd over D-Bus, its unit file, its process in top
+  told in the title of the item by systemd over D-Bus, its unit file, its process in htop, or in top without it
 - `020-network.lua`: an item for every address of the message, its route, lookup, whois, ping, path or a copy are chosen
   there, the ones whose programs are installed
 - `030-coredump.lua`: for an entry of systemd-coredump, what coredumpctl knows of that dump, a copy of it, its stack in

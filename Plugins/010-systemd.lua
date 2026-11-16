@@ -29,8 +29,11 @@ local function file(unit)
   turbojedi.output { 'systemctl', 'cat', '--no-pager', unit }
 end
 
+-- htop where it is installed, top otherwise: both show the one process alone
+local viewer = turbojedi.which('htop') and 'htop' or 'top'
+
 local function top(pid)
-  turbojedi.terminal { 'top', '-p', pid }
+  turbojedi.terminal { viewer, '-p', pid }
 end
 
 -- Times in the zone the user has chosen for the watches, UTC or local; os.date() before TurboJedi had date()
@@ -90,7 +93,7 @@ turbojedi.registerHandler(function(entry, menu, context)
       comm:close()
 
       if current == name then
-        menu:add('Process ' .. pid .. ' (' .. name .. ') in top', top, pid)
+        menu:add('Process ' .. pid .. ' (' .. name .. ') in ' .. viewer, top, pid)
       end
     end
   end

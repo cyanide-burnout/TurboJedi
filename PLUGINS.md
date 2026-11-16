@@ -810,11 +810,14 @@ end)
 - Status of the unit, `systemctl status`, in a window
 - Copy status of the unit, the same text put to the clipboard
 - Unit file of the unit, `systemctl cat`, in a window
-- Process in `top`, on the terminal, while the process of the entry still runs as the same program
+- Process in `htop`, or in `top` without it, on the terminal, while the process of the entry still runs as the same
+  program
 
 ```lua
+local viewer = turbojedi.which('htop') and 'htop' or 'top'
+
 local function top(pid)
-  turbojedi.terminal { 'top', '-p', pid }
+  turbojedi.terminal { viewer, '-p', pid }
 end
 
 turbojedi.registerHandler(function(entry, menu, context)
@@ -833,7 +836,7 @@ turbojedi.registerHandler(function(entry, menu, context)
       comm:close()
 
       if current == name then
-        menu:add('Process ' .. pid .. ' (' .. name .. ') in top', top, pid)
+        menu:add('Process ' .. pid .. ' (' .. name .. ') in ' .. viewer, top, pid)
       end
     end
   end
