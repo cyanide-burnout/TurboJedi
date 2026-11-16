@@ -111,6 +111,7 @@ TimelineView::TimelineView(const TRect& bounds, TScrollBar* horizontal, const Jo
 
   growMode    = gfGrowHiX | gfGrowHiY;
   options    |= ofFirstClick;
+  helpCtx     = hcTimeline;
   journal     = nullptr;
   notifier    = nullptr;
   blind       = false;
@@ -152,6 +153,7 @@ TimelineView::TimelineView(const TRect& bounds, TScrollBar* horizontal, const Ti
 
   growMode    = gfGrowHiX | gfGrowHiY;
   options    |= ofFirstClick;
+  helpCtx     = hcTimeline;
   journal     = nullptr;
   notifier    = nullptr;
   blind       = false;
@@ -277,7 +279,7 @@ void TimelineView::draw()
   }
 
   line += logarithmic ? " \xe2\x94\x82 log" : " \xe2\x94\x82 linear";
-  line += braille ? " \xe2\x94\x82 braille" : "";
+  line += braille ? " \xe2\x94\x82 braille" : " \xe2\x94\x82 blocks";
 
   if (pending)
   {
@@ -482,25 +484,12 @@ void TimelineView::handleEvent(TEvent& event)
 
           case 'l':
           case 'L':
-            // Spikes of errors stay visible next to a steady flow of everything else
-            logarithmic = !logarithmic;
-            drawView();
+            changeScale();
             break;
 
           case 'b':
           case 'B':
-            // Twice the intervals across, half the rows of a cell up; a step the window has chosen is chosen anew
-            braille = !braille;
-            scrollTo(braille ? (delta.x / 2) : (delta.x * 2), 0);
-
-            if ((journal != nullptr) &&
-                (chosen == 0))
-            {
-              restart(0);
-              break;
-            }
-
-            refresh();
+            changeBars();
             break;
 
           default:
@@ -571,9 +560,12 @@ void TimelineView::handleEvent(TEvent& event)
   {
     switch (event.message.command)
     {
-      case cmJournalTime:     chooseTime();  break;
-      case cmJournalBack:     retreat();     break;
-      case cmJournalForward:  advance();     break;
+      case cmJournalTime:     chooseTime();   break;
+      case cmTimelineBars:    changeBars();   break;
+      case cmTimelineScale:   changeScale();  break;
+      case cmTimelineZoom:    narrow();       break;
+      case cmJournalBack:     retreat();      break;
+      case cmJournalForward:  advance();      break;
 
       default:
         return;
@@ -1133,6 +1125,29 @@ void TimelineView::zoom(int direction)
 
   chosen = next;
   restart(chosen);
+}
+
+void TimelineView::changeScale()
+{
+  // Spikes of errors stay visible next to a steady flow of everything else
+  logarithmic = !logarithmic;
+  drawView();
+}
+
+void TimelineView::changeBars()
+{
+  // Twice the intervals across, half the rows of a cell up; a step the window has chosen is chosen anew
+  braille = !braille;
+  scrollTo(braille ? (delta.x / 2) : (delta.x * 2), 0);
+
+  if ((journal != nullptr) &&
+      (chosen == 0))
+  {
+    restart(0);
+    return;
+  }
+
+  refresh();
 }
 
 void TimelineView::restart(uint64_t fixed)

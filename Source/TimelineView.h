@@ -108,6 +108,8 @@ class TimelineView : public TScroller
     void synchronize();
     void zoom(int direction);
     void restart(uint64_t fixed);
+    void changeScale();
+    void changeBars();
     int share();
     void heights(const Interval& interval, uint64_t peak, int units, int* levels);
     std::string label(uint64_t realtime, bool full);

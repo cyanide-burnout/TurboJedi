@@ -107,9 +107,19 @@ TStatusLine* JediApplication::initStatusLine(TRect bounds)
   // Actions the way Far and Windows open them, Alt-F10 of the menu as in the IDEs of Borland is the main one
   hidden = new TStatusItem(0, kbF11, cmJournalActions, new TStatusItem(0, kbShiftF10, cmJournalActions, hidden));
 
-  // The windows of watches tell their own keys, a Mac has Backspace for Delete; the items are clicked as well
+  // The windows of watches and the timeline tell their own keys, a Mac has Backspace for Delete; the items are clicked
+  // as well
   return new JediStatusLine(bounds,
-    *new TStatusDef(hcWatchList, hcWatchList,
+    *new TStatusDef(hcTimeline, hcTimeline,
+      new TStatusItem("~F1~ Help",           kbF1,    cmJournalHelp,
+      new TStatusItem("~B~ Bars",            kbNoKey, cmTimelineBars,
+      new TStatusItem("~L~ Scale",           kbNoKey, cmTimelineScale,
+      new TStatusItem("~Z~ Zoom",            kbNoKey, cmTimelineZoom,
+      new TStatusItem("~Ctrl-Z~ Back",       kbNoKey, cmJournalBack,
+      new TStatusItem("~Ctrl-T~ Range",      kbNoKey, cmJournalTime,
+      new TStatusItem("~Alt-X~ Exit",        kbAltX,  cmQuit,
+      new TStatusItem(0, kbCtrlC, cmQuit)))))))),
+    new TStatusDef(hcWatchList, hcWatchList,
       new TStatusItem("~F1~ Help",           kbF1,    cmJournalHelp,
       new TStatusItem("~Enter~ Lines",       kbNoKey, cmWatchOpen,
       new TStatusItem("~Backspace~ Remove",  kbNoKey, cmWatchRemove,
@@ -135,7 +145,7 @@ TStatusLine* JediApplication::initStatusLine(TRect bounds)
       new TStatusItem("~Ctrl-F~ Find",  kbCtrlF, cmJournalFind,
       new TStatusItem("~Space~ Pause",  kbNoKey, cmJournalPause,
       new TStatusItem("~Alt-X~ Exit",   kbAltX,  cmQuit,
-      hidden))))))))))));
+      hidden)))))))))))));
 }
 
 TMenuBar* JediApplication::initMenuBar(TRect bounds)
