@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <errno.h>
 #include <dirent.h>
 #include <sys/vfs.h>
 #include <sys/mman.h>
@@ -691,7 +692,13 @@ static bool ParseJournalSpan(const char* text, int64_t* span)
       return false;
     }
 
+    errno = 0;
     value = strtoll(text, &end, 10);
+
+    if (errno == ERANGE)
+    {
+      return false;
+    }
 
     for (text = end; *text == ' '; text ++);
     for (length = 0; isalpha((unsigned char)text[length]); length ++);
@@ -713,10 +720,32 @@ static bool ParseJournalSpan(const char* text, int64_t* span)
       return false;
     }
 
-    *span += value * size;
-    text  += length;
-    any    = true;
+    // A span past what microseconds of int64_t hold is no time
+    if (__builtin_mul_overflow((int64_t)value, size, &size) ||
+        __builtin_add_overflow(*span, size, span))
+    {
+      return false;
+    }
+
+    text += length;
+    any   = true;
   }
+}
+
+// Now moved by a span: false when it overflows or goes before 1970, which microseconds of the journal do not hold
+static bool MoveJournalTime(time_t now, int64_t span, uint64_t* stamp)
+{
+  int64_t moment;
+
+  if (__builtin_mul_overflow((int64_t)now, (int64_t)1000000, &moment) ||
+      __builtin_add_overflow(moment, span, &moment) ||
+      (moment < 0))
+  {
+    return false;
+  }
+
+  *stamp = moment;
+  return true;
 }
 
 bool ParseJournalTime(const std::string& text, uint64_t* stamp)
@@ -756,13 +785,8 @@ bool ParseJournalTime(const std::string& text, uint64_t* stamp)
       ((text[0] == '-') || (text[0] == '+')))
   {
     // Relative to now, as journalctl takes it: -1h, -1h 30min, +2days
-    if (!ParseJournalSpan(text.c_str() + 1, &span))
-    {
-      return false;
-    }
-
-    *stamp = now * 1000000LL + ((text[0] == '-') ? -span : span);
-    return true;
+    return ParseJournalSpan(text.c_str() + 1, &span) &&
+           MoveJournalTime(now, (text[0] == '-') ? -span : span, stamp);
   }
 
   if ((text.size() > 4) &&
@@ -770,13 +794,8 @@ bool ParseJournalTime(const std::string& text, uint64_t* stamp)
        ((text.size() > 5) && (text.compare(text.size() - 5, 5, " left") == 0))))
   {
     // The same the other way: 5min ago, 2 hours left
-    if (!ParseJournalSpan(text.substr(0, text.rfind(' ')).c_str(), &span))
-    {
-      return false;
-    }
-
-    *stamp = now * 1000000LL + ((text.back() == 'o') ? -span : span);
-    return true;
+    return ParseJournalSpan(text.substr(0, text.rfind(' ')).c_str(), &span) &&
+           MoveJournalTime(now, (text.back() == 'o') ? -span : span, stamp);
   }
 
   for (const char* format : dates)
