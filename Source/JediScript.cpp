@@ -2080,7 +2080,12 @@ static bool AppendValue(lua_State* state, int index, const std::string& type, sd
         {
           case LUA_TSTRING:  guess = "s"; break;
           case LUA_TBOOLEAN: guess = "b"; break;
-          case LUA_TNUMBER:  guess = lua_isinteger(state, index) ? "x" : "d"; break;
+          case LUA_TNUMBER:
+            // As the cores of TetraPack guess it, what the options of a{sv} take most: i while it fits, t above, x
+            // below, d for a float
+            value = lua_tointeger(state, index);
+            guess = !lua_isinteger(state, index) ? "d" : (value > INT32_MAX) ? "t" : (value < INT32_MIN) ? "x" : "i";
+            break;
           default:
             error = "v takes a string, a number, true or false, or { type = ..., value = ... }";
             return false;

@@ -628,7 +628,7 @@ end
 | an array `a...` | a sequence |
 | a dictionary `a{...}` | a table by its keys |
 | a struct `(...)` | a sequence |
-| a variant `v` | the value in it; going there, a string is `s`, an integer `x`, a number `d`, a boolean `b`, and `{ type = 'u', value = 5 }` names the type itself |
+| a variant `v` | the value in it; going there, a string is `s`, a boolean `b`, a float `d`, an integer `i` while it fits, `t` above and `x` below, and `{ type = 'u', value = 5 }` names the type itself |
 | `h` | a descriptor of a file is not passed: a mistake in the arguments, `System.Error.ENOTSUP` in an answer |
 
 A value that does not fit the signature is a mistake of the plugin and is raised, as a wrong argument of any function.
