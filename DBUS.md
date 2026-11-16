@@ -123,6 +123,9 @@ What the user has in front, in `Describe()`:
 | `line` | t | `watch`: the `number` of the line under the cursor, 0 without one |
 | `dialog` | b | a dialog or a menu is open over it: the calls that change the screen wait |
 
+`Describe()` also tells `descriptors` u, the files the process has open, and `descriptor_limit` u, its soft limit: every
+window and every watch keeps every file of its journal open, the archives included.
+
 `ListActions()` calls the handlers of the plugins as opening the menu does, and never the functions of the items. The
 functions of TurboJedi give the handlers no dialogs and no commands in that phase, and `query()` has the 200 ms budget of
 a menu. A handler is still Lua with its standard libraries: it is code of a plugin, trusted as the plugins are, and is to

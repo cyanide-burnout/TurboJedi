@@ -29,7 +29,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <dirent.h>
 #include <unistd.h>
+#include <sys/resource.h>
 
 #include <map>
 #include <deque>
@@ -152,6 +154,27 @@ static TView* FindFrontWindow()
 {
   // The desktop goes from the front
   return (TProgram::deskTop != nullptr) ? TProgram::deskTop->firstThat(IsFrontWindow, nullptr) : nullptr;
+}
+
+// Descriptors the process has open, the one of the count itself left out
+static size_t CountDescriptors()
+{
+  DIR* directory;
+  size_t count;
+  struct dirent* entry;
+
+  if ((directory = opendir("/proc/self/fd")) == nullptr)
+  {
+    return 0;
+  }
+
+  for (count = 0; (entry = readdir(directory)) != nullptr; )
+  {
+    count += (entry->d_name[0] != '.') ? 1 : 0;
+  }
+
+  closedir(directory);
+  return (count > 0) ? (count - 1) : 0;
 }
 
 // The title of a window of a journal as the frame shows it, without the signs of following and the order
@@ -600,6 +623,7 @@ static int Describe(sd_bus_message* message, void*, sd_bus_error* error)
     TimelineWindow* timeline;
     WatchWindow* watches;
     WatchLogWindow* lines;
+    struct rlimit limit;
 
     result = std::min(0, sd_bus_message_open_container(reply, 'a', "{sv}"));
     result = std::min(result, sd_bus_message_append(reply, "{sv}", "pid", "u", (uint32_t)getpid()));
@@ -645,6 +669,13 @@ static int Describe(sd_bus_message* message, void*, sd_bus_error* error)
     }
 
     result = std::min(result, sd_bus_message_append(reply, "{sv}", "dialog", "b", (int)(TProgram::application->TopView() != TProgram::application)));
+
+    // Every window and watch keeps the files of its journal open: how close the process is to its limit
+    if (getrlimit(RLIMIT_NOFILE, &limit) == 0)
+    {
+      result = std::min(result, sd_bus_message_append(reply, "{sv}", "descriptors", "u", (uint32_t)CountDescriptors()));
+      result = std::min(result, sd_bus_message_append(reply, "{sv}", "descriptor_limit", "u", (uint32_t)std::min<rlim_t>(limit.rlim_cur, UINT32_MAX)));
+    }
     result = std::min(result, sd_bus_message_close_container(reply));
     return result;
   });

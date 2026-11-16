@@ -566,7 +566,8 @@ TOOLS = [
      'api; sudo, the user an instance of root started by sudo answers as well; front, the window in front: journal '
      'with window (its window_id) and title, timeline with title, watches (the list of watches) with watch, the one '
      'under the cursor, or watch (the lines of a watch) with watch and line, the number of the line under the cursor; '
-     'dialog, whether a dialog or a menu is open over it, the screen tools wait then.',
+     'dialog, whether a dialog or a menu is open over it, the screen tools wait then; descriptors and descriptor_limit, '
+     'the files the process has open and its limit, as every window and watch keeps the files of its journal open.',
      schema({})),
 
     ('list_windows', list_windows, True,
