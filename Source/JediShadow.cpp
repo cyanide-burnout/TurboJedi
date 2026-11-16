@@ -58,14 +58,15 @@ void LoadJediShadow(const std::string& path)
   fclose(stream);
 }
 
-void SetJediShadow(int value)
+void SetJediShadow(int value, bool keep)
 {
   FILE* stream;
 
   level = value;
   ApplyJediShadow();
 
-  if ((!file.empty()) &&
+  if ((keep) &&
+      (!file.empty()) &&
       ((stream = fopen(file.c_str(), "w")) != nullptr))
   {
     fprintf(stream, "shadows=%s\n", names[level]);

@@ -510,29 +510,66 @@ void JediApplication::initScreen()
   ApplyJediShadow();
 }
 
-void JediApplication::chooseShadow()
-{
-  ushort level;
-  TDialog* dialog;
+// Shadows of every window and dialog, a level shows on the screen as soon as it is chosen
 
-  dialog = new TDialog(TRect(0, 0, 34, 11), "Shadows");
-  dialog->options |= ofCentered;
-  dialog->insert(new TRadioButtons(TRect(3, 2, 31, 6),
+class ShadowDialog : public TDialog
+{
+  public:
+
+    ShadowDialog();
+
+    void handleEvent(TEvent& event) override;
+
+  private:
+
+    TRadioButtons* levels;
+    ushort shown;  // The level the screen has now
+};
+
+ShadowDialog::ShadowDialog() :
+  TWindowInit(&TDialog::initFrame),
+  TDialog(TRect(0, 0, 34, 11), "Shadows")
+{
+  options |= ofCentered;
+  levels   = new TRadioButtons(TRect(3, 2, 31, 6),
     new TSItem("O~f~f, flat",
     new TSItem("~L~ight",
     new TSItem("~M~edium, of Turbo Vision",
-    new TSItem("~D~ark", nullptr))))));
-  dialog->insert(new TButton(TRect(5, 7, 15, 9), "~O~K", cmOK, bfDefault));
-  dialog->insert(new TButton(TRect(18, 7, 30, 9), "Cancel", cmCancel, bfNormal));
-  dialog->selectNext(False);
+    new TSItem("~D~ark", nullptr)))));
+  shown    = GetJediShadow();
 
-  // Of every window and dialog
-  level = GetJediShadow();
+  insert(levels);
+  insert(new TButton(TRect(5, 7, 15, 9), "~O~K", cmOK, bfDefault));
+  insert(new TButton(TRect(18, 7, 30, 9), "Cancel", cmCancel, bfNormal));
+  selectNext(False);
+}
 
-  if (executeDialog(dialog, &level) == cmOK)
+void ShadowDialog::handleEvent(TEvent& event)
+{
+  ushort level;
+
+  TDialog::handleEvent(event);
+  levels->getData(&level);
+
+  if (level != shown)
   {
-    SetJediShadow(level);
+    // A preview: kept by OK only
+    shown = level;
+    SetJediShadow(level, false);
   }
+}
+
+void JediApplication::chooseShadow()
+{
+  ushort level;
+  int before;
+
+  before = GetJediShadow();
+  level  = before;
+
+  // Cancel takes the level before back
+  if (executeDialog(new ShadowDialog(), &level) == cmOK) SetJediShadow(level);
+  else                                                SetJediShadow(before, false);
 }
 
 void JediApplication::chooseWindow()

@@ -20,8 +20,8 @@
 // The level chosen before, of a file of key=value lines; a missing file leaves the default
 void LoadJediShadow(const std::string& path);
 
-// A new level, drawn at once and kept in the file for the next start
-void SetJediShadow(int level);
+// A new level, drawn at once and kept in the file for the next start; a preview is only drawn
+void SetJediShadow(int level, bool keep = true);
 int GetJediShadow();
 
 // The size and the color of the level again, after Turbo Vision has set the ones of the screen
