@@ -86,26 +86,6 @@ static std::string FormatStep(uint64_t step)
   return text;
 }
 
-// A time a range takes, in local time as the dialog takes it: intervals start on whole seconds, the last microsecond
-// of one is told with its fraction
-static std::string FormatStamp(uint64_t realtime)
-{
-  time_t second;
-  struct tm date;
-  char text[48];
-
-  second = realtime / 1000000;
-  localtime_r(&second, &date);
-  strftime(text, sizeof(text), "%F %T", &date);
-
-  if ((realtime % 1000000) != 0)
-  {
-    snprintf(text + strlen(text), sizeof(text) - strlen(text), ".%06u", (unsigned)(realtime % 1000000));
-  }
-
-  return text;
-}
-
 // TimelineView
 
 TimelineView::TimelineView(const TRect& bounds, TScrollBar* horizontal, const JournalFilter& filter, int seconds, bool logarithmic, bool braille) :
@@ -646,6 +626,50 @@ bool TimelineView::getBraille()
   return braille;
 }
 
+bool TimelineView::getCounted(uint64_t& first, uint64_t& last, uint64_t& interval)
+{
+  if (intervals.empty())
+  {
+    return false;
+  }
+
+  first    = start;
+  last     = start + intervals.size() * step;
+  interval = step;
+  return true;
+}
+
+bool TimelineView::getFocus(uint64_t& first, uint64_t& last, std::array<uint64_t, 3>& counts, bool& selected)
+{
+  size_t lower;
+  size_t upper;
+
+  if (intervals.empty())
+  {
+    return false;
+  }
+
+  if (!(selected = selection(lower, upper)))
+  {
+    // The interval under the cursor without a selection
+    lower = std::min(cursor, intervals.size() - 1);
+    upper = lower;
+  }
+
+  first  = start + lower * step;
+  last   = start + (upper + 1) * step;
+  counts = { 0, 0, 0 };
+
+  for (size_t index = lower; index <= upper; index ++)
+  {
+    counts[0] += intervals[index].counts[GROUP_ERROR];
+    counts[1] += intervals[index].counts[GROUP_WARNING];
+    counts[2] += intervals[index].counts[GROUP_REST];
+  }
+
+  return true;
+}
+
 void TimelineView::attach()
 {
   // Change notification for sd_journal_process(), the wait of the application ends on it as well;
@@ -956,8 +980,8 @@ TimelineView::Range TimelineView::selected()
   // Whole intervals up to the last microsecond of the last one, until takes it in; one that reaches the newest of a
   // range open at the end keeps it open, the timeline follows on
   selection(lower, upper);
-  range.since  = FormatStamp(start + lower * step);
-  range.until  = ((upper == (intervals.size() - 1)) && (until == 0)) ? std::string() : FormatStamp(start + (upper + 1) * step - 1);
+  range.since  = FormatJournalTime(start + lower * step);
+  range.until  = ((upper == (intervals.size() - 1)) && (until == 0)) ? std::string() : FormatJournalTime(start + (upper + 1) * step - 1);
   range.chosen = 0;
 
   return range;

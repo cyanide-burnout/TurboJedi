@@ -34,6 +34,7 @@
 #include <sys/resource.h>
 
 #include <map>
+#include <array>
 #include <deque>
 #include <set>
 #include <list>
@@ -283,6 +284,42 @@ static int AppendStrings(sd_bus_message* message, const char* key, const std::ve
   result = std::min(result, sd_bus_message_close_container(message));
   result = std::min(result, sd_bus_message_close_container(message));
   result = std::min(result, sd_bus_message_close_container(message));
+  return result;
+}
+
+// The filter of a window or a timeline, the keys of ListWindows()
+static int AppendFilter(sd_bus_message* message, const JournalFilter& filter)
+{
+  int result;
+  std::string levels;
+
+  for (int index = 0; index < 8; index ++)
+  {
+    levels += (filter.levels & (1 << index)) ? LevelLetters[index] : '-';
+  }
+
+  result = std::min(0, AppendString(message, "directory", filter.directory));
+  result = std::min(result, sd_bus_message_append(message, "{sv}", "merge", "b", (int)filter.merge));
+  result = std::min(result, AppendString(message, "text", filter.text));
+  result = std::min(result, sd_bus_message_append(message, "{sv}", "regex", "b", (int)((filter.mode & JOURNAL_TEXT_EXPRESSION) != 0)));
+  result = std::min(result, sd_bus_message_append(message, "{sv}", "exclude", "b", (int)((filter.mode & JOURNAL_TEXT_EXCLUDE) != 0)));
+  result = std::min(result, sd_bus_message_append(message, "{sv}", "case", "b", (int)((filter.mode & JOURNAL_TEXT_SENSITIVE) != 0)));
+  result = std::min(result, AppendString(message, "levels", levels));
+  result = std::min(result, AppendStrings(message, "matches", filter.matches));
+
+  for (int field = 0; field < JOURNAL_FIELD_COUNT; field ++)
+  {
+    if (!filter.values[field].empty())
+    {
+      // Only the ones the filter has
+      result = std::min(result, AppendString(message, FieldNames[field], filter.values[field]));
+    }
+  }
+
+  if (filter.pid != 0)          result = std::min(result, sd_bus_message_append(message, "{sv}", "pid", "u", (uint32_t)filter.pid));
+  if (!filter.since.empty())    result = std::min(result, AppendString(message, "since", filter.since));
+  if (!filter.until.empty())    result = std::min(result, AppendString(message, "until", filter.until));
+
   return result;
 }
 
@@ -624,6 +661,11 @@ static int Describe(sd_bus_message* message, void*, sd_bus_error* error)
     WatchWindow* watches;
     WatchLogWindow* lines;
     struct rlimit limit;
+    uint64_t first;
+    uint64_t last;
+    uint64_t step;
+    bool selected;
+    std::array<uint64_t, 3> counts;
 
     result = std::min(0, sd_bus_message_open_container(reply, 'a', "{sv}"));
     result = std::min(result, sd_bus_message_append(reply, "{sv}", "pid", "u", (uint32_t)getpid()));
@@ -651,6 +693,26 @@ static int Describe(sd_bus_message* message, void*, sd_bus_error* error)
     {
       result = std::min(result, AppendString(reply, "front", "timeline"));
       result = std::min(result, AppendString(reply, "title", (timeline->title != nullptr) ? timeline->title : ""));
+      result = std::min(result, AppendFilter(reply, timeline->view->getFilter()));
+
+      if (timeline->view->getCounted(first, last, step))
+      {
+        // Times as Query() takes them, an end at the last microsecond of its interval
+        result = std::min(result, sd_bus_message_append(reply, "{sv}", "step", "t", step));
+        result = std::min(result, AppendString(reply, "counted_since", FormatJournalTime(first)));
+        result = std::min(result, AppendString(reply, "counted_until", FormatJournalTime(last - 1)));
+      }
+
+      if (timeline->view->getFocus(first, last, counts, selected))
+      {
+        result = std::min(result, AppendString(reply, "interval_since", FormatJournalTime(first)));
+        result = std::min(result, AppendString(reply, "interval_until", FormatJournalTime(last - 1)));
+        result = std::min(result, sd_bus_message_append(reply, "{sv}", "intervals", "u", (uint32_t)((last - first) / step)));
+        result = std::min(result, sd_bus_message_append(reply, "{sv}", "selection", "b", (int)selected));
+        result = std::min(result, sd_bus_message_append(reply, "{sv}", "errors", "t", counts[0]));
+        result = std::min(result, sd_bus_message_append(reply, "{sv}", "warnings", "t", counts[1]));
+        result = std::min(result, sd_bus_message_append(reply, "{sv}", "other", "t", counts[2]));
+      }
     }
     else if ((watches = dynamic_cast<WatchWindow*>(front)) != nullptr)
     {
@@ -686,7 +748,6 @@ static int ListWindows(sd_bus_message* message, void*, sd_bus_error* error)
   int result;
   size_t total;
   TView* front;
-  std::string levels;
   std::vector<JournalWindow*> windows;
 
   if ((result = Allow(message, error)) < 0)
@@ -705,42 +766,13 @@ static int ListWindows(sd_bus_message* message, void*, sd_bus_error* error)
 
     for (JournalWindow* window : windows)
     {
-      const JournalFilter& filter = window->view->getFilter();
-
-      levels.clear();
-
-      for (int index = 0; index < 8; index ++)
-      {
-        levels += (filter.levels & (1 << index)) ? LevelLetters[index] : '-';
-      }
-
       window->view->pickedCursors(0, total);
 
       result = std::min(result, sd_bus_message_open_container(reply, 'a', "{sv}"));
       result = std::min(result, sd_bus_message_append(reply, "{sv}", "id", "u", (uint32_t)window->view->id()));
       result = std::min(result, sd_bus_message_append(reply, "{sv}", "window", "i", (int32_t)((window->number != wnNoNumber) ? window->number : 0)));
       result = std::min(result, AppendString(reply, "title", TitleWindow(window)));
-      result = std::min(result, AppendString(reply, "directory", filter.directory));
-      result = std::min(result, sd_bus_message_append(reply, "{sv}", "merge", "b", (int)filter.merge));
-      result = std::min(result, AppendString(reply, "text", filter.text));
-      result = std::min(result, sd_bus_message_append(reply, "{sv}", "regex", "b", (int)((filter.mode & JOURNAL_TEXT_EXPRESSION) != 0)));
-      result = std::min(result, sd_bus_message_append(reply, "{sv}", "exclude", "b", (int)((filter.mode & JOURNAL_TEXT_EXCLUDE) != 0)));
-      result = std::min(result, sd_bus_message_append(reply, "{sv}", "case", "b", (int)((filter.mode & JOURNAL_TEXT_SENSITIVE) != 0)));
-      result = std::min(result, AppendString(reply, "levels", levels));
-      result = std::min(result, AppendStrings(reply, "matches", filter.matches));
-
-      for (int field = 0; field < JOURNAL_FIELD_COUNT; field ++)
-      {
-        if (!filter.values[field].empty())
-        {
-          // Only the ones the filter has
-          result = std::min(result, AppendString(reply, FieldNames[field], filter.values[field]));
-        }
-      }
-
-      if (filter.pid != 0)          result = std::min(result, sd_bus_message_append(reply, "{sv}", "pid", "u", (uint32_t)filter.pid));
-      if (!filter.since.empty())    result = std::min(result, AppendString(reply, "since", filter.since));
-      if (!filter.until.empty())    result = std::min(result, AppendString(reply, "until", filter.until));
+      result = std::min(result, AppendFilter(reply, window->view->getFilter()));
 
       result = std::min(result, sd_bus_message_append(reply, "{sv}", "following", "b", (int)window->view->following()));
       result = std::min(result, sd_bus_message_append(reply, "{sv}", "active", "b", (int)(window == front)));

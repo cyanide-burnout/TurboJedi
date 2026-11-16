@@ -123,6 +123,22 @@ What the user has in front, in `Describe()`:
 | `line` | t | `watch`: the `number` of the line under the cursor, 0 without one |
 | `dialog` | b | a dialog or a menu is open over it: the calls that change the screen wait |
 
+A timeline in front also tells what it counts and what the user looks at, for `Query()` to read the entries of it:
+
+| Key | Type | |
+|---|---|---|
+| `directory` … `until` | | its filter, the keys of a window of `ListWindows()` from `directory` to `until` |
+| `step` | t | microseconds of an interval |
+| `counted_since`, `counted_until` | s | the intervals counted, from the start of the first one to the last microsecond of the last one |
+| `interval_since`, `interval_until` | s | the interval under the cursor, or the selection |
+| `intervals` | u | how many intervals these are |
+| `selection` | b | they are the selection |
+| `errors`, `warnings`, `other` | t | entries in them: errors and worse, warnings, the rest |
+
+The times are in local time as `Query()` takes them, `2026-11-16 03:12:00` and `2026-11-16 03:12:59.999999`: given as
+`since` and `until` with the filter, a query reads the entries of the bars. Without anything counted yet only the filter
+is told.
+
 `Describe()` also tells `descriptors` u, the files the process has open, and `descriptor_limit` u, its soft limit: every
 window and every watch keeps every file of its journal open, the archives included.
 

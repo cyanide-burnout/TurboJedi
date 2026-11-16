@@ -112,7 +112,7 @@ The instances of other users do not answer: the agent is told how many there are
 | Tool | |
 |---|---|
 | `list_instances` | the instances it sees, with their windows |
-| `describe` | an instance: PID, user, host, version, start time, and what you have in front: a window of the journal, a timeline, the watches or the lines of one, and whether a dialog is open |
+| `describe` | an instance: PID, user, host, version, start time, and what you have in front: a window of the journal, a timeline with its filter, its range and the interval under the cursor or the selection, the watches or the lines of one, and whether a dialog is open |
 | `list_windows` | the windows of an instance, their filters, whether they follow the end, how many entries are marked, which one is in front |
 | `get_cursor` | the entry under the cursor of a window, of the one in front by default |
 | `get_marked` | the entries marked or selected in a window, of the one in front by default |

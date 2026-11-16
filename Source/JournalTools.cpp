@@ -1159,3 +1159,21 @@ std::string GetJournalFilterName(const JournalFilter& filter)
 
   return caption;
 }
+
+std::string FormatJournalTime(uint64_t stamp)
+{
+  time_t second;
+  struct tm date;
+  char text[48];
+
+  second = stamp / 1000000;
+  localtime_r(&second, &date);
+  strftime(text, sizeof(text), "%F %T", &date);
+
+  if ((stamp % 1000000) != 0)
+  {
+    snprintf(text + strlen(text), sizeof(text) - strlen(text), ".%06u", (unsigned)(stamp % 1000000));
+  }
+
+  return text;
+}

@@ -564,7 +564,10 @@ TOOLS = [
     ('describe', describe, True,
      'An instance of TurboJedi and what the user has in front: pid, uid, user, host, version, started (microseconds), '
      'api; sudo, the user an instance of root started by sudo answers as well; front, the window in front: journal '
-     'with window (its window_id) and title, timeline with title, watches (the list of watches) with watch, the one '
+     'with window (its window_id) and title, timeline with title, its filter, step (microseconds of an interval), '
+     'counted_since and counted_until, the range counted, interval_since and interval_until, the interval under the '
+     'cursor or the selection, with intervals, selection, errors, warnings and other, the counts of it (the times are '
+     'local, query takes them as since and until with the filter to read the entries of the bars), watches (the list of watches) with watch, the one '
      'under the cursor, or watch (the lines of a watch) with watch and line, the number of the line under the cursor; '
      'dialog, whether a dialog or a menu is open over it, the screen tools wait then; descriptors and descriptor_limit, '
      'the files the process has open and its limit, as every window and watch keeps the files of its journal open.',

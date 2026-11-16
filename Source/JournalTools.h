@@ -137,4 +137,7 @@ std::string GetJournalFilterName(const JournalFilter& filter);
 // their longer names)
 bool ParseJournalTime(const std::string& text, uint64_t* stamp);
 
+// A time the way ParseJournalTime takes it back: 2026-10-23 19:00:00 in local time, a fraction of a second when it has one
+std::string FormatJournalTime(uint64_t stamp);
+
 #endif
