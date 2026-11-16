@@ -89,6 +89,7 @@ OBJECTS := \
 	$(SOURCE)/JediScript.o \
 	$(SOURCE)/JediProcess.o \
 	$(SOURCE)/JediFetch.o \
+	$(SOURCE)/JediDBus.o \
 	$(SOURCE)/JournalQuery.o \
 	$(SOURCE)/JournalWatch.o \
 	$(SOURCE)/WatchWindow.o \
