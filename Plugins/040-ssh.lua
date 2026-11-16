@@ -23,6 +23,7 @@ local NAMES  = 3    -- User names shown, the rest are counted
 local ATTEMPT = [=[^(?:Invalid user (?<user>\S*) from|Failed \S+ for (?!invalid user )(?<valid>\S+) from) (?<address>\S+) port]=]
 local TOUCH   = [=[^(?:Connection closed by|Disconnected from|error: maximum authentication attempts exceeded for) (?:authenticating |invalid )?(?:user )?(?<user>\S*) (?:from )?(?<address>[0-9a-fA-F:.]+) port]=]
 local LOGIN   = [=[^Accepted \S+ for (?<user>\S+) from (?<address>\S+) port]=]
+local LOGOUT  = [=[^Disconnected from user \S+ \S+ port]=]  -- The end of a session that has logged in, not a try
 
 -- Times in the zone the user has chosen for the watches, UTC or local; os.date() before TurboJedi had date()
 local date = turbojedi.date or os.date
@@ -47,9 +48,10 @@ end
 
 local function describe(address, source, now)
   local names = { }
+  source.shown = recent(source, now)  -- The rate the line tells, told again once it is not the one of the time
   for index = 1, math.min(NAMES, #source.names) do names[index] = source.names[index] end
   local more = (#source.names > NAMES) and (', +' .. (#source.names - NAMES)) or ''
-  return ('%-' .. width .. 's %3d/min %6d total  %d user%s: %s%s, last %s'):format(address, recent(source, now), source.total,
+  return ('%-' .. width .. 's %3d/min %6d total  %d user%s: %s%s, last %s'):format(address, source.shown, source.total,
     #source.names, (#source.names == 1) and '' or 's', table.concat(names, ', '), more, clock(source.last))
 end
 
@@ -71,17 +73,22 @@ local function show(address, source, now)
   source.line = watch:add(describe(address, source, now), source.entry, { quiet = true })
 end
 
--- The column as wide as the longest address; when that changes, every line again in the order of their last tries
+-- Every line again in the order of their last tries, the latest on top
+local function redraw(now)
+  local order = { }
+  for address in pairs(sources) do order[#order + 1] = address end
+  table.sort(order, function(one, other) return sources[one].last < sources[other].last end)
+  for _, address in ipairs(order) do show(address, sources[address], now) end
+end
+
+-- The column as wide as the longest address; when that changes, every line again
 local function fit(now)
   local longest = 0
   for address in pairs(sources) do longest = math.max(longest, #address) end
   if longest == width then return false end
 
   width = longest
-  local order = { }
-  for address in pairs(sources) do order[#order + 1] = address end
-  table.sort(order, function(one, other) return sources[one].last < sources[other].last end)
-  for _, address in ipairs(order) do show(address, sources[address], now) end
+  redraw(now)
   return true
 end
 
@@ -126,14 +133,18 @@ function(entry)
     return
   end
 
-  found = turbojedi.regex(message, ATTEMPT) or turbojedi.regex(message, TOUCH)
+  -- A user of this machine leaving: Disconnected from user would pass for a try of an attacker, with no failures
+  if turbojedi.regex(message, LOGOUT) then return end
+
+  local attempt = turbojedi.regex(message, ATTEMPT)
+  found = attempt or turbojedi.regex(message, TOUCH)
   if not found then return end
 
   local item = source(found.address)
   name(item, found.user or found.valid)
   item.last, item.entry = now, entry
 
-  if turbojedi.regex(message, ATTEMPT) then
+  if attempt then
     item.total = item.total + 1
     item.times[#item.times + 1] = now
 
@@ -149,15 +160,18 @@ end)
 
 if not watch then return end
 
--- Addresses silent for long go, now and then
+-- Addresses silent for long go, now and then; the rates of the lines follow the time, as the status does
 turbojedi.timeout(30000, function()
   local now = os.time()
+  local stale = false
   for address, item in pairs(sources) do
     if item.last < now - QUIET then
       watch:delete(item.line)
       sources[address] = nil
+    elseif recent(item, now) ~= item.shown then
+      stale = true
     end
   end
-  fit(now)
+  if (not fit(now)) and stale then redraw(now) end
   tell(now)
 end, true)
