@@ -82,6 +82,8 @@ extern "C"
 #define FETCH_STEP         20      // Milliseconds it is waited for between the events of its dialog
 #define DBUS_TIMEOUT       25      // Seconds a call of dbus() may take by default, as sd-bus has it
 #define DBUS_LIST_TIME     5000    // Milliseconds services() may take outside a menu
+#define DBUS_TIMEOUT_LIMIT 86400   // Seconds a call of dbus() may be given at most
+#define DBUS_SIGNATURE     255     // Characters of a signature, as D-Bus has it
 
 #define WATCH_READ_TIME    10      // Milliseconds all watches may read their journals for in a poll
 #define WATCH_READ_LIMIT   256     // Entries a watch may look at in a poll
@@ -2058,6 +2060,7 @@ static bool AppendValue(lua_State* state, int index, const std::string& type, sd
         lua_rawget(state, index);
 
         if ((lua_type(state, -1) != LUA_TSTRING) ||
+            (lua_rawlen(state, -1) > DBUS_SIGNATURE) ||
             (MeasureType(lua_tostring(state, -1)) != lua_rawlen(state, -1)))
         {
           error = "a table in v names its type with type, as { type = 'u', value = 5 }";
@@ -2358,14 +2361,22 @@ static int CallDBus(lua_State* state)
 
   if (!lua_isnil(state, -1))
   {
+    // NaN fails every comparison: only a number above zero and up to a day passes
     if ((lua_type(state, -1) != LUA_TNUMBER) ||
-        ((seconds = lua_tonumber(state, -1)) <= 0))
+        (!((seconds = lua_tonumber(state, -1)) > 0)) ||
+        (seconds > DBUS_TIMEOUT_LIMIT))
     {
-      return Fail(state, "timeout of dbus() is a number of seconds above zero");
+      return Fail(state, "timeout of dbus() is a number of seconds above zero, up to a day");
     }
   }
 
   lua_pop(state, 1);
+
+  if (signature.size() > DBUS_SIGNATURE)
+  {
+    // D-Bus takes no longer one, and the measure goes as deep as the signature
+    return Fail(state, "a signature of D-Bus has up to %d characters", DBUS_SIGNATURE);
+  }
 
   for (at = 0; at < signature.size(); at += length)
   {

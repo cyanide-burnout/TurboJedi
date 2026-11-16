@@ -585,7 +585,7 @@ local reply, name, text = turbojedi.dbus {
   method    = 'GetUnit',
   signature = 's',                                -- of the arguments, as busctl takes it; none without them
   arguments = { 'nginx.service' },
-  timeout   = 5                                   -- seconds, 25 by default as sd-bus has it
+  timeout   = 5                                   -- seconds, 25 by default as sd-bus has it, up to a day
 }
 ```
 

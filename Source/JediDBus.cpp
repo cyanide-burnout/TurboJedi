@@ -78,10 +78,39 @@ static int ReceiveAnswer(sd_bus_message* message, void* context, sd_bus_error*)
   return 1;
 }
 
+// A connection that has broken: its calls end with the error, the next call opens a new one
+static void DropConnection(int which, int code)
+{
+  Connection& connection = connections[which];
+
+  for (std::pair<const int, Call>& call : calls)
+  {
+    if ((call.second.which == which) &&
+        (!call.second.done))
+    {
+      call.second.done = true;
+      call.second.slot = sd_bus_slot_unref(call.second.slot);
+      SetDBusError(call.second.error, code, std::string(Names[which]) + " has gone away");
+    }
+  }
+
+  ReleaseJournalSource(connection.source);
+  sd_bus_close_unref(connection.bus);
+  connection.bus    = nullptr;
+  connection.source = nullptr;
+}
+
 sd_bus* GetPluginBus(int which, JediDBusError& error)
 {
   int result;
   Connection& connection = connections[which];
+
+  if ((connection.bus != nullptr) &&
+      (!sd_bus_is_open(connection.bus)))
+  {
+    // The bus has closed it, a restart of dbus as a rule
+    DropConnection(which, ECONNRESET);
+  }
 
   if (connection.bus != nullptr)
   {
@@ -130,23 +159,30 @@ bool StartDBusCall(int number, int which, sd_bus_message* message, uint64_t time
   return true;
 }
 
-static void ProcessBus(sd_bus* bus)
+static void ProcessBus(int which)
 {
   int count;
+  int result;
 
-  for (count = 0; (count < 64) && (sd_bus_process(bus, nullptr) > 0); count ++)
+  for (count = 0; (count < 64) && ((result = sd_bus_process(connections[which].bus, nullptr)) > 0); count ++)
   {
     // The answers that have come, a few at a time; signals and the rest are dropped by sd-bus itself
+  }
+
+  if ((result < 0) ||
+      (!sd_bus_is_open(connections[which].bus)))
+  {
+    DropConnection(which, (result < 0) ? -result : ECONNRESET);
   }
 }
 
 bool PollDBus()
 {
-  for (Connection& connection : connections)
+  for (int which = 0; which < 2; which ++)
   {
-    if (connection.bus != nullptr)
+    if (connections[which].bus != nullptr)
     {
-      ProcessBus(connection.bus);
+      ProcessBus(which);
     }
   }
 
@@ -167,6 +203,8 @@ bool IsDBusDone(int number)
 
 bool WaitDBusCall(int number, int64_t deadline)
 {
+  int which;
+  int result;
   int64_t now;
   sd_bus* bus;
   std::map<int, Call>::iterator call;
@@ -176,18 +214,26 @@ bool WaitDBusCall(int number, int64_t deadline)
     return false;
   }
 
-  bus = connections[call->second.which].bus;
+  which = call->second.which;
+  bus   = connections[which].bus;
 
   while ((!IsDBusDone(number)) &&
          ((now = GetQueryMilliseconds()) < deadline))
   {
-    if (sd_bus_process(bus, nullptr) > 0)
+    if ((result = sd_bus_process(bus, nullptr)) > 0)
     {
       // Another message has come, perhaps the answer: looked at again before waiting
       continue;
     }
 
-    sd_bus_wait(bus, (uint64_t)(deadline - now) * 1000);
+    if ((result < 0) ||
+        (!sd_bus_is_open(bus)) ||
+        (((result = sd_bus_wait(bus, (uint64_t)(deadline - now) * 1000)) < 0) && (result != -EINTR)))
+    {
+      // The connection has broken: the call ends with it instead of waiting until its time is over
+      DropConnection(which, (result < 0) ? -result : ECONNRESET);
+      break;
+    }
   }
 
   return IsDBusDone(number);
