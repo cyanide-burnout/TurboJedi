@@ -360,6 +360,8 @@ static int ReadOptions(sd_bus_message* message, Options& options)
   int flag;
   uint32_t small;
   uint64_t large;
+  int32_t signed32;
+  int64_t signed64;
   const char* key;
   const char* contents;
   const char* text;
@@ -398,6 +400,17 @@ static int ReadOptions(sd_bus_message* message, Options& options)
       result = sd_bus_message_read(message, "t", &large);
       options.numbers[key] = large;
     }
+    else if (strcmp(contents, "i") == 0)
+    {
+      // Python and others send a number as i by default, a negative one is taken as zero
+      result = sd_bus_message_read(message, "i", &signed32);
+      options.numbers[key] = std::max(signed32, 0);
+    }
+    else if (strcmp(contents, "x") == 0)
+    {
+      result = sd_bus_message_read(message, "x", &signed64);
+      options.numbers[key] = std::max<int64_t>(signed64, 0);
+    }
     else if ((strcmp(contents, "as") == 0) &&
              ((result = sd_bus_message_read_strv(message, &list)) >= 0))
     {
@@ -425,7 +438,7 @@ static int ReadOptions(sd_bus_message* message, Options& options)
   return (result < 0) ? result : sd_bus_message_exit_container(message);
 }
 
-// The filter of the options as query() and open() of a plugin make it: the journal of the window of `window`, or of this
+// The filter of the options as query() and open() of a plugin make it: the journal of the window of `id`, or of this
 // machine; false and the reason when an option is wrong
 static bool MakeFilter(const Options& options, JournalFilter& filter, std::string& error)
 {
@@ -440,7 +453,7 @@ static bool MakeFilter(const Options& options, JournalFilter& filter, std::strin
   filter.columns   = JOURNAL_COLUMN_DEFAULT;
   filter.highlight = JOURNAL_HIGHLIGHT_BUILTIN;
 
-  if ((number = options.numbers.find("window")) != options.numbers.end())
+  if ((number = options.numbers.find("id")) != options.numbers.end())
   {
     if ((window = FindWindow(number->second)) == nullptr)
     {
