@@ -60,8 +60,10 @@ TRect TimelineWindow::prepare(TScrollBar*& horizontal)
 {
   TRect extent;
 
+  // Flat as a journal window
   options  |= ofTileable;
   growMode  = gfGrowAll | gfGrowRel;
+  state    &= ~sfShadow;
 
   horizontal = standardScrollBar(sbHorizontal);
 
