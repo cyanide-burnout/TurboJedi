@@ -3361,15 +3361,12 @@ static void CollectActions(JournalView* view, const std::vector<std::pair<std::s
   origin = nullptr;
 }
 
-// The menu with one line that tells why there is nothing to choose, instead of a dialog with OK: Esc, a click or the key
-// that has opened it closes it, as any menu
+// The menu with one line that tells why there is nothing to choose, instead of a dialog with OK: Esc, Enter, a click or
+// the key that has opened it closes it, as any menu. The line is an item as any other, readable on the bar of the
+// cursor, its command does nothing
 static void ShowActionNote(TPoint where, const std::string& text)
 {
-  TMenuItem* item;
-
-  item           = new TMenuItem(Fit(text, TProgram::deskTop->size.x - 8).c_str(), cmJournalAction, kbNoKey, hcNoContext);
-  item->disabled = True;
-  popupMenu(where, *item, nullptr);
+  popupMenu(where, *new TMenuItem(Fit(text, TProgram::deskTop->size.x - 8).c_str(), cmJournalAction, kbNoKey, hcNoContext), nullptr);
 }
 
 void ShowActions(JournalView* view, const std::string& cursor, TPoint where, bool keyboard)
