@@ -697,16 +697,16 @@ static int Describe(sd_bus_message* message, void*, sd_bus_error* error)
 
       if (timeline->view->getCounted(first, last, step))
       {
-        // Times as Query() takes them, an end at the last microsecond of its interval
+        // Times as Query() takes them, in the zone of the timeline, an end at the last microsecond of its interval
         result = std::min(result, sd_bus_message_append(reply, "{sv}", "step", "t", step));
-        result = std::min(result, AppendString(reply, "counted_since", FormatJournalTime(first)));
-        result = std::min(result, AppendString(reply, "counted_until", FormatJournalTime(last - 1)));
+        result = std::min(result, AppendString(reply, "counted_since", FormatJournalTime(first, timeline->view->getUniversal())));
+        result = std::min(result, AppendString(reply, "counted_until", FormatJournalTime(last - 1, timeline->view->getUniversal())));
       }
 
       if (timeline->view->getFocus(first, last, counts, selected))
       {
-        result = std::min(result, AppendString(reply, "interval_since", FormatJournalTime(first)));
-        result = std::min(result, AppendString(reply, "interval_until", FormatJournalTime(last - 1)));
+        result = std::min(result, AppendString(reply, "interval_since", FormatJournalTime(first, timeline->view->getUniversal())));
+        result = std::min(result, AppendString(reply, "interval_until", FormatJournalTime(last - 1, timeline->view->getUniversal())));
         result = std::min(result, sd_bus_message_append(reply, "{sv}", "intervals", "u", (uint32_t)((last - first) / step)));
         result = std::min(result, sd_bus_message_append(reply, "{sv}", "selection", "b", (int)selected));
         result = std::min(result, sd_bus_message_append(reply, "{sv}", "errors", "t", counts[0]));

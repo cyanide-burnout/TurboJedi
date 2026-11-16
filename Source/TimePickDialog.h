@@ -17,7 +17,7 @@ class TimePickDialog : public TDialog
 {
   public:
 
-    TimePickDialog(const char* title, const char* value);
+    TimePickDialog(const char* title, const char* value, bool utc);  // The calendar and the clock of UTC or of the local zone
 
     std::string result;  // What goes to the field on OK
 
@@ -27,6 +27,7 @@ class TimePickDialog : public TDialog
 
     CalendarView* calendar;
     TInputLine* clock;
+    bool utc;
 };
 
 #endif

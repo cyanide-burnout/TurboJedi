@@ -115,10 +115,11 @@ TStatusLine* JediApplication::initStatusLine(TRect bounds)
       new TStatusItem("~B~ Bars",            kbNoKey, cmTimelineBars,
       new TStatusItem("~L~ Scale",           kbNoKey, cmTimelineScale,
       new TStatusItem("~Z~ Zoom",            kbNoKey, cmTimelineZoom,
+      new TStatusItem("~U~ UTC",             kbNoKey, cmTimelineZone,
       new TStatusItem("~Ctrl-Z~ Back",       kbNoKey, cmJournalBack,
       new TStatusItem("~Ctrl-T~ Range",      kbNoKey, cmJournalTime,
       new TStatusItem("~Alt-X~ Exit",        kbAltX,  cmQuit,
-      new TStatusItem(0, kbCtrlC, cmQuit)))))))),
+      new TStatusItem(0, kbCtrlC, cmQuit))))))))),
     new TStatusDef(hcWatchList, hcWatchList,
       new TStatusItem("~F1~ Help",           kbF1,    cmJournalHelp,
       new TStatusItem("~Enter~ Lines",       kbNoKey, cmWatchOpen,
@@ -842,7 +843,8 @@ void JediApplication::showHelp()
     "  F4              Text: plain or regular expression, to show or to leave out",
     "  F7              Source: unit, identifier, command, transport, boot, user, machine, PID",
     "  Shift-F7        Journals: of this machine, of every machine or of a directory",
-    "  Ctrl-T          Time range",
+    "  Ctrl-T          Time range, in local time or with UTC checked in UTC; the times",
+    "                  turn over when it is checked, it starts as the window shows times",
     "",
     "Lines",
     "  Ctrl-K          Columns, UTC and milliseconds",
@@ -869,7 +871,7 @@ void JediApplication::showHelp()
     "                  and a right click on a line; see PLUGINS.md",
     "  Ctrl-F          Find and highlight, Ctrl-N and Ctrl-P go to the next and previous one,",
     "                  the search goes on into the older entries past the oldest line",
-    "  Ctrl-G          Go to a time",
+    "  Ctrl-G          Go to a time, the one of the line in the zone the window shows",
     "  Alt-G           Every other window goes to the time of the selected line",
     "  Ctrl-Z          Undo navigation: back along the moves of the window, every move",
     "                  of the cursor by the keys or the mouse, Ctrl-G, Alt-G and a find,",
@@ -898,7 +900,9 @@ void JediApplication::showHelp()
     "                  a right click",
     "  +, -            Finer or coarser intervals",
     "  L               Linear or logarithmic scale",
-    "  B               Bars of blocks, or of Braille dots with two intervals a cell"
+    "  B               Bars of blocks, or of Braille dots with two intervals a cell",
+    "  U               Hours and days of UTC or of the local zone; a timeline starts",
+    "                  in the one its window shows times in"
   };
 
   TRect bounds;

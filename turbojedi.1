@@ -73,7 +73,8 @@ Usage.
 .PP
 \fITIME\fR is \fB2026-10-23 19:00\fR[\fB:00\fR[\fB.000000\fR]], \fB2026-10-23\fR, \fB19:00\fR (today), \fBnow\fR, \fBtoday\fR,
 \fByesterday\fR, \fBtomorrow\fR or relative as journalctl takes it: \fB\-1h\fR, \fB+30m\fR, \fB"\-1h 30min"\fR,
-\fB"5min ago"\fR (us, ms, s, min, h, d, w, M, y and their longer names).
+\fB"5min ago"\fR (us, ms, s, min, h, d, w, M, y and their longer names); in local time, or in UTC with \fBUTC\fR at the
+end as journalctl takes it: \fB"2026-10-23 17:00 UTC"\fR.
 .SH KEYS
 .TP 18
 .B F1
@@ -98,7 +99,8 @@ Source: unit, identifier, command, transport, boot, user, machine, PID, with lis
 Journals of the window: of this machine, of every machine there is, like \fBjournalctl \-\-merge\fR, or of a directory.
 .TP
 .B Ctrl-T
-Time range.
+Time range, in local time or with \fBUTC\fR checked in UTC: checking it turns the dates and times over, it starts
+checked when the window shows times in UTC.
 .TP
 .B Ctrl-K
 Columns: date, time, level, host, unit, identifier, PID; UTC, milliseconds, wrapped messages, hidden heading,
@@ -119,7 +121,7 @@ Find and highlight. \fBCtrl-N\fR and \fBCtrl-P\fR go to the next and previous on
 the search goes on into the older entries past the oldest line.
 .TP
 .B Ctrl-G
-Go to a time, given the way \fB\-\-since\fR takes it.
+Go to a time, given the way \fB\-\-since\fR takes it; the one of the line at hand in the zone the window shows.
 .TP
 .B Alt-G
 Every other window goes to the time of the selected line, their filters stay as they are.
@@ -138,7 +140,8 @@ Timeline: entries of the filter of the window by intervals of time, errors, warn
 in a column per interval. \fBLeft\fR and \fBRight\fR move the cursor, \fBEnter\fR takes every journal window
 to the first entry of the interval, \fB+\fR and \fB\-\fR make the intervals finer or coarser,
 \fBL\fR switches between linear and logarithmic scale, \fBB\fR between bars of blocks and of Braille dots,
-two intervals a cell. \fBShift\fR with the arrows, dragging or \fBShift\fR+click select intervals, \fBZ\fR or a
+two intervals a cell, \fBU\fR between hours and days of UTC and of the local zone, as the window shows times at
+first. \fBShift\fR with the arrows, dragging or \fBShift\fR+click select intervals, \fBZ\fR or a
 double click in the selection zooms into it, \fBCtrl\-T\fR sets the range, \fBCtrl\-Z\fR or a right click and
 \fBCtrl\-Y\fR go back and forward along the ranges and the steps.
 .TP

@@ -61,6 +61,7 @@ enum
   cmTimelineBars,              // B of a timeline: blocks or Braille, by the status line
   cmTimelineScale,             // L there: linear or logarithmic
   cmTimelineZoom,              // Z there: the selection becomes the range
+  cmTimelineZone,              // U there: hours and days of UTC or of the local zone
   cmJournalSourceList,         // One per source field, then one for PID
   cmJournalTimePick   = 1100,  // Since, then Until
   cmJournalTimePreset = 1110   // One per preset of the time picker

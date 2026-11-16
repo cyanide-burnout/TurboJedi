@@ -135,7 +135,8 @@ A timeline in front also tells what it counts and what the user looks at, for `Q
 | `selection` | b | they are the selection |
 | `errors`, `warnings`, `other` | t | entries in them: errors and worse, warnings, the rest |
 
-The times are in local time as `Query()` takes them, `2026-11-16 03:12:00` and `2026-11-16 03:12:59.999999`: given as
+The times are in the zone of the timeline as `Query()` takes them, `2026-11-16 03:12:00` and
+`2026-11-16 03:12:59.999999`, or with `UTC` at the end when the timeline counts hours of UTC: given as
 `since` and `until` with the filter, a query reads the entries of the bars. Without anything counted yet only the filter
 is told.
 

@@ -2591,19 +2591,16 @@ void JournalView::chooseFind()
 void JournalView::chooseMoment()
 {
   size_t index;
-  time_t second;
   uint64_t stamp;
-  struct tm date;
   char text[64];
 
   text[0] = '\0';
 
   if ((index = focus()) < lines.size())
   {
-    // The time of the line at hand to start from
-    second = lines[index].realtime / 1000000;
-    localtime_r(&second, &date);
-    strftime(text, sizeof(text), "%F %T", &date);
+    // The time of the line at hand to start from, in the zone the window shows it in
+    strncpy(text, FormatJournalTime(lines[index].realtime / 1000000 * 1000000, (filter.columns & JOURNAL_COLUMN_UTC) != 0).c_str(), sizeof(text) - 1);
+    text[sizeof(text) - 1] = '\0';
   }
 
   while (inputBox("Go to time", "~T~ime", text, sizeof(text) - 1) == cmOK)
@@ -2712,11 +2709,17 @@ void JournalView::chooseTime()
   bool valid;
   ushort result;
   uint64_t stamp;
+  std::string since;
+  std::string until;
   TimeData data;
 
+  // In the zone the window shows its times in, or in UTC the range has been given in
   memset(&data, 0, sizeof(data));
-  strncpy(data.since, filter.since.c_str(), sizeof(data.since) - 1);
-  strncpy(data.until, filter.until.c_str(), sizeof(data.until) - 1);
+  data.utc = ((filter.columns & JOURNAL_COLUMN_UTC) != 0) || IsJournalTimeUniversal(filter.since) || IsJournalTimeUniversal(filter.until);
+  ConvertJournalTime(filter.since, false, data.utc, since);
+  ConvertJournalTime(filter.until, false, data.utc, until);
+  strncpy(data.since, since.c_str(), sizeof(data.since) - 1);
+  strncpy(data.until, until.c_str(), sizeof(data.until) - 1);
 
   do
   {

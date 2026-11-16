@@ -21,7 +21,7 @@ VERSION = 'unknown'  # Of TurboJedi, set when installed
 API = 1              # Of the D-Bus interface this proxy speaks: within it fields and methods are only added
 
 PROTOCOLS = ('2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05')  # The newest first
-STRUCTURED = ('2025-11-25', '2025-06-18')                              # Versions that know structuredContent
+STRUCTURED = ('2025-11-25', '2025-06-18')                             # Versions that know structuredContent
 
 PREFIX = 'me.burnaway.TurboJedi.'
 PATH = '/me/burnaway/TurboJedi'
@@ -567,7 +567,7 @@ TOOLS = [
      'with window (its window_id) and title, timeline with title, its filter, step (microseconds of an interval), '
      'counted_since and counted_until, the range counted, interval_since and interval_until, the interval under the '
      'cursor or the selection, with intervals, selection, errors, warnings and other, the counts of it (the times are '
-     'local, query takes them as since and until with the filter to read the entries of the bars), watches (the list of watches) with watch, the one '
+     'local, or of UTC with UTC at the end, query takes them as since and until with the filter to read the entries of the bars), watches (the list of watches) with watch, the one '
      'under the cursor, or watch (the lines of a watch) with watch and line, the number of the line under the cursor; '
      'dialog, whether a dialog or a menu is open over it, the screen tools wait then; descriptors and descriptor_limit, '
      'the files the process has open and its limit, as every window and watch keeps the files of its journal open.',

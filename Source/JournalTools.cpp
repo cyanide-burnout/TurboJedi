@@ -808,7 +808,14 @@ static bool ParseJournalFraction(const char* rest, bool seconds, uint64_t* micro
   return (*rest == '\0') && (rest[-1] != '.');
 }
 
-bool ParseJournalTime(const std::string& text, uint64_t* stamp)
+// How a time is written, as ReadJournalTime() tells it
+#define TIME_UNKNOWN    0
+#define TIME_RELATIVE   1  // now and spans from it, of no zone
+#define TIME_DAY        2  // today, yesterday, tomorrow: midnight of the zone
+#define TIME_ABSOLUTE   3  // date and time, or time of today, of the zone
+
+// A time without the UTC at its end, in the local zone or in UTC
+static int ReadJournalTime(const std::string& text, bool utc, uint64_t* stamp)
 {
   static const char* const dates[]  = { "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d" };
   static const char* const clocks[] = { "%H:%M:%S", "%H:%M" };
@@ -824,30 +831,30 @@ bool ParseJournalTime(const std::string& text, uint64_t* stamp)
   if (text == "now")
   {
     *stamp = now * 1000000ULL;
-    return true;
+    return TIME_RELATIVE;
   }
 
   if ((text == "today") ||
       (text == "yesterday") ||
       (text == "tomorrow"))
   {
-    // Midnight of the local day
-    localtime_r(&now, &date);
+    // Midnight of the day of the zone
+    utc ? gmtime_r(&now, &date) : localtime_r(&now, &date);
     date.tm_hour   = 0;
     date.tm_min    = 0;
     date.tm_sec    = 0;
     date.tm_mday  += (text == "yesterday") ? -1 : ((text == "tomorrow") ? 1 : 0);
     date.tm_isdst  = -1;
-    *stamp = mktime(&date) * 1000000ULL;
-    return true;
+    *stamp = (utc ? timegm(&date) : mktime(&date)) * 1000000ULL;
+    return TIME_DAY;
   }
 
   if ((text.size() > 1) &&
       ((text[0] == '-') || (text[0] == '+')))
   {
     // Relative to now, as journalctl takes it: -1h, -1h 30min, +2days
-    return ParseJournalSpan(text.c_str() + 1, &span) &&
-           MoveJournalTime(now, (text[0] == '-') ? -span : span, stamp);
+    return (ParseJournalSpan(text.c_str() + 1, &span) &&
+            MoveJournalTime(now, (text[0] == '-') ? -span : span, stamp)) ? TIME_RELATIVE : TIME_UNKNOWN;
   }
 
   if ((text.size() > 4) &&
@@ -855,8 +862,8 @@ bool ParseJournalTime(const std::string& text, uint64_t* stamp)
        ((text.size() > 5) && (text.compare(text.size() - 5, 5, " left") == 0))))
   {
     // The same the other way: 5min ago, 2 hours left
-    return ParseJournalSpan(text.substr(0, text.rfind(' ')).c_str(), &span) &&
-           MoveJournalTime(now, (text.back() == 'o') ? -span : span, stamp);
+    return (ParseJournalSpan(text.substr(0, text.rfind(' ')).c_str(), &span) &&
+            MoveJournalTime(now, (text.back() == 'o') ? -span : span, stamp)) ? TIME_RELATIVE : TIME_UNKNOWN;
   }
 
   for (const char* format : dates)
@@ -866,16 +873,16 @@ bool ParseJournalTime(const std::string& text, uint64_t* stamp)
     if (((rest = strptime(text.c_str(), format, &date)) != nullptr) &&
         (ParseJournalFraction(rest, strstr(format, "%S") != nullptr, &micro)))
     {
-      // Full date, local time
+      // Full date
       date.tm_isdst = -1;
-      *stamp = mktime(&date) * 1000000ULL + micro;
-      return true;
+      *stamp = (utc ? timegm(&date) : mktime(&date)) * 1000000ULL + micro;
+      return TIME_ABSOLUTE;
     }
   }
 
   for (const char* format : clocks)
   {
-    localtime_r(&now, &date);
+    utc ? gmtime_r(&now, &date) : localtime_r(&now, &date);
     date.tm_sec = 0;
 
     if (((rest = strptime(text.c_str(), format, &date)) != nullptr) &&
@@ -883,12 +890,50 @@ bool ParseJournalTime(const std::string& text, uint64_t* stamp)
     {
       // Time of today
       date.tm_isdst = -1;
-      *stamp = mktime(&date) * 1000000ULL + micro;
-      return true;
+      *stamp = (utc ? timegm(&date) : mktime(&date)) * 1000000ULL + micro;
+      return TIME_ABSOLUTE;
     }
   }
 
-  return false;
+  return TIME_UNKNOWN;
+}
+
+bool IsJournalTimeUniversal(const std::string& text)
+{
+  return (text.size() > 4) && (text.compare(text.size() - 4, 4, " UTC") == 0);
+}
+
+bool ParseJournalTime(const std::string& text, uint64_t* stamp)
+{
+  // 2026-11-16 03:00 UTC as journalctl takes it
+  return IsJournalTimeUniversal(text) ?
+    (ReadJournalTime(text.substr(0, text.size() - 4), true, stamp) != TIME_UNKNOWN) :
+    (ReadJournalTime(text, false, stamp) != TIME_UNKNOWN);
+}
+
+bool ConvertJournalTime(const std::string& text, bool from, bool to, std::string& result)
+{
+  int kind;
+  bool utc;
+  uint64_t stamp;
+  std::string bare;
+
+  // The UTC at the end tells the zone, without it the time is of the one it has been typed in
+  utc  = IsJournalTimeUniversal(text) || from;
+  bare = IsJournalTimeUniversal(text) ? text.substr(0, text.size() - 4) : text;
+
+  if ((bare.empty()) ||
+      ((kind = ReadJournalTime(bare, utc, &stamp)) == TIME_UNKNOWN))
+  {
+    result = text;
+    return bare.empty();
+  }
+
+  if (kind == TIME_RELATIVE)  result = bare;
+  else if ((kind == TIME_DAY) || (utc == to))  result = bare + (to ? " UTC" : "");  // As typed, a day is one of the zone
+  else  result = FormatJournalTime(stamp, to);
+
+  return true;
 }
 
 static bool IsProcessRunning(int pid, uint64_t monotonic)
@@ -1160,19 +1205,24 @@ std::string GetJournalFilterName(const JournalFilter& filter)
   return caption;
 }
 
-std::string FormatJournalTime(uint64_t stamp)
+std::string FormatJournalTime(uint64_t stamp, bool utc)
 {
   time_t second;
   struct tm date;
   char text[48];
 
   second = stamp / 1000000;
-  localtime_r(&second, &date);
+  utc ? gmtime_r(&second, &date) : localtime_r(&second, &date);
   strftime(text, sizeof(text), "%F %T", &date);
 
   if ((stamp % 1000000) != 0)
   {
     snprintf(text + strlen(text), sizeof(text) - strlen(text), ".%06u", (unsigned)(stamp % 1000000));
+  }
+
+  if (utc)
+  {
+    strcat(text, " UTC");
   }
 
   return text;

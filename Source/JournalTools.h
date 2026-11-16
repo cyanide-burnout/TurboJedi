@@ -132,12 +132,18 @@ bool CheckJournalMatch(const std::string& match);
 // Short form of a filter for window titles: [levels], source fields, matches, times and /text/ the way sed writes it
 std::string GetJournalFilterName(const JournalFilter& filter);
 
-// Microseconds of 2026-10-23 19:00[:00], 2026-10-23, 19:00[:00] (today), now, today, yesterday, tomorrow, and relative
-// ones as journalctl takes them: -1h, +30m, -1h 30min, -2days, 5min ago, 1 hour left (us, ms, s, min, h, d, w, M, y and
-// their longer names)
+// Microseconds of 2026-10-23 19:00[:00[.000000]], 2026-10-23, 19:00[:00] (today), now, today, yesterday, tomorrow, and
+// relative ones as journalctl takes them: -1h, +30m, -1h 30min, -2days, 5min ago, 1 hour left (us, ms, s, min, h, d, w,
+// M, y and their longer names); in the local zone, or in UTC with UTC at the end as journalctl takes it
 bool ParseJournalTime(const std::string& text, uint64_t* stamp);
+bool IsJournalTimeUniversal(const std::string& text);  // UTC at the end
 
-// A time the way ParseJournalTime takes it back: 2026-10-23 19:00:00 in local time, a fraction of a second when it has one
-std::string FormatJournalTime(uint64_t stamp);
+// A time typed in one zone written in another: a date and time is counted over, a day takes the UTC at the end or
+// leaves it, now and spans from it stay; false, and the text as it is, when it is no time
+bool ConvertJournalTime(const std::string& text, bool from, bool to, std::string& result);
+
+// A time the way ParseJournalTime takes it back: 2026-10-23 19:00:00 in local time, or with UTC at the end, a fraction of
+// a second when it has one
+std::string FormatJournalTime(uint64_t stamp, bool utc = false);
 
 #endif

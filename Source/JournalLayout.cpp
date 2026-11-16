@@ -173,6 +173,13 @@ static const char* SetValue(JournalLayout& window, const std::string& key, const
   }
 
   if (window.timeline &&
+      (key == "utc"))
+  {
+    // Hours and days of UTC, the UTC column of a journal window
+    return ParseSwitch(value, JOURNAL_COLUMN_UTC, &window.filter.columns) ? nullptr : "utc takes yes or no";
+  }
+
+  if (window.timeline &&
       (key == "bars"))
   {
     window.braille = (value == "braille");
@@ -456,6 +463,7 @@ bool SaveJournalLayout(const std::string& path, const std::vector<JournalLayout>
       file << "\nstep = " << window.step;
       file << "\nscale = " << (window.logarithmic ? "log" : "linear");
       file << "\nbars = " << (window.braille ? "braille" : "blocks");
+      file << ((window.filter.columns & JOURNAL_COLUMN_UTC) ? "\nutc = yes" : "");
       file << "\n\n";
       continue;
     }

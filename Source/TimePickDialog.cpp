@@ -3,6 +3,7 @@
 // Artem Prilutskiy, 2026
 
 #define Uses_TLabel
+#define Uses_TStaticText
 #define Uses_TButton
 #define Uses_TFilterValidator
 #define Uses_TEvent
@@ -16,9 +17,10 @@
 
 // TimePickDialog
 
-TimePickDialog::TimePickDialog(const char* title, const char* value) :
+TimePickDialog::TimePickDialog(const char* title, const char* value, bool utc) :
   TWindowInit(&TDialog::initFrame),
-  TDialog(TRect(0, 0, 57, 20), title)
+  TDialog(TRect(0, 0, 57, 20), title),
+  utc(utc)
 {
   static const char* const labels[] = { "~N~ow", "-15m", "-1~h~", "~T~oday", "~Y~esterday" };
   static const short spans[][2] = { { 2, 11 }, { 12, 21 }, { 22, 31 }, { 32, 42 }, { 43, 55 } };
@@ -36,7 +38,7 @@ TimePickDialog::TimePickDialog(const char* title, const char* value) :
   }
 
   second = stamp / 1000000;
-  localtime_r(&second, &date);
+  utc ? gmtime_r(&second, &date) : localtime_r(&second, &date);
   strftime(text, sizeof(text), "%H:%M:%S", &date);
 
   options |= ofCentered;
@@ -46,6 +48,7 @@ TimePickDialog::TimePickDialog(const char* title, const char* value) :
   insert(calendar);
   insert(clock);
   insert(new TLabel(TRect(17, 11, 24, 12), "T~i~me", clock));
+  insert(new TStaticText(TRect(35, 11, 41, 12), utc ? "UTC" : "local"));
 
   for (index = 0; index < 5; index ++)
   {
@@ -94,7 +97,7 @@ void TimePickDialog::handleEvent(TEvent& event)
     }
 
     strftime(text, sizeof(text), "%Y-%m-%d %H:%M:%S", &moment);
-    result = text;
+    result = std::string(text) + (utc ? " UTC" : "");
   }
 
   TDialog::handleEvent(event);

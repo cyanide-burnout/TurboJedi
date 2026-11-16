@@ -187,7 +187,8 @@ turbojedi [options] [FIELD=VALUE ...]
 
 `TIME` is `2026-10-23 19:00[:00[.000000]]`, `2026-10-23`, `19:00`, `now`, `today`, `yesterday`, `tomorrow` or a relative
 one as journalctl takes it: `-1h`, `+30m`, `-1h 30min`, `-2days`, `5min ago` (`us`, `ms`, `s`, `min`, `h`, `d`, `w`,
-`M`, `y` and their longer names).
+`M`, `y` and their longer names); in local time, or in UTC with `UTC` at the end as journalctl takes it:
+`2026-10-23 17:00 UTC`.
 
 Reading the whole journal needs root or the `systemd-journal` group, others see their own entries only.
 
@@ -267,17 +268,17 @@ window to the time of the selected line, and a layout keeps their directories fo
 | F4 | text filter |
 | F7 | source |
 | Shift-F7 | journals: of this machine, of every machine or of a directory |
-| Ctrl-T | time range |
+| Ctrl-T | time range, in local time or with UTC checked in UTC: checking it turns the dates and times over, it starts checked when the window shows times in UTC |
 | Ctrl-K | columns |
 | Ctrl-W | wrap long messages |
 | Ctrl-R | the newest entries on top or at the bottom; the title ends with ▲ when they are at the bottom, ▼ when on top, a click on it turns the order too |
 | Ctrl-L | highlighting rules |
 | Ctrl-F, Ctrl-N, Ctrl-P | find, next, previous |
-| Ctrl-G | go to a time |
+| Ctrl-G | go to a time, the one of the line at hand in the zone the window shows |
 | Alt-G | every other window goes to the time of the selected line |
 | Ctrl-Z | undo navigation: back along the moves of the window, every move of the cursor by the keys or the mouse, Ctrl-G, Alt-G and a find, the last 64 of them; marks and lines are not undone; also Alt-Left and Alt-Backspace |
 | Ctrl-Y | redo navigation: forward again where Ctrl-Z has come from, also Alt-Right; a new move after Ctrl-Z drops the way ahead |
-| Alt-T | timeline: entries of the filter of the window by intervals of time; Left and Right move, Enter takes every journal window to the interval, `+` and `-` change the step, `L` the scale, `B` the bars: blocks, or Braille dots with two intervals a cell. Shift with the arrows, dragging or Shift+click select intervals, `Z` or a double click in the selection zooms into it, Ctrl-T sets the range, Ctrl-Z or a right click and Ctrl-Y go back and forward along the ranges and the steps; the status line tells the keys, the heading the scale and the bars |
+| Alt-T | timeline: entries of the filter of the window by intervals of time; Left and Right move, Enter takes every journal window to the interval, `+` and `-` change the step, `L` the scale, `B` the bars: blocks, or Braille dots with two intervals a cell, `U` hours and days of UTC or of the local zone, as the window shows times at first. Shift with the arrows, dragging or Shift+click select intervals, `Z` or a double click in the selection zooms into it, Ctrl-T sets the range, Ctrl-Z or a right click and Ctrl-Y go back and forward along the ranges and the steps; the status line tells the keys, the heading the scale, the bars and the zone |
 | Up, Down, PgUp, PgDn, Home, End | move the cursor, it starts on the newest line of the screen; on the newest line the window follows, anywhere else it pauses |
 | Enter, double click | details of the entry under the cursor, Enter on a field there opens a window with it added to the filter |
 | Alt-F10, A, F11, Shift-F10, right click | actions of the plugins for the entry under the cursor, see [PLUGINS.md](PLUGINS.md); A is for Terminal of macOS, which keeps F10 and F11 for itself |
@@ -315,7 +316,7 @@ for the hidden ones), `highlight` and `columns` (`date`, `time`, `level`, `host`
 `millisecond`, `wrap`, `headless`, `reverse`).
 
 A timeline is a `[timeline]` section with `bounds`, the keys of the filter it counts, `step` (seconds of an interval,
-`0` lets the window choose one that fits), `scale` (`linear` or `log`) and `bars` (`blocks` or `braille`); a zoomed
+`0` lets the window choose one that fits), `scale` (`linear` or `log`), `bars` (`blocks` or `braille`) and `utc = yes` for hours and days of UTC; a zoomed
 timeline keeps its range in `since` and `until`:
 
 ```

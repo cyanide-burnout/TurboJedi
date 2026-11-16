@@ -56,17 +56,17 @@ static const uint8_t dots[2][5] =
 
 // Helpers
 
-static uint64_t AlignTime(uint64_t realtime, uint64_t step)
+static uint64_t AlignTime(uint64_t realtime, uint64_t step, bool utc)
 {
   time_t second;
   struct tm date;
   int64_t offset;
   int64_t local;
 
-  // Hours and days start where the clock on the wall says
+  // Hours and days start where the clock on the wall says, or the one of UTC
   second = realtime / 1000000;
   localtime_r(&second, &date);
-  offset = date.tm_gmtoff * 1000000LL;
+  offset = utc ? 0 : (date.tm_gmtoff * 1000000LL);
   local  = (int64_t)realtime + offset;
 
   return local - (local % (int64_t)step) - offset;
@@ -266,6 +266,7 @@ void TimelineView::draw()
 
   line += logarithmic ? " \xe2\x94\x82 log" : " \xe2\x94\x82 linear";
   line += braille ? " \xe2\x94\x82 braille" : " \xe2\x94\x82 blocks";
+  line += universal() ? " \xe2\x94\x82 UTC" : " \xe2\x94\x82 local";
 
   if (pending)
   {
@@ -478,6 +479,11 @@ void TimelineView::handleEvent(TEvent& event)
             changeBars();
             break;
 
+          case 'u':
+          case 'U':
+            changeZone();
+            break;
+
           default:
             TScroller::handleEvent(event);
             return;
@@ -557,6 +563,7 @@ void TimelineView::handleEvent(TEvent& event)
     {
       case cmJournalTime:     chooseTime();   break;
       case cmTimelineBars:    changeBars();   break;
+      case cmTimelineZone:    changeZone();   break;
       case cmTimelineScale:   changeScale();  break;
       case cmTimelineZoom:    narrow();       break;
       case cmJournalBack:     retreat();      break;
@@ -624,6 +631,11 @@ bool TimelineView::getLogarithmic()
 bool TimelineView::getBraille()
 {
   return braille;
+}
+
+bool TimelineView::getUniversal()
+{
+  return universal();
 }
 
 bool TimelineView::getCounted(uint64_t& first, uint64_t& last, uint64_t& interval)
@@ -770,13 +782,13 @@ void TimelineView::begin(uint64_t fixed)
   {
     step = steps[index] * 1000000ULL;
 
-    if (((last - AlignTime(first, step)) / step) < width)
+    if (((last - AlignTime(first, step, universal())) / step) < width)
     {
       break;
     }
   }
 
-  start = AlignTime(first, step);
+  start = AlignTime(first, step, universal());
   end   = last;
   done  = start;
 
@@ -980,8 +992,8 @@ TimelineView::Range TimelineView::selected()
   // Whole intervals up to the last microsecond of the last one, until takes it in; one that reaches the newest of a
   // range open at the end keeps it open, the timeline follows on
   selection(lower, upper);
-  range.since  = FormatJournalTime(start + lower * step);
-  range.until  = ((upper == (intervals.size() - 1)) && (until == 0)) ? std::string() : FormatJournalTime(start + (upper + 1) * step - 1);
+  range.since  = FormatJournalTime(start + lower * step, universal());
+  range.until  = ((upper == (intervals.size() - 1)) && (until == 0)) ? std::string() : FormatJournalTime(start + (upper + 1) * step - 1, universal());
   range.chosen = 0;
 
   return range;
@@ -1004,13 +1016,18 @@ void TimelineView::chooseTime()
   uint64_t stamp;
   Range range;
   TimeData data;
+  std::string since;
+  std::string until;
 
-  // The range of the timeline, or the one of its selection to correct before it is taken
+  // The range of the timeline, or the one of its selection to correct before it is taken, in the zone of the timeline
   range = (anchor >= 0) ? selected() : Range { filter.since, filter.until, 0 };
 
   memset(&data, 0, sizeof(data));
-  strncpy(data.since, range.since.c_str(), sizeof(data.since) - 1);
-  strncpy(data.until, range.until.c_str(), sizeof(data.until) - 1);
+  data.utc = universal() || IsJournalTimeUniversal(range.since) || IsJournalTimeUniversal(range.until);
+  ConvertJournalTime(range.since, false, data.utc, since);
+  ConvertJournalTime(range.until, false, data.utc, until);
+  strncpy(data.since, since.c_str(), sizeof(data.since) - 1);
+  strncpy(data.until, until.c_str(), sizeof(data.until) - 1);
 
   do
   {
@@ -1032,8 +1049,9 @@ void TimelineView::chooseTime()
   }
   while (!valid);
 
-  if ((filter.since == data.since) &&
-      (filter.until == data.until))
+  if ((anchor < 0) &&
+      (since == data.since) &&
+      (until == data.until))
   {
     // The same range, the counts stay
     return;
@@ -1195,6 +1213,25 @@ void TimelineView::changeBars()
   refresh();
 }
 
+void TimelineView::changeZone()
+{
+  // Hours and days of the intervals start on the clock of the other zone, the range stays as it has been typed
+  filter.columns ^= JOURNAL_COLUMN_UTC;
+
+  if (journal != nullptr)
+  {
+    restart(chosen);
+    return;
+  }
+
+  drawView();
+}
+
+bool TimelineView::universal()
+{
+  return (filter.columns & JOURNAL_COLUMN_UTC) != 0;
+}
+
 void TimelineView::restart(uint64_t fixed)
 {
   uint64_t moment;
@@ -1242,7 +1279,7 @@ std::string TimelineView::label(uint64_t realtime, bool full)
   char text[32];
 
   second = realtime / 1000000;
-  localtime_r(&second, &date);
+  universal() ? gmtime_r(&second, &date) : localtime_r(&second, &date);
 
   // As much as the step tells apart, the times under the graph get the day once they are hours apart
   strftime(text, sizeof(text),

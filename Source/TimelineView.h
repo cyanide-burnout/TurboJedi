@@ -42,6 +42,7 @@ class TimelineView : public TScroller
     int getStep();  // Seconds of the step chosen by + and -, zero when the window has chosen it
     bool getLogarithmic();
     bool getBraille();
+    bool getUniversal();  // Hours and days of UTC, by the UTC column of the filter
 
     // What the bus tells: the intervals counted, and the one under the cursor or the selection with the counts of
     // errors, warnings and the rest; microseconds, an end is the first one after; false while nothing is counted
@@ -115,6 +116,8 @@ class TimelineView : public TScroller
     void restart(uint64_t fixed);
     void changeScale();
     void changeBars();
+    void changeZone();
+    bool universal();
     int share();
     void heights(const Interval& interval, uint64_t peak, int units, int* levels);
     std::string label(uint64_t realtime, bool full);
