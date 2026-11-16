@@ -262,7 +262,7 @@ window to the time of the selected line, and a layout keeps their directories fo
 |---|---|
 | F1 | keys |
 | F2 | new window with the filter of the command line |
-| Shift-F2 | clone of the focused window: its lines, filter, find, selection and place, or the counts, step, scale and cursor of a timeline; both go on with the journal on their own |
+| Shift-F2 | clone of the focused window: its lines, filter, find, selection and place, or the counts, step, scale, bars and cursor of a timeline; both go on with the journal on their own |
 | F3 | levels |
 | F4 | text filter |
 | F7 | source |
@@ -277,7 +277,7 @@ window to the time of the selected line, and a layout keeps their directories fo
 | Alt-G | every other window goes to the time of the selected line |
 | Ctrl-Z | undo navigation: back along the moves of the window, every move of the cursor by the keys or the mouse, Ctrl-G, Alt-G and a find, the last 64 of them; marks and lines are not undone; also Alt-Left and Alt-Backspace |
 | Ctrl-Y | redo navigation: forward again where Ctrl-Z has come from, also Alt-Right; a new move after Ctrl-Z drops the way ahead |
-| Alt-T | timeline: entries of the filter of the window by intervals of time; Left and Right move, Enter takes every journal window to the interval, `+` and `-` change the step, `L` the scale |
+| Alt-T | timeline: entries of the filter of the window by intervals of time; Left and Right move, Enter takes every journal window to the interval, `+` and `-` change the step, `L` the scale, `B` the bars: blocks, or Braille dots with two intervals a cell. Shift with the arrows, dragging or Shift+click select intervals, `Z` or a double click in the selection zooms into it, Ctrl-T sets the range, Ctrl-Z and Ctrl-Y go back and forward along the ranges |
 | Up, Down, PgUp, PgDn, Home, End | move the cursor, it starts on the newest line of the screen; on the newest line the window follows, anywhere else it pauses |
 | Enter, double click | details of the entry under the cursor, Enter on a field there opens a window with it added to the filter |
 | Alt-F10, A, F11, Shift-F10, right click | actions of the plugins for the entry under the cursor, see [PLUGINS.md](PLUGINS.md); A is for Terminal of macOS, which keeps F10 and F11 for itself |
@@ -315,7 +315,8 @@ for the hidden ones), `highlight` and `columns` (`date`, `time`, `level`, `host`
 `millisecond`, `wrap`, `headless`, `reverse`).
 
 A timeline is a `[timeline]` section with `bounds`, the keys of the filter it counts, `step` (seconds of an interval,
-`0` lets the window choose one that fits) and `scale` (`linear` or `log`):
+`0` lets the window choose one that fits), `scale` (`linear` or `log`) and `bars` (`blocks` or `braille`); a zoomed
+timeline keeps its range in `since` and `until`:
 
 ```
 [timeline]
@@ -324,6 +325,7 @@ unit = nginx.service
 levels = EACRWNID
 step = 3600
 scale = log
+bars = braille
 ```
 
 The list of watches of plugins is a `[watchlist]` section with its `bounds`, the lines of a watch a `[watchlines]` section

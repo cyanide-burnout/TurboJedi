@@ -3,6 +3,7 @@
 // Artem Prilutskiy, 2026
 
 #define Uses_TScrollBar
+#define Uses_TFrame
 #include "TimelineWindow.h"
 
 // Helpers
@@ -18,7 +19,7 @@ static std::string GetTitle(const JournalFilter& filter)
 
 // TimelineWindow
 
-TimelineWindow::TimelineWindow(const TRect& bounds, const JournalFilter& filter, int seconds, bool logarithmic) :
+TimelineWindow::TimelineWindow(const TRect& bounds, const JournalFilter& filter, int seconds, bool logarithmic, bool braille) :
   TWindowInit(&TWindow::initFrame),
   TWindow(bounds, GetTitle(filter).c_str(), wnNoNumber)
 {
@@ -26,7 +27,7 @@ TimelineWindow::TimelineWindow(const TRect& bounds, const JournalFilter& filter,
   TScrollBar* horizontal;
 
   extent = prepare(horizontal);
-  view   = new TimelineView(extent, horizontal, filter, seconds, logarithmic);
+  view   = new TimelineView(extent, horizontal, filter, seconds, logarithmic, braille);
 
   insert(view);
 }
@@ -42,6 +43,17 @@ TimelineWindow::TimelineWindow(const TRect& bounds, const TimelineView& source) 
   view   = new TimelineView(extent, horizontal, source);
 
   insert(view);
+}
+
+void TimelineWindow::retitle()
+{
+  delete[] (char*)title;
+  title = newStr(GetTitle(view->getFilter()));
+
+  if (frame != nullptr)
+  {
+    frame->drawView();
+  }
 }
 
 TRect TimelineWindow::prepare(TScrollBar*& horizontal)

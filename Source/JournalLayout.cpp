@@ -172,6 +172,13 @@ static const char* SetValue(JournalLayout& window, const std::string& key, const
     return ((value == "log") || (value == "linear")) ? nullptr : "scale takes linear or log";
   }
 
+  if (window.timeline &&
+      (key == "bars"))
+  {
+    window.braille = (value == "braille");
+    return ((value == "braille") || (value == "blocks")) ? nullptr : "bars takes blocks or braille";
+  }
+
   if (key == "levels")
   {
     // Letter of a shown level, dash of a hidden one, the way the window title shows them
@@ -307,6 +314,7 @@ bool LoadJournalLayout(const std::string& path, std::vector<JournalLayout>& wind
       windows.back().index            = 0;
       windows.back().step             = 0;
       windows.back().logarithmic      = false;
+      windows.back().braille          = false;
       windows.back().filter.merge     = false;
       windows.back().filter.pid       = 0;
       windows.back().filter.mode      = 0;
@@ -325,6 +333,7 @@ bool LoadJournalLayout(const std::string& path, std::vector<JournalLayout>& wind
       windows.back().timeline    = false;
       windows.back().step        = 0;
       windows.back().logarithmic = false;
+      windows.back().braille     = false;
       windows.back().watches     = (line == "[watchlist]") ? LAYOUT_WATCH_LIST : LAYOUT_WATCH_LINES;
       windows.back().index       = 0;
       continue;
@@ -446,6 +455,7 @@ bool SaveJournalLayout(const std::string& path, const std::vector<JournalLayout>
       // Neither colors nor columns of the lines
       file << "\nstep = " << window.step;
       file << "\nscale = " << (window.logarithmic ? "log" : "linear");
+      file << "\nbars = " << (window.braille ? "braille" : "blocks");
       file << "\n\n";
       continue;
     }

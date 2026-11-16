@@ -526,7 +526,7 @@ void JediApplication::timeline(JournalWindow* current)
     return;
   }
 
-  window = new TimelineWindow(deskTop->getExtent(), current->view->getFilter(), 0, false);
+  window = new TimelineWindow(deskTop->getExtent(), current->view->getFilter(), 0, false, false);
 
   deskTop->insert(window);
   tile();
@@ -554,8 +554,10 @@ static void CollectWindow(TView* view, void* argument)
     layout.bounds[1] = bounds.a.y;
     layout.bounds[2] = bounds.b.x;
     layout.bounds[3] = bounds.b.y;
-    layout.timeline  = false;
-    layout.step      = 0;
+    layout.timeline    = false;
+    layout.step        = 0;
+    layout.logarithmic = false;
+    layout.braille     = false;
     layout.watches   = (lines != nullptr) ? LAYOUT_WATCH_LINES : LAYOUT_WATCH_LIST;
     layout.plugin    = (lines != nullptr) ? watch->plugin : "";
     layout.title     = (lines != nullptr) ? watch->title : "";
@@ -578,6 +580,7 @@ static void CollectWindow(TView* view, void* argument)
     layout.timeline    = (timeline != nullptr);
     layout.step        = (timeline != nullptr) ? timeline->view->getStep() : 0;
     layout.logarithmic = (timeline != nullptr) && timeline->view->getLogarithmic();
+    layout.braille     = (timeline != nullptr) && timeline->view->getBraille();
     layout.watches     = 0;
     layout.index       = 0;
 
@@ -659,7 +662,7 @@ bool JediApplication::load(const std::string& path, std::string& error)
     if (item.timeline)
     {
       // Timelines go without numbers
-      window = new TimelineWindow(fitting ? bounds : extent, item.filter, item.step, item.logarithmic);
+      window = new TimelineWindow(fitting ? bounds : extent, item.filter, item.step, item.logarithmic, item.braille);
       deskTop->insert(window);
       continue;
     }
@@ -874,10 +877,17 @@ void JediApplication::showHelp()
     "",
     "Timeline",
     "  Left, Right     Interval under the cursor, also with the mouse, PgUp, PgDn, Home, End",
+    "  Shift-arrows    Select intervals, also Shift-PgUp and the like, dragging or",
+    "                  Shift+click; Esc drops the selection",
     "  Enter           Every journal window goes to the first entry of the interval,",
-    "                  also double click",
+    "                  also double click outside the selection",
+    "  Z               Zoom into the selection, also double click in it; a selection",
+    "                  up to the newest interval keeps following",
+    "  Ctrl-T          Time range of the timeline, the one of the selection to correct",
+    "  Ctrl-Z, Ctrl-Y  Back and forward along the ranges",
     "  +, -            Finer or coarser intervals",
-    "  L               Linear or logarithmic scale"
+    "  L               Linear or logarithmic scale",
+    "  B               Bars of blocks, or of Braille dots with two intervals a cell"
   };
 
   TRect bounds;

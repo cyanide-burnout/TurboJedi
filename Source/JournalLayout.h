@@ -25,6 +25,7 @@ struct JournalLayout
   bool timeline;
   int step;       // Seconds of an interval of a timeline, zero lets the window choose
   bool logarithmic;
+  bool braille;   // Bars of a timeline in the dots of Braille, two intervals a cell
   int watches;          // LAYOUT_WATCH_LIST or LAYOUT_WATCH_LINES for a window of watches, zero for a journal or a timeline
   std::string plugin;   // Of the watch of the lines
   std::string title;

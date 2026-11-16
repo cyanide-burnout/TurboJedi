@@ -7,8 +7,11 @@
 #define Uses_TKeys
 #define Uses_TProgram
 #define Uses_TDeskTop
+#define Uses_MsgBox
 #include "TimelineView.h"
+#include "TimelineWindow.h"
 #include "JournalView.h"
+#include "TimeDialog.h"
 
 #include <math.h>
 #include <time.h>
@@ -22,6 +25,7 @@
 #define READ_STEP       20000   // Entries counted at once, the rest comes with the next polls
 #define INTERVAL_LIMIT  100000  // Columns the finest step may take, the reading stops there
 #define LABEL_SPACING   12      // Columns between the times under the graph
+#define RANGE_HISTORY   64      // Ranges Ctrl-Z goes back through
 
 #define GROUP_ERROR    0
 #define GROUP_WARNING  1
@@ -41,6 +45,13 @@ static const uint64_t steps[] =
 static const char* const blocks[] =
 {
   " ", "\xe2\x96\x81", "\xe2\x96\x82", "\xe2\x96\x83", "\xe2\x96\x84", "\xe2\x96\x85", "\xe2\x96\x86", "\xe2\x96\x87", "\xe2\x96\x88"
+};
+
+// Dots of Braille filled from the bottom, of the left and of the right column of a cell, added to U+2800
+static const uint8_t dots[2][5] =
+{
+  { 0x00, 0x40, 0x44, 0x46, 0x47 },
+  { 0x00, 0x80, 0xa0, 0xb0, 0xb8 }
 };
 
 // Helpers
@@ -75,13 +86,28 @@ static std::string FormatStep(uint64_t step)
   return text;
 }
 
+// A time a range takes, in local time as the dialog takes it: intervals start on whole seconds
+static std::string FormatStamp(uint64_t realtime)
+{
+  time_t second;
+  struct tm date;
+  char text[32];
+
+  second = realtime / 1000000;
+  localtime_r(&second, &date);
+  strftime(text, sizeof(text), "%F %T", &date);
+
+  return text;
+}
+
 // TimelineView
 
-TimelineView::TimelineView(const TRect& bounds, TScrollBar* horizontal, const JournalFilter& filter, int seconds, bool logarithmic) :
+TimelineView::TimelineView(const TRect& bounds, TScrollBar* horizontal, const JournalFilter& filter, int seconds, bool logarithmic, bool braille) :
   TScroller(bounds, horizontal, nullptr)
 {
   this->filter      = filter;
   this->logarithmic = logarithmic;
+  this->braille     = braille;
 
   growMode    = gfGrowHiX | gfGrowHiY;
   options    |= ofFirstClick;
@@ -99,6 +125,7 @@ TimelineView::TimelineView(const TRect& bounds, TScrollBar* horizontal, const Jo
   pending     = false;
   follow      = true;
   cursor      = 0;
+  anchor      = -1;
 
   open();
 }
@@ -118,6 +145,7 @@ TimelineView::TimelineView(const TRect& bounds, TScrollBar* horizontal, const Ti
   closed      = source.closed;
   pending     = source.pending;
   logarithmic = source.logarithmic;
+  braille     = source.braille;
   follow      = source.follow;
   intervals   = source.intervals;
   cursor      = source.cursor;
@@ -127,6 +155,7 @@ TimelineView::TimelineView(const TRect& bounds, TScrollBar* horizontal, const Ti
   journal     = nullptr;
   notifier    = nullptr;
   blind       = false;
+  anchor      = -1;
 
   // The expression is compiled again, it is not shared
   matcher.set(filter.text, filter.mode);
@@ -177,8 +206,17 @@ void TimelineView::draw()
   int part;
   int lower;
   int upper;
+  int units;
+  int group;
+  int edge;
+  int side;
+  int bits;
+  int cell;
   int levels[3];
   size_t index;
+  size_t first;
+  size_t last;
+  std::array<uint64_t, 3> sums;
   uint64_t peak;
   uint64_t realtime;
   char text[160];
@@ -197,6 +235,7 @@ void TimelineView::draw()
   marked  = normal;
   stamp   = normal;
   room    = std::max(size.y - 2, 0);
+  units   = room * (braille ? 4 : 8);
   peak    = 0;
   marked.setBackground(TColorBIOS(0x3));
   stamp.setForeground(TColorBIOS(0x3));
@@ -211,7 +250,24 @@ void TimelineView::draw()
   realtime = start + cursor * step;
   line     = " " + label(realtime, true) + " +" + FormatStep(step);
 
-  if (cursor < intervals.size())
+  if (selection(first, last))
+  {
+    // The selection instead of the cursor: its bounds, how many intervals and the counts of them all
+    sums = { 0, 0, 0 };
+    line = " " + label(start + first * step, true) + " \xe2\x80\x93 " + label(start + (last + 1) * step, true) + " " +
+      std::to_string(last - first + 1) + "\xc3\x97" + FormatStep(step);
+
+    for (index = first; index <= last; index ++)
+    {
+      sums[0] += intervals[index].counts[GROUP_ERROR];
+      sums[1] += intervals[index].counts[GROUP_WARNING];
+      sums[2] += intervals[index].counts[GROUP_REST];
+    }
+
+    snprintf(text, sizeof(text), "  err %llu  warn %llu  other %llu", (unsigned long long)sums[0], (unsigned long long)sums[1], (unsigned long long)sums[2]);
+    line += text;
+  }
+  else if (cursor < intervals.size())
   {
     snprintf(text, sizeof(text), "  err %llu  warn %llu  other %llu",
       (unsigned long long)intervals[cursor].counts[GROUP_ERROR],
@@ -221,6 +277,7 @@ void TimelineView::draw()
   }
 
   line += logarithmic ? " \xe2\x94\x82 log" : " \xe2\x94\x82 linear";
+  line += braille ? " \xe2\x94\x82 braille" : "";
 
   if (pending)
   {
@@ -238,15 +295,15 @@ void TimelineView::draw()
   buffer.moveStr(0, line, heading, size.x);
   writeLine(0, 0, size.x, 1, buffer);
 
-  for (x = 0; x < size.x; x ++)
+  for (x = 0; x < size.x * share(); x ++)
   {
-    // Boundaries of the three parts of every column on the screen, in eighths of a cell
-    index = delta.x + x;
+    // Boundaries of the three parts of every column on the screen, in eighths of a cell or in dots
+    index = delta.x * share() + x;
     levels[0] = levels[1] = levels[2] = 0;
 
     if (index < intervals.size())
     {
-      heights(intervals[index], peak, room, levels);
+      heights(intervals[index], peak, units, levels);
     }
 
     columns.push_back({ levels[0], levels[1], levels[2] });
@@ -258,11 +315,49 @@ void TimelineView::draw()
     row = room - 1 - y;
     buffer.moveChar(0, ' ', normal, size.x);
 
-    for (x = 0; x < size.x; x ++)
+    for (x = 0; (x < size.x) && braille; x ++)
+    {
+      // Two columns of four dots, the color of the worst part a dot of the cell belongs to: one color a cell
+      bits  = 0;
+      group = GROUP_NONE;
+      color = (((size_t)(delta.x + x) == (cursor / 2)) || contains(delta.x + x)) ? marked : normal;
+
+      for (side = 0; side < 2; side ++)
+      {
+        bits |= dots[side][std::clamp(columns[x * 2 + side][2] - row * 4, 0, 4)];
+
+        for (lower = 0; lower < 3; lower ++)
+        {
+          edge = (lower > 0) ? columns[x * 2 + side][lower - 1] : 0;
+
+          if ((columns[x * 2 + side][lower] > std::max(edge, row * 4)) &&
+              (edge < (row * 4 + 4)))
+          {
+            group = std::min(group, lower);
+            break;
+          }
+        }
+      }
+
+      if (bits != 0)
+      {
+        color.setForeground(TColorBIOS(colors[group]));
+        text[0] = '\xe2';
+        text[1] = (char)(0xa0 | (bits >> 6));
+        text[2] = (char)(0x80 | (bits & 0x3f));
+        text[3] = '\0';
+        buffer.moveStr(x, text, color);
+        continue;
+      }
+
+      buffer.moveChar(x, ' ', color, 1);
+    }
+
+    for (x = 0; (x < size.x) && !braille; x ++)
     {
       // A cell shows at most two parts: the lower one by the block, the one above it by the background
       lower = std::upper_bound(columns[x].begin(), columns[x].end(), row * 8) - columns[x].begin();
-      color = ((size_t)(delta.x + x) == cursor) ? marked : normal;
+      color = (((size_t)(delta.x + x) == cursor) || contains(delta.x + x)) ? marked : normal;
 
       if (lower == GROUP_NONE)
       {
@@ -305,19 +400,21 @@ void TimelineView::draw()
     {
       if (((delta.x + x) % LABEL_SPACING) == 0)
       {
-        time = label(start + (delta.x + x) * step, false);
+        time = label(start + (delta.x + x) * share() * step, false);
         buffer.moveStr(x, time, stamp, std::min<int>(time.size(), size.x - x));
       }
     }
 
-    if ((cursor >= (size_t)delta.x) &&
-        (cursor < (size_t)(delta.x + size.x)))
+    cell = cursor / share();
+
+    if ((cell >= delta.x) &&
+        (cell < (delta.x + size.x)))
     {
       // A time there stays readable in the color of the cursor, a blank cell gets a mark
-      x     = cursor - delta.x;
+      x     = cell - delta.x;
       color = TColorAttr(TColorBIOS(0x0), TColorBIOS(0x3));
 
-      if ((cursor % LABEL_SPACING) >= label(start, false).size())
+      if ((size_t)(cell % LABEL_SPACING) >= label(start, false).size())
       {
         buffer.moveStr(x, "\xe2\x96\xb2", color);
       }
@@ -331,19 +428,38 @@ void TimelineView::draw()
 
 void TimelineView::handleEvent(TEvent& event)
 {
+  bool extend;
+  bool dragged;
+  int64_t cell;
+  int64_t pressed;
   JournalPoll* poll;
 
   if (event.what == evKeyDown)
   {
+    // Shift extends the selection from the cursor, as in a journal window
+    extend = (event.keyDown.controlKeyState & kbShift) != 0;
+
     switch (event.keyDown.keyCode)
     {
-      case kbLeft:   move((int64_t)cursor - 1);                      break;
-      case kbRight:  move((int64_t)cursor + 1);                      break;
-      case kbPgUp:   move((int64_t)cursor - size.x);                 break;
-      case kbPgDn:   move((int64_t)cursor + size.x);                 break;
-      case kbHome:   move(0);                                        break;
-      case kbEnd:    move((int64_t)intervals.size() - 1);            break;
-      case kbEnter:  synchronize();                                  break;
+      case kbLeft:   move((int64_t)cursor - 1, extend);                      break;
+      case kbRight:  move((int64_t)cursor + 1, extend);                      break;
+      case kbPgUp:   move((int64_t)cursor - size.x * share(), extend);       break;
+      case kbPgDn:   move((int64_t)cursor + size.x * share(), extend);       break;
+      case kbHome:   move(0, extend);                                        break;
+      case kbEnd:    move((int64_t)intervals.size() - 1, extend);            break;
+      case kbEnter:  synchronize();                                          break;
+
+      case kbEsc:
+        if (anchor < 0)
+        {
+          // Nothing to drop
+          TScroller::handleEvent(event);
+          return;
+        }
+
+        anchor = -1;
+        drawView();
+        break;
 
       default:
         switch (event.keyDown.charScan.charCode)
@@ -358,11 +474,33 @@ void TimelineView::handleEvent(TEvent& event)
             zoom(1);
             break;
 
+          case 'z':
+          case 'Z':
+            // The selection becomes the range
+            narrow();
+            break;
+
           case 'l':
           case 'L':
             // Spikes of errors stay visible next to a steady flow of everything else
             logarithmic = !logarithmic;
             drawView();
+            break;
+
+          case 'b':
+          case 'B':
+            // Twice the intervals across, half the rows of a cell up; a step the window has chosen is chosen anew
+            braille = !braille;
+            scrollTo(braille ? (delta.x / 2) : (delta.x * 2), 0);
+
+            if ((journal != nullptr) &&
+                (chosen == 0))
+            {
+              restart(0);
+              break;
+            }
+
+            refresh();
             break;
 
           default:
@@ -380,21 +518,66 @@ void TimelineView::handleEvent(TEvent& event)
   if ((event.what == evMouseDown) &&
       (event.mouse.buttons & mbLeftButton))
   {
+    cell = delta.x + makeLocal(event.mouse.where).x;
+
     if (event.mouse.eventFlags & meDoubleClick)
     {
-      // Double click takes the windows to the interval under the mouse
-      move(delta.x + makeLocal(event.mouse.where).x);
-      synchronize();
+      // Double click in the selection zooms into it, elsewhere it takes the windows to the interval under the mouse
+      if (contains(cell))
+      {
+        narrow();
+      }
+      else
+      {
+        point(cell, false);
+        synchronize();
+      }
+
       clearEvent(event);
       return;
     }
 
-    do
+    // A click puts the cursor there and drops the selection, Shift+click extends it; a click in the selection keeps it
+    // for a double click. Dragging selects from where it has started, past an edge it scrolls
+    extend  = (event.mouse.controlKeyState & kbShift) != 0;
+    pressed = cell;
+    dragged = false;
+
+    if (extend || !contains(cell))
     {
-      // Dragging past an edge scrolls
-      move(delta.x + makeLocal(event.mouse.where).x);
+      point(cell, extend);
     }
-    while (mouseEvent(event, evMouseMove | evMouseAuto));
+
+    while (mouseEvent(event, evMouseMove | evMouseAuto))
+    {
+      cell    = delta.x + makeLocal(event.mouse.where).x;
+      dragged = dragged || (cell != pressed);
+
+      if (!dragged)
+      {
+        // Not away from the cell yet
+        continue;
+      }
+
+      if (extend) point(cell, true);
+      else        stretch(pressed, cell);
+    }
+
+    clearEvent(event);
+    return;
+  }
+
+  if (event.what == evCommand)
+  {
+    switch (event.message.command)
+    {
+      case cmJournalTime:     chooseTime();  break;
+      case cmJournalBack:     retreat();     break;
+      case cmJournalForward:  advance();     break;
+
+      default:
+        return;
+    }
 
     clearEvent(event);
     return;
@@ -449,6 +632,11 @@ int TimelineView::getStep()
 bool TimelineView::getLogarithmic()
 {
   return logarithmic;
+}
+
+bool TimelineView::getBraille()
+{
+  return braille;
 }
 
 void TimelineView::attach()
@@ -512,6 +700,7 @@ void TimelineView::begin(uint64_t fixed)
   intervals.clear();
   closed  = false;
   pending = false;
+  anchor  = -1;
   error.clear();
 
   // The range goes from the oldest entry the matches give to the newest one, or to the edges of the time range
@@ -536,7 +725,7 @@ void TimelineView::begin(uint64_t fixed)
   }
 
   // The finest step that fits the range into the window, a chosen one otherwise
-  width = std::max(size.x, 16);
+  width = std::max(size.x, 16) * share();
   step  = fixed;
 
   for (index = 0; (fixed == 0) && (index < std::size(steps)); index ++)
@@ -628,7 +817,7 @@ void TimelineView::read()
 
 void TimelineView::refresh()
 {
-  setLimit(intervals.size(), size.y);
+  setLimit((intervals.size() + share() - 1) / share(), size.y);
 
   if (follow &&
       (!intervals.empty()))
@@ -674,12 +863,16 @@ bool TimelineView::add(uint64_t realtime, int priority)
   return true;
 }
 
-void TimelineView::move(int64_t index)
+void TimelineView::move(int64_t index, bool extend)
 {
   if (intervals.empty())
   {
     return;
   }
+
+  // Without Shift the selection goes, with it the place the cursor leaves is the other end
+  if (!extend)          anchor = -1;
+  else if (anchor < 0)  anchor = cursor;
 
   cursor = std::clamp<int64_t>(index, 0, (int64_t)intervals.size() - 1);
   follow = (cursor == (intervals.size() - 1));
@@ -688,10 +881,214 @@ void TimelineView::move(int64_t index)
   drawView();
 }
 
+void TimelineView::point(int64_t cell, bool extend)
+{
+  int64_t from;
+
+  // A cell of Braille has two intervals: the cursor stays on the one it is on, a selection takes the whole cell
+  from = (anchor >= 0) ? anchor : (int64_t)cursor;
+
+  if (extend)                                    move(((cell * share()) >= from) ? (cell * share() + share() - 1) : (cell * share()), true);
+  else if ((int64_t)(cursor / share()) == cell)  move(cursor, false);
+  else                                           move(cell * share(), false);
+}
+
+void TimelineView::stretch(int64_t from, int64_t to)
+{
+  int64_t last;
+
+  if (intervals.empty())
+  {
+    return;
+  }
+
+  // Whole cells from the one the mouse has been pressed in to the one it is over, the cursor at the far end
+  last   = (int64_t)intervals.size() - 1;
+  anchor = std::clamp<int64_t>((to >= from) ? (from * share()) : (from * share() + share() - 1), 0, last);
+  cursor = std::clamp<int64_t>((to >= from) ? (to * share() + share() - 1) : (to * share()), 0, last);
+  follow = (cursor == (size_t)last);
+
+  reveal();
+  drawView();
+}
+
+bool TimelineView::selection(size_t& lower, size_t& upper)
+{
+  if ((anchor < 0) ||
+      (intervals.empty()))
+  {
+    return false;
+  }
+
+  lower = std::min<size_t>(anchor, cursor);
+  upper = std::min<size_t>(std::max<size_t>(anchor, cursor), intervals.size() - 1);
+  return true;
+}
+
+bool TimelineView::contains(int64_t cell)
+{
+  size_t lower;
+  size_t upper;
+
+  return selection(lower, upper) &&
+    (cell >= 0) &&
+    ((size_t)(cell * share() + share() - 1) >= lower) &&
+    ((size_t)(cell * share()) <= upper);
+}
+
+TimelineView::Range TimelineView::selected()
+{
+  size_t lower;
+  size_t upper;
+  Range range;
+
+  // Whole intervals; one that reaches the newest of a range open at the end keeps it open, the timeline follows on
+  selection(lower, upper);
+  range.since  = FormatStamp(start + lower * step);
+  range.until  = ((upper == (intervals.size() - 1)) && (until == 0)) ? std::string() : FormatStamp(start + (upper + 1) * step);
+  range.chosen = 0;
+
+  return range;
+}
+
+void TimelineView::narrow()
+{
+  if (anchor < 0)
+  {
+    // Nothing chosen to zoom into
+    return;
+  }
+
+  change(selected());
+}
+
+void TimelineView::chooseTime()
+{
+  bool valid;
+  uint64_t stamp;
+  Range range;
+  TimeData data;
+
+  // The range of the timeline, or the one of its selection to correct before it is taken
+  range = (anchor >= 0) ? selected() : Range { filter.since, filter.until, 0 };
+
+  memset(&data, 0, sizeof(data));
+  strncpy(data.since, range.since.c_str(), sizeof(data.since) - 1);
+  strncpy(data.until, range.until.c_str(), sizeof(data.until) - 1);
+
+  do
+  {
+    if (TProgram::application->executeDialog(new TimeDialog(), &data) != cmOK)
+    {
+      // Nothing changes
+      return;
+    }
+
+    valid =
+      ((data.since[0] == '\0') || ParseJournalTime(data.since, &stamp)) &&
+      ((data.until[0] == '\0') || ParseJournalTime(data.until, &stamp));
+
+    if (!valid)
+    {
+      // Back to the dialog with what has been typed
+      messageBox("Unknown time format", mfError | mfOKButton);
+    }
+  }
+  while (!valid);
+
+  if ((filter.since == data.since) &&
+      (filter.until == data.until))
+  {
+    // The same range, the counts stay
+    return;
+  }
+
+  change(Range { data.since, data.until, 0 });
+}
+
+void TimelineView::change(const Range& range)
+{
+  // The range left goes into the history, a new one ends the way forward
+  back.push_back(Range { filter.since, filter.until, chosen });
+  ahead.clear();
+
+  if (back.size() > RANGE_HISTORY)
+  {
+    back.erase(back.begin());
+  }
+
+  apply(range);
+}
+
+void TimelineView::apply(const Range& range)
+{
+  TimelineWindow* window;
+
+  filter.since = range.since;
+  filter.until = range.until;
+  chosen       = range.chosen;
+  since        = 0;
+  until        = 0;
+
+  // Checked when it has been taken, a relative time is taken from now again
+  if (!filter.since.empty()) ParseJournalTime(filter.since, &since);
+  if (!filter.until.empty()) ParseJournalTime(filter.until, &until);
+
+  if ((window = dynamic_cast<TimelineWindow*>(owner)) != nullptr)
+  {
+    // The title tells the range
+    window->retitle();
+  }
+
+  if (journal == nullptr)
+  {
+    // Nothing to count it with
+    anchor = -1;
+    drawView();
+    return;
+  }
+
+  restart(chosen);
+}
+
+void TimelineView::retreat()
+{
+  Range range;
+
+  if (back.empty())
+  {
+    return;
+  }
+
+  range = back.back();
+  back.pop_back();
+  ahead.push_back(Range { filter.since, filter.until, chosen });
+  apply(range);
+}
+
+void TimelineView::advance()
+{
+  Range range;
+
+  if (ahead.empty())
+  {
+    return;
+  }
+
+  range = ahead.back();
+  ahead.pop_back();
+  back.push_back(Range { filter.since, filter.until, chosen });
+  apply(range);
+}
+
 void TimelineView::reveal()
 {
-  if (cursor < (size_t)delta.x)                 scrollTo(cursor, 0);
-  if (cursor >= (size_t)(delta.x + size.x))     scrollTo(cursor - size.x + 1, 0);
+  int cell;
+
+  cell = cursor / share();
+
+  if (cell < delta.x)                 scrollTo(cell, 0);
+  if (cell >= (delta.x + size.x))     scrollTo(cell - size.x + 1, 0);
 }
 
 void TimelineView::synchronize()
@@ -708,7 +1105,6 @@ void TimelineView::synchronize()
 void TimelineView::zoom(int direction)
 {
   int64_t index;
-  uint64_t moment;
   uint64_t next;
 
   if (journal == nullptr)
@@ -731,10 +1127,17 @@ void TimelineView::zoom(int direction)
     return;
   }
 
+  chosen = next;
+  restart(chosen);
+}
+
+void TimelineView::restart(uint64_t fixed)
+{
+  uint64_t moment;
+
   // The cursor stays at its time unless it follows the tail
   moment = start + cursor * step;
-  chosen = next;
-  begin(chosen);
+  begin(fixed);
 
   if (!follow)
   {
@@ -744,22 +1147,26 @@ void TimelineView::zoom(int direction)
   }
 }
 
-void TimelineView::heights(const Interval& interval, uint64_t peak, int room, int* levels)
+int TimelineView::share()
+{
+  // Intervals a cell
+  return braille ? 2 : 1;
+}
+
+void TimelineView::heights(const Interval& interval, uint64_t peak, int units, int* levels)
 {
   int index;
-  int eighths;
   uint64_t value;
 
-  eighths = room * 8;
-  value   = 0;
+  value = 0;
 
   for (index = 0; index < 3; index ++)
   {
-    // Parts are stacked, a part that has entries takes at least an eighth so a single error is still there
+    // Parts are stacked, a part that has entries takes at least an eighth or a dot so a single error is still there
     value         += interval.counts[index];
-    levels[index]  = (peak == 0) ? 0 : (int)lround(logarithmic ? (log1p(value) / log1p(peak) * eighths) : ((double)value * eighths / peak));
+    levels[index]  = (peak == 0) ? 0 : (int)lround(logarithmic ? (log1p(value) / log1p(peak) * units) : ((double)value * units / peak));
     levels[index]  = std::max(levels[index], ((index > 0) ? levels[index - 1] : 0) + ((interval.counts[index] != 0) ? 1 : 0));
-    levels[index]  = std::min(levels[index], eighths);
+    levels[index]  = std::min(levels[index], units);
   }
 }
 
