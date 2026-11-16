@@ -664,6 +664,7 @@ static int Describe(sd_bus_message* message, void*, sd_bus_error* error)
     uint64_t first;
     uint64_t last;
     uint64_t step;
+    size_t count;
     bool selected;
     std::array<uint64_t, 3> counts;
 
@@ -703,11 +704,11 @@ static int Describe(sd_bus_message* message, void*, sd_bus_error* error)
         result = std::min(result, AppendString(reply, "counted_until", FormatJournalTime(last - 1, timeline->view->getUniversal())));
       }
 
-      if (timeline->view->getFocus(first, last, counts, selected))
+      if (timeline->view->getFocus(first, last, count, counts, selected))
       {
         result = std::min(result, AppendString(reply, "interval_since", FormatJournalTime(first, timeline->view->getUniversal())));
         result = std::min(result, AppendString(reply, "interval_until", FormatJournalTime(last - 1, timeline->view->getUniversal())));
-        result = std::min(result, sd_bus_message_append(reply, "{sv}", "intervals", "u", (uint32_t)((last - first) / step)));
+        result = std::min(result, sd_bus_message_append(reply, "{sv}", "intervals", "u", (uint32_t)count));
         result = std::min(result, sd_bus_message_append(reply, "{sv}", "selection", "b", (int)selected));
         result = std::min(result, sd_bus_message_append(reply, "{sv}", "errors", "t", counts[0]));
         result = std::min(result, sd_bus_message_append(reply, "{sv}", "warnings", "t", counts[1]));

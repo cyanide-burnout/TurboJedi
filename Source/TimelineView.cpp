@@ -642,7 +642,7 @@ bool TimelineView::getCounted(uint64_t& first, uint64_t& last, uint64_t& interva
   return true;
 }
 
-bool TimelineView::getFocus(uint64_t& first, uint64_t& last, std::array<uint64_t, 3>& counts, bool& selected)
+bool TimelineView::getFocus(uint64_t& first, uint64_t& last, size_t& count, std::array<uint64_t, 3>& counts, bool& selected)
 {
   size_t lower;
   size_t upper;
@@ -661,6 +661,7 @@ bool TimelineView::getFocus(uint64_t& first, uint64_t& last, std::array<uint64_t
 
   first  = boundary(lower);
   last   = boundary(upper + 1);
+  count  = upper - lower + 1;
   counts = { 0, 0, 0 };
 
   for (size_t index = lower; index <= upper; index ++)
@@ -1271,6 +1272,7 @@ uint64_t TimelineView::boundary(size_t index)
   if ((step % 86400000000ULL) == 0) date.tm_mday += index * (step / 86400000000ULL);
   else                              date.tm_hour += index * (step / 3600000000ULL);
 
+  // A start in the hour that comes twice is one of the two, its neighbours are two hours away at least either way
   date.tm_isdst = -1;
   return mktime(&date) * 1000000ULL;
 }

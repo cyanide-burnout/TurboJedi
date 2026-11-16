@@ -47,7 +47,7 @@ class TimelineView : public TScroller
     // What the bus tells: the intervals counted, and the one under the cursor or the selection with the counts of
     // errors, warnings and the rest; microseconds, an end is the first one after; false while nothing is counted
     bool getCounted(uint64_t& first, uint64_t& last, uint64_t& interval);
-    bool getFocus(uint64_t& first, uint64_t& last, std::array<uint64_t, 3>& counts, bool& selected);
+    bool getFocus(uint64_t& first, uint64_t& last, size_t& count, std::array<uint64_t, 3>& counts, bool& selected);
 
   private:
 
