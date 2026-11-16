@@ -1264,3 +1264,39 @@ uint64_t AlignJournalTime(uint64_t realtime, uint64_t step, bool utc)
 
   return local - date.tm_gmtoff * 1000000LL;
 }
+
+uint64_t GetJournalWallTime(const struct tm& wall)
+{
+  int flag;
+  time_t moment;
+  time_t chosen;
+  struct tm date;
+
+  chosen = (time_t)-1;
+
+  for (flag = 0; flag <= 1; flag ++)
+  {
+    // As winter time and as summer time: the one that keeps the clock is it, in the hour that comes twice both do
+    date          = wall;
+    date.tm_isdst = flag;
+    moment        = mktime(&date);
+
+    if ((date.tm_hour == ((wall.tm_hour % 24 + 24) % 24)) &&
+        (date.tm_min == wall.tm_min) &&
+        (date.tm_isdst == flag) &&
+        ((chosen == (time_t)-1) || (moment < chosen)))
+    {
+      chosen = moment;
+    }
+  }
+
+  if (chosen == (time_t)-1)
+  {
+    // A time the clocks skip, mktime() moves it on
+    date          = wall;
+    date.tm_isdst = -1;
+    chosen        = mktime(&date);
+  }
+
+  return chosen * 1000000ULL;
+}

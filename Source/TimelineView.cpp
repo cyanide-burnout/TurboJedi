@@ -1272,9 +1272,8 @@ uint64_t TimelineView::boundary(size_t index)
   if ((step % 86400000000ULL) == 0) date.tm_mday += index * (step / 86400000000ULL);
   else                              date.tm_hour += index * (step / 3600000000ULL);
 
-  // A start in the hour that comes twice is one of the two, its neighbours are two hours away at least either way
-  date.tm_isdst = -1;
-  return mktime(&date) * 1000000ULL;
+  // A start in the hour that comes twice is the first of the two, the extra hour is in the interval that has it
+  return GetJournalWallTime(date);
 }
 
 size_t TimelineView::locate(uint64_t realtime)

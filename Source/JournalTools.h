@@ -5,6 +5,7 @@
 // https://github.com/cyanide-burnout/TurboJedi
 // Artem Prilutskiy, 2026
 
+#include <time.h>
 #include <stdint.h>
 
 #include <systemd/sd-journal.h>
@@ -149,6 +150,10 @@ bool ConvertJournalTime(const std::string& text, bool from, bool to, std::string
 // Start of the interval of a step a moment is in: hours and days start where the wall clock of the local zone says, or
 // the one of UTC
 uint64_t AlignJournalTime(uint64_t realtime, uint64_t step, bool utc);
+
+// A time on the wall clock of the local zone, fields over their range carried as mktime() does; in the hour that comes
+// twice the first of the two, always: mktime() of glibc takes either by the calls before
+uint64_t GetJournalWallTime(const struct tm& wall);
 
 // A time the way ParseJournalTime takes it back: 2026-10-23 19:00:00 in local time, or with UTC at the end, a fraction of
 // a second when it has one
