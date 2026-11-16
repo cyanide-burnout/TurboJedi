@@ -281,6 +281,8 @@ static int CallBus(sd_bus* bus, const char* method, int64_t deadline, sd_bus_mes
   sd_bus_message* call;
   sd_bus_error failure = SD_BUS_ERROR_NULL;
 
+  call = nullptr;  // sd-bus leaves it as it is when it cannot make the message
+
   if ((left = deadline - GetQueryMilliseconds()) <= 0)
   {
     error.name = SD_BUS_ERROR_NO_REPLY;

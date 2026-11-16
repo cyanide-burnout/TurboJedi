@@ -73,7 +73,8 @@ std::string DescribeJournalLoss(const JournalFilter& filter)
   }
 
   // sd-journal opens the files it can and leaves the rest out without a word: one descriptor more tells whether the
-  // limit of open files has been reached on the way
+  // limit of open files has been reached on the way. A sign, not a proof that the file of the entry is among the ones
+  // left out
   probe  = fcntl(STDIN_FILENO, F_DUPFD_CLOEXEC, 0);
   result = errno;
   sd_journal_close(journal);
