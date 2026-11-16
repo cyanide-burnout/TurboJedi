@@ -112,13 +112,13 @@ The instances of other users do not answer: the agent is told how many there are
 | Tool | |
 |---|---|
 | `list_instances` | the instances it sees, with their windows |
-| `describe` | an instance: PID, user, host, version, start time |
-| `list_windows` | the windows of an instance, their filters, whether they follow the end, how many entries are marked |
-| `get_cursor` | the entry under the cursor of a window |
-| `get_marked` | the entries marked or selected in a window |
+| `describe` | an instance: PID, user, host, version, start time, and what you have in front: a window of the journal, a timeline, the watches or the lines of one, and whether a dialog is open |
+| `list_windows` | the windows of an instance, their filters, whether they follow the end, how many entries are marked, which one is in front |
+| `get_cursor` | the entry under the cursor of a window, of the one in front by default |
+| `get_marked` | the entries marked or selected in a window, of the one in front by default |
 | `get_entry` | an entry by its cursor, with every field |
 | `query_journal` | entries of the journal by fields, text, priority and time, of the journal of a window or of the machine |
-| `list_actions` | the items of the Actions menu for an entry, to name the one that helps |
+| `list_actions` | the items of the Actions menu for an entry, the one under the cursor of the window in front by default, to name the one that helps |
 | `list_watches` | the watches of the plugins, their status and unread lines |
 | `get_watch_lines` | the lines of a watch with their entries |
 | `mark_entries` | marks entries in a window, as M does |
@@ -136,6 +136,7 @@ The calls the agent makes are the D-Bus interface of [DBUS.md](DBUS.md), which a
 
 - "What happened to nginx around 03:10? Mark it in window 1."
 - "Why has the entry under my cursor come? Look at what that unit wrote before it."
+- "What is this line of the watch I am on about?"
 - "What does the SSH attacks watch show? Which address is the busiest?"
 - "Open a window of the errors of the last hour from every unit except cron."
 - "Which actions does the entry under the cursor have? Which one should I run?"

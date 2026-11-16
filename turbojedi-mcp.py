@@ -38,8 +38,9 @@ open a new window; the user sees each of them in the status line of TurboJedi. N
 the plugins and commands are never run from here, list_actions only names them for the user to run. The filters of the
 user's windows are not changed either: open a window of your own with open_window.
 
-Start with list_instances. Windows are named by window_id from list_windows, watches by watch_id from list_watches;
-entries by their __CURSOR. Times are microseconds since the epoch.'''
+Start with list_instances. describe tells what the user has in front: a window of the journal, a timeline, the list
+of watches or the lines of one. Windows are named by window_id from list_windows, watches by watch_id from
+list_watches; entries by their __CURSOR. Times are microseconds since the epoch.'''
 
 
 class Failure(Exception):
@@ -258,6 +259,23 @@ def entry(value):
     return value if value else None
 
 
+FRONTS = {'timeline': 'a timeline', 'watches': 'the list of watches', 'watch': 'the lines of a watch'}
+
+
+def window(bus, name, arguments):
+    '''The window of the arguments, the window of the journal the user has in front without one'''
+    if arguments.get('window_id') is not None:
+        return number(arguments, 'window_id')
+
+    for item in plain(call(bus, name, 'ListWindows')):
+        if item.get('active'):
+            return item['id']
+
+    front = plain(call(bus, name, 'Describe')).get('front', '')
+    raise Failure('the user has %s in front, not a window of the journal: give window_id from list_windows' %
+                  FRONTS.get(front, 'no window'))
+
+
 # Tools
 
 def list_instances(arguments):
@@ -311,14 +329,17 @@ def list_windows(arguments):
 
 def get_cursor(arguments):
     bus = connect()
-    return {'entry': entry(plain(call(bus, instance(bus, arguments), 'GetCursor', dbus.UInt32(number(arguments, 'window_id')))))}
+    name = instance(bus, arguments)
+    identity = window(bus, name, arguments)
+    return {'window_id': identity, 'entry': entry(plain(call(bus, name, 'GetCursor', dbus.UInt32(identity))))}
 
 
 def get_marked(arguments):
     bus = connect()
-    entries, total = plain(call(bus, instance(bus, arguments), 'GetMarked', dbus.UInt32(number(arguments, 'window_id')),
-                                dbus.UInt32(number(arguments, 'limit', 0))))
-    return {'entries': pick(entries, arguments), 'total': total}
+    name = instance(bus, arguments)
+    identity = window(bus, name, arguments)
+    entries, total = plain(call(bus, name, 'GetMarked', dbus.UInt32(identity), dbus.UInt32(number(arguments, 'limit', 0))))
+    return {'window_id': identity, 'entries': pick(entries, arguments), 'total': total}
 
 
 def get_entry(arguments):
@@ -336,8 +357,18 @@ def query_journal(arguments):
 
 def list_actions(arguments):
     bus = connect()
-    return {'actions': plain(call(bus, instance(bus, arguments), 'ListActions', dbus.UInt32(number(arguments, 'window_id')),
-                                  dbus.String(text(arguments, 'cursor', ''))))}
+    name = instance(bus, arguments)
+    identity = window(bus, name, arguments)
+    cursor = text(arguments, 'cursor')
+
+    if cursor is None:
+        # The entry under the cursor of the window
+        cursor = plain(call(bus, name, 'GetCursor', dbus.UInt32(identity))).get('__CURSOR')
+        if cursor is None:
+            raise Failure('the window %d has no entry under its cursor' % identity)
+
+    return {'window_id': identity, 'cursor': cursor,
+            'actions': plain(call(bus, name, 'ListActions', dbus.UInt32(identity), dbus.String(cursor)))}
 
 
 def list_watches(arguments):
@@ -388,6 +419,8 @@ def open_window(arguments):
 
 PID = {'type': 'integer', 'description': 'PID of the instance, from list_instances; may be left out when only one runs'}
 WINDOW = {'type': 'integer', 'description': 'window_id of the window, from list_windows: not the number on the screen'}
+ACTIVE = {'type': 'integer', 'description': 'window_id of the window, from list_windows; the window of the journal the user '
+                                           'has in front without it'}
 CURSOR = {'type': 'string', 'description': '__CURSOR of the entry'}
 FIELDS = {'type': 'array', 'items': {'type': 'string'},
           'description': 'only these fields of each entry, such as MESSAGE, PRIORITY, _SYSTEMD_UNIT; __CURSOR and '
@@ -438,24 +471,30 @@ TOOLS = [
      {'type': 'object', 'properties': {}, 'additionalProperties': False}),
 
     ('describe', describe, True,
-     'An instance of TurboJedi: pid, uid, user, host, version, started (microseconds), api, and sudo, the user an '
-     'instance of root started by sudo answers as well.',
+     'An instance of TurboJedi and what the user has in front: pid, uid, user, host, version, started (microseconds), '
+     'api; sudo, the user an instance of root started by sudo answers as well; front, the window in front: journal '
+     'with window (its window_id) and title, timeline with title, watches (the list of watches) with watch, the one '
+     'under the cursor, or watch (the lines of a watch) with watch and line, the number of the line under the cursor; '
+     'dialog, whether a dialog or a menu is open over it, the screen tools wait then.',
      schema({})),
 
     ('list_windows', list_windows, True,
      'The windows of the journal of an instance, the front one first: window_id, the number on the screen, the title, '
      'the filter (text, levels as EACRWNID with - for hidden ones, matches, the fields of Source, since, until), '
-     'whether the window follows the end of the journal, and how many entries are marked or selected in it.',
+     'whether the window follows the end of the journal, how many entries are marked or selected in it, and active, '
+     'the one the user has in front. No window is active while a timeline or a list of watches is in front.',
      schema({})),
 
     ('get_cursor', get_cursor, True,
-     'The entry under the cursor of a window, every field of it: what the user is looking at. null without one.',
-     schema({'window_id': WINDOW}, ('window_id',))),
+     'The entry under the cursor of a window, every field of it: what the user is looking at. null without one. '
+     'Without window_id, the window the user has in front.',
+     schema({'window_id': ACTIVE})),
 
     ('get_marked', get_marked, True,
-     'The entries the user has marked or selected in a window, the oldest first, and how many there are in all.',
-     schema({'window_id': WINDOW, 'limit': {'type': 'integer', 'minimum': 0, 'description': 'entries, 1000 by default'},
-             'fields': FIELDS}, ('window_id',))),
+     'The entries the user has marked or selected in a window, the oldest first, and how many there are in all. '
+     'Without window_id, the window the user has in front.',
+     schema({'window_id': ACTIVE, 'limit': {'type': 'integer', 'minimum': 0, 'description': 'entries, 1000 by default'},
+             'fields': FIELDS})),
 
     ('get_entry', get_entry, True,
      'An entry by its __CURSOR in the journal of a window, every field of it: of a line of a watch, of an answer of a '
@@ -472,8 +511,8 @@ TOOLS = [
      'The items of the Actions menu of TurboJedi for an entry of a window, title and plugin: what the user can do with '
      'it, such as the status of its unit or a ban of its address. The handlers of the plugins make the menu as opening '
      'it does, the items are not run from here: name the one that helps and the user runs it with Alt-F10 or A on the '
-     'entry.',
-     schema({'window_id': WINDOW, 'cursor': CURSOR}, ('window_id', 'cursor'))),
+     'entry. Without window_id, the window the user has in front; without cursor, the entry under its cursor.',
+     schema({'window_id': ACTIVE, 'cursor': CURSOR})),
 
     ('list_watches', list_watches, True,
      'Watches the plugins keep of the journal while TurboJedi runs, such as SSH attacks or alerts: watch_id, plugin, '
