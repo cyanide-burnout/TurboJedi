@@ -86,7 +86,7 @@ local failures = { }
 for _, rule in ipairs(rules) do
   local count = 0
 
-  local watch, failure = turbojedi.watch(
+  local watch, failure = turbojedi.follow(
   {
     title    = rule.name,
     matches  = rule.matches,

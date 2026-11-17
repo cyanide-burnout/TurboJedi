@@ -7,6 +7,7 @@
 #include <pwd.h>
 #include <grp.h>
 #include <fcntl.h>
+#include <stdlib.h>
 #include <errno.h>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -100,8 +101,9 @@ FILE* OpenSettings(const std::string& path)
   return file;
 }
 
-// Allocates nothing, a child after fork() calls it
-static bool WriteFile(const std::string& path, const std::string& text, const std::vector<std::string>& folders)
+// Into a file next to it first, then over it: a stop halfway leaves the old one whole. Allocates nothing, a child after
+// fork() calls it
+static bool WriteFile(const std::string& path, const std::string& temporary, const std::string& text, const std::vector<std::string>& folders)
 {
   int handle;
   size_t offset;
@@ -113,7 +115,7 @@ static bool WriteFile(const std::string& path, const std::string& text, const st
     mkdir(folder.c_str(), 0755);
   }
 
-  if ((handle = open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644)) < 0)
+  if ((handle = open(temporary.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_CLOEXEC, 0644)) < 0)
   {
     return false;
   }
@@ -124,18 +126,29 @@ static bool WriteFile(const std::string& path, const std::string& text, const st
 
     if (length <= 0)
     {
-      close(handle);
-      return false;
+      break;
     }
   }
 
-  return close(handle) == 0;
+  if ((offset < text.size()) ||
+      (close(handle) != 0) ||
+      (rename(temporary.c_str(), path.c_str()) != 0))
+  {
+    if (offset < text.size()) close(handle);
+    unlink(temporary.c_str());
+    return false;
+  }
+
+  return true;
 }
 
 bool SaveSettings(const std::string& path, const std::string& text)
 {
   int status = -1;
+  char* real;
   pid_t process;
+  std::string target;
+  std::string temporary;
   std::vector<std::string> folders;
   std::string::size_type position;
 
@@ -146,9 +159,20 @@ bool SaveSettings(const std::string& path, const std::string& text)
     return false;
   }
 
+  // A link, to a dotfile of the user for one, stays and the file it points to is the one replaced
+  target = path;
+
+  if ((real = realpath(path.c_str(), nullptr)) != nullptr)
+  {
+    target = real;
+    free(real);
+  }
+
+  temporary = target + ".new";
+
   if (!drop)
   {
-    return WriteFile(path, text, folders);
+    return WriteFile(target, temporary, text, folders);
   }
 
   for (position = path.find('/', 1); position != std::string::npos; position = path.find('/', position + 1))
@@ -168,7 +192,7 @@ bool SaveSettings(const std::string& path, const std::string& text)
       _exit(1);
     }
 
-    _exit(WriteFile(path, text, folders) ? 0 : 1);
+    _exit(WriteFile(target, temporary, text, folders) ? 0 : 1);
   }
 
   if (process < 0)

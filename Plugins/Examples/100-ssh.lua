@@ -108,7 +108,7 @@ local function name(source, user)
   end
 end
 
-watch = turbojedi.watch(
+watch = turbojedi.follow(
 {
   title   = 'SSH attacks',
   key     = 'attacks',

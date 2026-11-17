@@ -319,14 +319,8 @@ local function analyze(items, what)
 
   number = number + 1
 
-  -- A watch of nothing, its lines are the job: a field no entry has, the journal has nothing to read for it
-  local watch, reason = turbojedi.watch({ title = ('Arrakis %d: %s'):format(number, what or (#items .. ' entries')),
-                                          matches = { ARRAKIS_NOTHING = tostring(number) } }, function() end)
-
-  if not watch then
-    turbojedi.message('Arrakis cannot keep the job: ' .. tostring(reason), 'Arrakis')
-    return
-  end
+  -- A watch of the job, its status and the answer in its lines; it reads no journal
+  local watch = turbojedi.watch({ title = ('Arrakis %d: %s'):format(number, what or (#items .. ' entries')) })
 
   local query, system, user = request(items)
   local job = { number = number, items = items, watch = watch, system = system, user = user }

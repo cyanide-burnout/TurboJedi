@@ -2809,11 +2809,13 @@ static int FormatDate(lua_State* state)
   return 1;
 }
 
-// Watches of journals
+// Watches
 
-// watch(options, func, ...): the entries of the filter of the options as they come go to func(entry, watch, ...), the gaps
-// to options.skipped(gap, watch, ...); nil and the reason when the journal cannot be opened
-static int AddJournalWatch(lua_State* state)
+// A watch of a plugin, a line in the list of watches with a status and lines. watch(options) leaves it to the plugin;
+// follow(options, func, ...) feeds it by the entries of the filter of the options as they come, to func(entry, watch, ...),
+// the gaps to options.skipped(gap, watch, ...), nil and the reason when the journal cannot be opened. Errors name the
+// function the plugin has called
+static int MakeWatch(lua_State* state, const char* name, bool follow)
 {
   int type;
   bool current;
@@ -2830,18 +2832,36 @@ static int AddJournalWatch(lua_State* state)
 
   if (lua_type(state, 1) != LUA_TTABLE)
   {
-    return Fail(state, "watch() takes a table of options");
+    return Fail(state, "%s takes a table of options", name);
   }
 
-  if (lua_type(state, 2) != LUA_TFUNCTION)
+  if ((follow) &&
+      (lua_type(state, 2) != LUA_TFUNCTION))
   {
-    return Fail(state, "watch() takes a function after the options");
+    return Fail(state, "%s takes a function after the options", name);
+  }
+
+  if (!follow)
+  {
+    for (const char* option : { "matches", "text", "regex", "priority", "since", "until", "from", "skipped" })
+    {
+      lua_pushstring(state, option);
+
+      if (lua_rawget(state, 1) != LUA_TNIL)
+      {
+        // The journal is the business of follow(), a watch of the plugin alone reads nothing
+        lua_pop(state, 1);
+        return Fail(state, "%s reads no journal, %s of the options is for follow()", name, option);
+      }
+
+      lua_pop(state, 1);
+    }
   }
 
   if ((!GetOption(state, 1, "title", title)) ||
       (title.empty()))
   {
-    return Fail(state, "watch() takes a title among the options");
+    return Fail(state, "%s takes a title among the options", name);
   }
 
   // What the watch is to its plugin, apart from what the user sees: two of the same key would leave a layout guessing
@@ -2850,7 +2870,7 @@ static int AddJournalWatch(lua_State* state)
     if (key.empty() ||
         (key.find_first_of("\r\n") != std::string::npos))
     {
-      return Fail(state, "key of watch() is a text of one line");
+      return Fail(state, "key of %s is a text of one line", name);
     }
 
     for (std::pair<const int, std::unique_ptr<JournalWatch>>& other : journals)
@@ -2859,7 +2879,7 @@ static int AddJournalWatch(lua_State* state)
           (other.second->plugin == plugin) &&
           (other.second->key == key))
       {
-        return Fail(state, "key %s of watch() is taken by another watch of the plugin", key.c_str());
+        return Fail(state, "key %s of %s is taken by another watch of the plugin", key.c_str(), name);
       }
     }
   }
@@ -2871,7 +2891,7 @@ static int AddJournalWatch(lua_State* state)
     if ((value != "current") &&
         (value != "new"))
     {
-      return Fail(state, "window of watch() is 'current' or 'new'");
+      return Fail(state, "window of %s is 'current' or 'new'", name);
     }
 
     current = (value == "current");
@@ -2884,13 +2904,13 @@ static int AddJournalWatch(lua_State* state)
   if ((type != LUA_TNIL) &&
       (type != LUA_TFUNCTION))
   {
-    return Fail(state, "skipped of watch() is a function");
+    return Fail(state, "skipped of %s is a function", name);
   }
 
   if ((GetOption(state, 1, "since", value)) ||
       (GetOption(state, 1, "until", value)))
   {
-    return Fail(state, "watch() starts at the end of the journal, it takes neither since nor until");
+    return Fail(state, "%s starts at the end of the journal, it takes neither since nor until", name);
   }
 
   // What a layout keeps for the plugin, checked now: a watch never drops out of a layout for its context
@@ -2901,7 +2921,7 @@ static int AddJournalWatch(lua_State* state)
       ((lua_type(state, -1) != LUA_TTABLE) || (!WriteNotation(state, -1, context, error))))
   {
     lua_pop(state, 1);
-    return Fail(state, "context of watch() is a table a layout can keep: %s", error.empty() ? "it is not a table" : error.c_str());
+    return Fail(state, "context of %s is a table a layout can keep: %s", name, error.empty() ? "it is not a table" : error.c_str());
   }
 
   lua_pop(state, 1);
@@ -2923,7 +2943,7 @@ static int AddJournalWatch(lua_State* state)
   else if (!lua_isnil(state, -1))
   {
     lua_pop(state, 1);
-    return Fail(state, "from of watch() is the position registerRestore() gives");
+    return Fail(state, "from of %s is the position registerRestore() gives", name);
   }
 
   lua_pop(state, 1);
@@ -2944,12 +2964,17 @@ static int AddJournalWatch(lua_State* state)
 
   if (!MakeFilter(state, 1, base, filter, error))
   {
-    return Fail(state, "watch(): %s", error.c_str());
+    return Fail(state, "%s: %s", name, error.c_str());
   }
 
   watch = std::make_unique<JournalWatch>();
 
-  if (!watch->start(filter, from.cursor.empty() ? nullptr : &from, error))
+  if (!follow)
+  {
+    // Nothing to read: a window opened for its lines shows the journal it has been set in
+    watch->filter = filter;
+  }
+  else if (!watch->start(filter, from.cursor.empty() ? nullptr : &from, error))
   {
     // The journal refuses, not the plugin
     lua_pushnil(state);
@@ -2966,13 +2991,16 @@ static int AddJournalWatch(lua_State* state)
   watch->window = current ? origin : nullptr;
   watch->context = context;
 
-  // The function and the values after it, the callback of the gaps along with them
-  watch->callback = KeepCallback(state, 2, 3);
-  lua_rawgeti(state, LUA_REGISTRYINDEX, watch->callback);
-  lua_pushliteral(state, "skipped");
-  lua_rawget(state, 1);
-  lua_setfield(state, -2, "skipped");
-  lua_pop(state, 1);
+  if (follow)
+  {
+    // The function and the values after it, the callback of the gaps along with them
+    watch->callback = KeepCallback(state, 2, 3);
+    lua_rawgeti(state, LUA_REGISTRYINDEX, watch->callback);
+    lua_pushliteral(state, "skipped");
+    lua_rawget(state, 1);
+    lua_setfield(state, -2, "skipped");
+    lua_pop(state, 1);
+  }
 
   // One table for the watch in every callback, a plugin may keep it as a key
   PushHandle(state, watch->number, WATCHER);
@@ -2982,6 +3010,17 @@ static int AddJournalWatch(lua_State* state)
   journals[watch->number] = std::move(watch);
   changed = true;
   return 1;
+}
+
+static int FollowJournal(lua_State* state)
+{
+  return MakeWatch(state, "follow()", true);
+}
+
+static int AddJournalWatch(lua_State* state)
+{
+  // With a function after the options, the form of 0.15: what follow() is now
+  return MakeWatch(state, "watch()", lua_type(state, 2) == LUA_TFUNCTION);
 }
 
 static int SetWatchStatus(lua_State* state)
@@ -3185,6 +3224,7 @@ static const luaL_Reg functions[] =
   { "dbus",            Call<CallDBus,        PHASE_WATCH | PHASE_MENU> },
   { "services",        Call<ListServices,    PHASE_WATCH | PHASE_MENU> },
   { "watch",           Call<AddJournalWatch, PHASE_WATCH>  },
+  { "follow",          Call<FollowJournal,   PHASE_WATCH>  },
   { nullptr,           nullptr                             }
 };
 

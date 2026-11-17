@@ -167,7 +167,8 @@ argument whatever it holds, no shell sees it.
 | `seek(time)` | action | the window of the menu goes to a time, as Go to time |
 | `query(options)` | handler, action | entries of a filter for the plugin to look into: a list, and why the reading has stopped |
 | `mark(entries, options)` | action, callback of a watch | marks the lines of entries in the window of the menu or of the watch, as M does: the count marked |
-| `watch(options, func, ...)` | loading, action, callback | the entries of a filter as they come go to `func(entry, watch, ...)`: a watch, with a status and lines in the list of watches |
+| `watch(options)` | loading, action, callback | a watch the plugin feeds itself: a status and lines in the list of watches |
+| `follow(options, func, ...)` | loading, action, callback | the entries of a filter as they come go to `func(entry, watch, ...)`: a watch fed by the journal |
 | `poll(descriptor, events, func, ...)` | loading, action, callback | calls `func(flags, ...)` when the descriptor is ready, between the events: a poller |
 | `timeout(milliseconds, func, periodic, ...)` | loading, action, callback | calls `func(...)` after the time, again and again when periodic: a timer |
 | `fetch(request, func, ...)` | loading, action, callback | a request over HTTP or HTTPS: with `func` its answer goes to `func(code, body, headers, ...)` later, without it the action waits for `code, body, headers` |
@@ -207,7 +208,7 @@ The functions tell two kinds of trouble apart, the way `io.open` of Lua does:
 | `find` | `false` when nothing more is found |
 | `query` | the entries read, and why the reading has stopped: `'limit'`, `'scan'`, `'time'` or `'cancel'` |
 | `mark` | the count marked, fewer than given when some are not in the window; in a callback of a watch without a window, `nil` and the reason |
-| `watch` | `nil` and the reason when its journal cannot be opened |
+| `follow` | `nil` and the reason when its journal cannot be opened |
 
 An error raised goes to the window of the plugins with the name of the plugin and the place in it:
 
@@ -215,7 +216,7 @@ An error raised goes to the window of the plugins with the name of the plugin an
 - in an action, the action ends there;
 - in a callback of `poll` or `timeout`, the poller or the timer goes and is not called again; a callback of `fetch` or
   `dbus` is called once anyway;
-- in a callback of a watch, the watch stops reading and stays in the list of watches as failed, with its lines.
+- in a callback of `follow`, the watch stops reading and stays in the list of watches as failed, with its lines.
 
 `pcall` catches an error raised as anywhere in Lua, when a plugin would rather go on. `remove()` of a poller or a watch and
 `cancel()` of a timer or a request that are gone already do nothing: that is not a failure.
@@ -741,17 +742,41 @@ It is a watch of TurboJedi itself, `turbojedi` with the key `console`: Window �
 and `GetWatchLines()` of D-Bus read it, a layout keeps the window of its lines. Nobody removes it, F8 in its lines
 clears them. `turbojedi` is no name for a plugin: a file of that name is left out.
 
-## Watches of the journal
+## Watches
 
-A plugin may watch the journal: the entries of a filter come to it as journald writes them, nobody chooses anything.
-Every watch has a line of its own in the list of watches, F12 or Window → Watches, with a status the plugin tells and
-lines it adds; the status line says `Watch 2/5 *` while there are any: two of five watches have lines not read yet,
-the star stays until the list has been looked at. A click on it opens the list.
+A watch is a line in the list of watches, F12 or Window → Watches, with a status the plugin tells and lines it adds:
+the console above is one. The status line says `Watch 2/5 *` while there are any: two of five watches have lines not
+read yet, the star stays until the list has been looked at. A click on it opens the list.
+
+A plugin makes one in either of two ways:
+
+- `watch(options)`: the plugin feeds it itself, from a request, a timer, a command; the jobs of Arrakis are such
+  watches, a line each with the answer in it;
+- `follow(options, func, ...)`: the journal feeds it, the entries of a filter come to `func` as journald writes them.
+
+```lua
+local job = turbojedi.watch({ title = 'backup of /srv' })
+
+job:status('running')
+turbojedi.timeout(60000, function() job:status('done') job:add('backup of /srv is over') end)
+```
+
+| Option | |
+|---|---|
+| `title` | the name of the watch in the list, needed |
+| `key` | what the watch is to the plugin, unique among its watches: a layout finds the window of its lines by it. Without one, by its title and its place among the ones of the same title, which holds while the plugin sets them in the same order. A key taken by another watch of the plugin is an error |
+| `window` | `'current'`, by default: the window of the menu is the window of the watch while it is open; `'new'`: a window of its own, opened when needed |
+| `context` | data a layout keeps to get the watch back, see Layouts below |
+
+`watch()` reads no journal: an option of a filter, `skipped` or `from` is an error there. A line it adds with an entry
+goes to that entry in the window of the watch, the one of the menu it has been made in.
+
+### Following the journal
 
 ```lua
 local count = 0
 
-turbojedi.watch({ title = 'nginx restarts', matches = { _SYSTEMD_UNIT = 'nginx.service' }, text = 'Started' },
+turbojedi.follow({ title = 'nginx restarts', matches = { _SYSTEMD_UNIT = 'nginx.service' }, text = 'Started' },
   function(entry, watch)
     count = count + 1
     watch:status(('%d restarts, last at %s'):format(count, os.date('%H:%M', entry.__REALTIME_TIMESTAMP // 1000000)))
@@ -762,29 +787,24 @@ turbojedi.watch({ title = 'nginx restarts', matches = { _SYSTEMD_UNIT = 'nginx.s
 This is for the time TurboJedi is open: alerts while you work in it, counts, a mark on what matters. It is not a
 monitoring of the server: closed TurboJedi or a broken SSH connection watch nothing.
 
-### Options and the callback
-
-`watch(options, func, ...)` takes a filter of the same options as `open` and `query`, `matches`, `text` with `regex`,
-`exclude` and `case`, `priority`, and its own ones:
+`follow(options, func, ...)` takes the options of `watch()`, a filter of the same options as `open` and `query`,
+`matches`, `text` with `regex`, `exclude` and `case`, `priority`, and two of its own:
 
 | Option | |
 |---|---|
-| `title` | the name of the watch in the list, needed |
-| `key` | what the watch is to the plugin, unique among its watches: a layout finds the window of its lines by it. Without one, by its title and its place among the ones of the same title, which holds while the plugin sets them in the same order. A key taken by another watch of the plugin is an error |
-| `window` | `'current'`, by default: the window of the menu is the window of the watch while it is open; `'new'`: a window of its own, opened when needed |
 | `skipped` | `skipped(gap, watch, ...)`, when the watch has not seen a part of the journal |
-| `context` | data a layout keeps to get the watch back, see Layouts below |
 | `from` | the place a layout has kept, given by `registerRestore()` |
 
 - The watch starts at the end of the journal: what has been there before it is not its business, so it takes neither
-  `since` nor `until`. Set while loading, it watches the journal of this machine; set by an action, the journal of the
+  `since` nor `until`. Set while loading, it follows the journal of this machine; set by an action, the journal of the
   window of the menu; set in a callback of a watch, the journal of that watch.
 - `func(entry, watch, ...)` gets the entry as a handler does, the watch itself, the same table every time, and the
   values after the function.
 - A callback runs only when no dialog is open, as the ones of `poll` do. It may use the dialogs and the commands, and
   `mark`, which marks in the window of the watch: when the watch has no window, `mark(entry, { open = true })` opens one,
   without it `mark` gives `nil` and the reason.
-- A watch the journal of which cannot be opened is not there: `watch()` gives `nil` and the reason.
+- A watch the journal of which cannot be opened is not there: `follow()` gives `nil` and the reason.
+- `watch(options, func, ...)` with a function, the way 0.15 has had it, is `follow()`.
 
 ### Methods
 
@@ -805,13 +825,13 @@ monitoring of the server: closed TurboJedi or a broken SSH connection watch noth
 - U in either window turns the times of all the watches over between the local zone and UTC, the status line tells
   which one it is and a layout keeps it. The times the windows show follow at once; a plugin that writes times into its
   status and lines takes them from `turbojedi.date()`, the ones written already stay as they are.
-- A callback that fails leaves its watch failed: it reads nothing more, its lines and the error stay in the list until
-  it is removed. A watch whose journal has gone, a directory unmounted, is stopped the same way.
+- A callback of `follow()` that fails leaves its watch failed: it reads nothing more, its lines and the error stay in
+  the list until it is removed. A watch whose journal has gone, a directory unmounted, is stopped the same way.
 - Methods of a watch removed meanwhile, by the user in the list for one, do nothing.
 
 ### Gaps
 
-When the plugin takes the entries slower than they come and does not catch up for a minute, the watch jumps to the
+Of `follow()`. When the plugin takes the entries slower than they come and does not catch up for a minute, the watch jumps to the
 end of the journal; when the entry it has read last is gone, a vacuum or a file deleted, it goes on after its time.
 Either way `skipped(gap, watch, ...)` is told, and the list shows the gaps with the watch whether the plugin asks or not:
 
@@ -827,8 +847,8 @@ to their plugins when it is opened:
 
 ```lua
 local function keep(context, position)
-  return turbojedi.watch({ title = 'context ' .. context.id, matches = { CONTEXT_UUID = context.id },
-                           context = context, from = position }, callback)
+  return turbojedi.follow({ title = 'context ' .. context.id, matches = { CONTEXT_UUID = context.id },
+                            context = context, from = position }, callback)
 end
 
 -- A layout opened: the plugin decides whether the watch comes back and from where
@@ -839,7 +859,7 @@ end)
 
 - `context` is data only: strings, numbers, booleans and tables of them, keys of strings and integers, up to 8 tables
   deep and 64 KiB. Anything else is an error at once, so a watch never drops out of a layout for its context.
-- `position` is where the watch has stopped: the entry given to its callback last, kept by TurboJedi at the moment the
+- `position` is where a watch of `follow()` has stopped, `nil` for one of `watch()`: the entry given to its callback last, kept by TurboJedi at the moment the
   layout is saved. With `from = position` the watch goes on after it and gets what has come while TurboJedi was closed;
   without it, from the end. The place means the entry has come to the callback, not that what the callback has started
   is done: a request of `fetch` not answered before the exit is not made again. A plugin that needs that keeps what is
