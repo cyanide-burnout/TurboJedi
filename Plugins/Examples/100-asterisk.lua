@@ -14,13 +14,24 @@ local MODULE   = [=[\b((?:res|chan|app|func|cdr|cel|pbx|codec|format|bridge|brid
 local STEP     = [=[Executing \[([^@\]\s]+@[^:\]\s]+):\d+\]]=]  -- Executing [2505@from-internal:1]
 local SAFE     = '^[%w._@:;/+#*-]+$'  -- A value the CLI takes as one argument, nothing more
 
+-- The CLI in the PATH, or where a build of Asterisk of its own goes: /opt and sbin are out of the PATH of sudo
+local PLACES = { '/opt/asterisk/sbin/asterisk', '/usr/local/sbin/asterisk', '/usr/sbin/asterisk', '/opt/asterisk/bin/asterisk' }
+
 local cli = turbojedi.which('asterisk')
 
-turbojedi.log(cli and 'calls, channels and the rest by asterisk -rx, the journal for their history'
-                   or 'asterisk is not installed here: only the history of an entry in the journal')
+for _, place in ipairs(PLACES) do
+  local file = (not cli) and io.open(place)
+  if file then
+    file:close()
+    cli = place
+  end
+end
+
+turbojedi.log(cli and ('calls, channels and the rest by ' .. cli .. ' -rx, the journal for their history')
+                   or 'asterisk is not in the PATH, nor in ' .. table.concat(PLACES, ', ') .. ': only the history of an entry in the journal')
 
 local function run(command)
-  turbojedi.output { 'asterisk', '-rx', command }
+  turbojedi.output { cli, '-rx', command }
 end
 
 local function sure(question, command)

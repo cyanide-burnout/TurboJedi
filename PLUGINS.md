@@ -975,7 +975,9 @@ actions chosen in a list there:
 | Module | `res_stir_shaken` in a message of the loader or a module | Show (`module show like`), Load, Reload |
 | Dialplan | `Executing [2505@from-internal:1]` | Show (`dialplan show`) |
 
-The commands go to the Asterisk of this machine through `asterisk -rx`, root or the group asterisk; a journal of another
+The commands go to the Asterisk of this machine through `asterisk -rx`, root or the group asterisk; the CLI is the one
+in the `PATH`, or of a build of its own in `/opt/asterisk/sbin`, `/usr/local/sbin` or `/opt/asterisk/bin`, out of the
+`PATH` of `sudo`; the console tells which one, or that there is none. A journal of another
 machine has only the actions of calls and channels in the journal. A value of the entry takes part in a command only
 when the CLI would take it as one argument. Hang up, Load and Reload ask first; it is an example since they change the
 PBX.
