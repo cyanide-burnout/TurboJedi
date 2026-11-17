@@ -329,18 +329,19 @@ local function done(code, body, more, job)
 
   job.messages[#job.messages + 1] = { role = 'assistant', content = text }
 
+  -- The entries the answer names first, then the answer: the newest line is on top, the answer over what it is about
+  for found in text:gmatch('%[(%d+)%]') do
+    local number = tonumber(found)
+    if job.items[number] and not job.named[number] then
+      job.named[number] = true
+      job.watch:add(('[%d] %s'):format(number, line(job.items[number])), job.items[number], { quiet = true })
+    end
+  end
+
   -- Enter or a double click on the answer in the watch brings it back with a line for a question
   local index = #job.messages
   job.watch:status('done')
   job.watch:add(text, nil, { quiet = true, action = function() converse(job, index) end })
-
-  for found in text:gmatch('%[(%d+)%]') do
-    local index = tonumber(found)
-    if job.items[index] and not job.named[index] then
-      job.named[index] = true
-      job.watch:add(('[%d] %s'):format(index, line(job.items[index])), job.items[index], { quiet = true })
-    end
-  end
 
   -- The latest answer first among the ones to ask about
   for index, other in ipairs(answered) do
