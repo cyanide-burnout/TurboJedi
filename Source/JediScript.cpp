@@ -45,6 +45,7 @@ extern "C"
 #include <string.h>
 #include <pwd.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 
 #include <map>
@@ -477,6 +478,72 @@ static int LogText(lua_State* state)
 
   LogConsole(plugin.empty() ? std::string("lua") : plugin, text, GetFlag(state, 2, "problem"));
   return 0;
+}
+
+// append(path, text): the text at the end of a file of the process alone, made with 0600; nil and why when it is not
+// one: a link, not a file, of another owner, or readable or writable by others. What a plugin keeps of the journal stays
+// with its user, root included
+static int AppendText(lua_State* state)
+{
+  int handle;
+  size_t length;
+  ssize_t written;
+  const char* text;
+  std::string path;
+  std::string reason;
+  struct stat status;
+
+  if ((!GetString(state, 1, path)) ||
+      (lua_type(state, 2) != LUA_TSTRING))
+  {
+    return Fail(state, "append() takes a path and a text");
+  }
+
+  text = lua_tolstring(state, 2, &length);
+
+  if ((handle = open(path.c_str(), O_WRONLY | O_APPEND | O_CREAT | O_NOFOLLOW | O_CLOEXEC, 0600)) < 0)
+  {
+    reason = strerror(errno);
+  }
+  else if ((fstat(handle, &status) < 0) ||
+           (!S_ISREG(status.st_mode)))
+  {
+    reason = "not a regular file";
+  }
+  else if (status.st_uid != geteuid())
+  {
+    reason = "of another owner";
+  }
+  else if ((status.st_mode & 077) != 0)
+  {
+    reason = "open to others, chmod 600 it";
+  }
+  else
+  {
+    for (size_t done = 0; done < length; done += written)
+    {
+      if ((written = write(handle, text + done, length - done)) < 0)
+      {
+        reason = strerror(errno);
+        break;
+      }
+    }
+  }
+
+  if (handle >= 0)
+  {
+    close(handle);
+  }
+
+  if (!reason.empty())
+  {
+    lua_pushnil(state);
+    lua_pushstring(state, reason.c_str());
+    return 2;
+  }
+
+  lua_pushboolean(state, 1);
+  return 1;
 }
 
 // registerMethod(name, func): func(values) for Invoke() of the bus, the table it returns is the answer
@@ -3080,6 +3147,7 @@ static const luaL_Reg functions[] =
   { "registerRestore", Call<RegisterRestore, PHASE_LOAD>   },
   { "registerMethod",  Call<RegisterMethod,  PHASE_LOAD>   },
   { "log",             Call<LogText,         PHASE_ANY>    },
+  { "append",          Call<AppendText,      PHASE_ANY>    },
   { "message",         Call<ShowMessage,     PHASE_DO>     },
   { "confirm",         Call<AskConfirm,      PHASE_DO>     },
   { "input",           Call<AskInput,        PHASE_DO>     },

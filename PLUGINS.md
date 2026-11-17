@@ -155,6 +155,7 @@ argument whatever it holds, no shell sees it.
 | `registerHandler(func)` | loading | a handler, `func(entry, menu, context)` |
 | `registerRestore(func)` | loading | gets back the watches of the plugin a layout has kept, `func(context, position)` for each |
 | `registerMethod(name, func)` | loading | a method for `Invoke()` of D-Bus: `func(values)` with the values of the caller as a table, the table it returns is the answer; see below |
+| `append(path, text)` | any time | the text at the end of a file of the process alone: made with 0600, never through a link, refused when it is another's or open to others; `true`, or `nil` and why. For what a plugin keeps of the journal |
 | `log(text, options)` | any time | a line of the console, Window → Console, with the name of the plugin; `{ problem = true }` leaves it unread, the status line tells it. `print()` writes there too, as a quiet line |
 | `message(text, title)` | action, callback | a text with OK, a long one in a window to scroll; the title is "Message" without one |
 | `confirm(text)` | action, callback | Yes or No: `true` or `false`. No is the default one, Esc is No |

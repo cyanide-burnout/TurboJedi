@@ -26,7 +26,9 @@
 -- decides without it (1024 for Anthropic, which wants it said). prompt is a file of instructions instead of the ones
 -- built in, {language} there the language of the answers: a model taught on instructions of its own gets them. record
 -- is a file every answer goes to as a line of JSON with its request, for teaching a model of one's own on them: the
--- entries are in it, keep it where they may be. A value goes to the end of its line, a comment is a line of its own.
+-- entries are in it, so it is made 0600 and written only when it is a file of the process alone. Under sudo, prompt and
+-- record of the file of the user of sudo are left out: root reads and writes no path a user names. A value goes to the
+-- end of its line, a comment is a line of its own.
 --
 -- An address of another machine is told once before the first request goes there: the entries leave the machine then.
 -- JSON is lua-cjson for Lua 5.4: lua-cjson of Debian and Ubuntu, lua54-cjson of openSUSE; elsewhere
@@ -71,8 +73,21 @@ local function load()
     paths[#paths + 1] = user
   end
 
-  for _, path in ipairs(paths) do
-    if read(path, settings) then used[#used + 1] = path end
+  for index, path in ipairs(paths) do
+    local values = { }
+
+    if read(path, values) then
+      used[#used + 1] = path
+
+      for key, value in pairs(values) do
+        if sudo and (index == 3) and ((key == 'prompt') or (key == 'record')) then
+          -- Root reads and writes no path a user names: /etc/turbojedi/arrakis.conf or the one of root tell them
+          turbojedi.log(('%s of %s is left out under sudo: a path for root goes to %s'):format(key, path, SYSTEM), { problem = true })
+        else
+          settings[key] = value
+        end
+      end
+    end
   end
 
   if #used == 0 then
@@ -205,18 +220,16 @@ local function request(items)
          system, user
 end
 
--- An answer with its request as a line of JSON of the file of record, for teaching a model of one's own
+-- An answer with its request as a line of JSON of the file of record, for teaching a model of one's own: the entries are
+-- in it, so the core makes the file 0600 and writes only to one of the process alone, never through a link
 local function keep(job, text)
-  local file, reason = io.open(settings.record, 'a')
+  local line = cjson.encode({ time = os.time(), url = settings.url, model = settings.model, format = settings.format,
+                              language = settings.language, system = job.system, user = job.user, answer = text }) .. '\n'
+  local done, reason = turbojedi.append(settings.record, line)
 
-  if not file then
+  if not done then
     turbojedi.log(('record %s cannot be written: %s'):format(settings.record, tostring(reason)), { problem = true })
-    return
   end
-
-  file:write(cjson.encode({ time = os.time(), url = settings.url, model = settings.model, format = settings.format,
-                            language = settings.language, system = job.system, user = job.user, answer = text }), '\n')
-  file:close()
 end
 
 -- The text of an answer, or nil and why there is none

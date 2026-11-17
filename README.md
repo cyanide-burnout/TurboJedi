@@ -464,8 +464,10 @@ record   = /var/tmp/arrakis.jsonl
 
 A line is `key = value` to its end, a comment is a line of its own that starts with `#`. `prompt` and `record` are for a
 model of your own: `record` keeps what a large model has answered on your journals, a set to teach a small one on, and
-`prompt` gives that small one the instructions it has been taught with. The record holds the entries: keep it where they
-may be.
+`prompt` gives that small one the instructions it has been taught with. The record holds the entries: it is made with 0600, and
+written only when it is a file of the user alone, not a link. Under `sudo`, `prompt` and `record` of your own file
+are left out, and the console tells so: root reads and writes no path a user names, give them in
+`/etc/turbojedi/arrakis.conf` then.
 
 Any service of the API of OpenAI or of Anthropic does, on this machine or not:
 
