@@ -30,6 +30,10 @@
 -- record of the file of the user of sudo are left out: root reads and writes no path a user names. A value goes to the
 -- end of its line, a comment is a line of its own.
 --
+-- Actions asks about an answer too: a question goes with the whole conversation of its job, the entries, the answers and
+-- the questions before it; a job starts on its own, nothing of the others goes along. The record keeps the first
+-- request of a job and its answer only.
+--
 -- An address of another machine is told once before the first request goes there: the entries leave the machine then.
 -- JSON is lua-cjson for Lua 5.4: lua-cjson of Debian and Ubuntu, lua54-cjson of openSUSE; elsewhere
 -- luarocks --lua-version 5.4 install lua-cjson
@@ -145,8 +149,10 @@ turbojedi.log(('%s: %s at %s, model %s, answers in %s%s%s%s'):format(settings.fi
   settings.model or 'of the server', settings.language, settings.prompt and (', instructions of ' .. settings.prompt) or '',
   settings.record and (', answers recorded to ' .. settings.record) or '', trusted and '' or ', another machine: asked before the first request'))
 
-local jobs   = { }   -- Requests on the way, by their number
-local number = 0
+local jobs     = { }   -- Requests on the way, by their number
+local answered = { }   -- Jobs that have an answer to ask about, the latest first
+local number   = 0
+local ANSWERED = 10    -- Of them kept to ask about
 
 -- A field the journal has several times is a list, the first value tells enough here
 local function first(value)
@@ -196,35 +202,43 @@ line [number] time host unit identifier[pid] LEVEL: message. Tell in a few sente
 cause, and what to check or do next. Name the entries that matter by their numbers in square brackets, as [3]. Do not
 repeat the entries. Plain text, no Markdown. Answer in {language}.]]
 
--- The request of the format of the service, with the instructions and the entries it has been made of; focus is the
--- number of the entry chosen when the ones before it are only what has led to it
-local function request(items, focus)
-  local language = LANGUAGES[settings.language] or settings.language
-  local system   = (settings.instructions or INSTRUCTIONS):gsub('{language}', function() return language end)
-  local user     = listing(items)
-
-  if focus then
-    user = user .. ('\n\nExplain entry [%d]. The entries before it are of the same unit or program, only what has led to it.'):format(focus)
-  end
-
-  user = user .. '\n\nAnswer in ' .. language .. '.'
-  local headers  = { ['Content-Type'] = 'application/json' }
+-- The request of the format of the service: the instructions and the messages so far, the last one of the user
+local function send(system, messages)
+  local headers = { ['Content-Type'] = 'application/json' }
   local body
 
   if settings.format == 'anthropic' then
     headers['anthropic-version'] = '2023-06-01'
     if settings.key then headers['x-api-key'] = settings.key end
     body = { model = settings.model, max_tokens = settings.tokens or TOKENS, stream = false, system = system,
-             messages = { { role = 'user', content = user } } }
+             messages = messages }
   else
     if settings.key then headers.Authorization = 'Bearer ' .. settings.key end
     -- The whole answer at once: some servers stream when not told, fm serve of macOS for one
     body = { model = settings.model, max_tokens = settings.tokens, stream = false,
-             messages = { { role = 'system', content = system }, { role = 'user', content = user } } }
+             messages = { { role = 'system', content = system }, table.unpack(messages) } }
   end
 
-  return { url = settings.url, method = 'POST', headers = headers, body = cjson.encode(body), timeout = settings.timeout },
-         system, user
+  return { url = settings.url, method = 'POST', headers = headers, body = cjson.encode(body), timeout = settings.timeout }
+end
+
+local function language()
+  return LANGUAGES[settings.language] or settings.language
+end
+
+-- The first request of a job, the instructions and the entries it has been made of; focus is the number of the entry
+-- chosen when the ones before it are only what has led to it
+local function request(items, focus)
+  local tongue = language()
+  local system = (settings.instructions or INSTRUCTIONS):gsub('{language}', function() return tongue end)
+  local user   = listing(items)
+
+  if focus then
+    user = user .. ('\n\nExplain entry [%d]. The entries before it are of the same unit or program, only what has led to it.'):format(focus)
+  end
+
+  user = user .. '\n\nAnswer in ' .. tongue .. '.'
+  return send(system, { { role = 'user', content = user } }), system, user
 end
 
 -- An answer with its request as a line of JSON of the file of record, for teaching a model of one's own: the entries are
@@ -274,9 +288,14 @@ local function answer(code, body)
   return text
 end
 
--- A failure in the watch and on the screen; the window has told it, so the line comes read
+-- A failure in the watch and on the screen; the window has told it, so the line comes read. A question that has no
+-- answer is not a part of the conversation
 local function failed(job, text)
-  job.watch:status('failed')
+  if job.messages and (job.messages[#job.messages].role == 'user') then
+    table.remove(job.messages)
+  end
+
+  job.watch:status(job.messages and 'done, the last question failed' or 'failed')
   job.watch:add(text, nil, { quiet = true })
   turbojedi.message(text, 'Arrakis')
 end
@@ -301,21 +320,60 @@ local function done(code, body, more, job)
   job.watch:status('done')
   job.watch:add(text, nil, { quiet = true })
 
-  if settings.record then
-    keep(job, text)
+  if not job.messages then
+    -- The first answer: the record is of single requests, the way a model of one's own is taught
+    job.messages = { { role = 'user', content = job.user } }
+    job.named    = { }
+    if settings.record then keep(job, text) end
   end
 
-  local named = { }
+  job.messages[#job.messages + 1] = { role = 'assistant', content = text }
 
   for found in text:gmatch('%[(%d+)%]') do
     local index = tonumber(found)
-    if job.items[index] and not named[index] then
-      named[index] = true
+    if job.items[index] and not job.named[index] then
+      job.named[index] = true
       job.watch:add(('[%d] %s'):format(index, line(job.items[index])), job.items[index], { quiet = true })
     end
   end
 
+  -- The latest answer first among the ones to ask about
+  for index, other in ipairs(answered) do
+    if other == job then table.remove(answered, index) break end
+  end
+
+  table.insert(answered, 1, job)
+  answered[ANSWERED + 1] = nil
+
   turbojedi.message(text, 'Arrakis')
+end
+
+-- A question about an answer: the whole conversation of the job goes along, the entries, the answers and the questions
+-- before it
+local function ask(job)
+  if jobs[job.number] then
+    turbojedi.message(('Arrakis is still working at %s'):format(job.title), 'Arrakis')
+    return
+  end
+
+  local question = turbojedi.input(('Ask about %s:'):format(job.title), '')
+  if not question or not question:find('%S') then return end
+
+  job.messages[#job.messages + 1] = { role = 'user', content = question .. '\n\nAnswer in ' .. language() .. '.' }
+  job.watch:add('? ' .. question, nil, { quiet = true })
+  job.watch:status(('working at %s'):format(host))
+  job.request = turbojedi.fetch(send(job.system, job.messages), done, job)
+  jobs[job.number] = job
+end
+
+local function pick()
+  if #answered == 1 then return ask(answered[1]) end
+
+  local titles = { }
+  for index, job in ipairs(answered) do titles[index] = job.title end
+
+  local _, index = turbojedi.choose('Arrakis: ask about', titles)
+  if index then ask(answered[index]) end
 end
 
 local function analyze(items, what, focus)
@@ -327,10 +385,11 @@ local function analyze(items, what, focus)
   number = number + 1
 
   -- A watch of the job, its status and the answer in its lines; it reads no journal
-  local watch = turbojedi.watch({ title = ('Arrakis %d: %s'):format(number, what or (#items .. ' entries')) })
+  local title = ('Arrakis %d: %s'):format(number, what or (#items .. ' entries'))
+  local watch = turbojedi.watch({ title = title })
 
   local query, system, user = request(items, focus)
-  local job = { number = number, items = items, watch = watch, system = system, user = user }
+  local job = { number = number, title = title, items = items, watch = watch, system = system, user = user }
 
   watch:status(('working at %s'):format(host))
   job.request = turbojedi.fetch(query, done, job)
@@ -364,8 +423,15 @@ end
 local function cancel()
   for key, job in pairs(jobs) do
     job.request:cancel()
-    job.watch:status('cancelled')
     jobs[key] = nil
+
+    if job.messages then
+      -- A question cancelled, the answers before it are there to ask about
+      table.remove(job.messages)
+      job.watch:status('done, the last question cancelled')
+    else
+      job.watch:status('cancelled')
+    end
   end
 end
 
@@ -374,6 +440,12 @@ turbojedi.registerHandler(function(item, menu, context)
     menu:add(('Arrakis: explain %d marked entries'):format(#context.marked), analyze, context.marked)
   else
     menu:add('Arrakis: explain this entry', single, item)
+  end
+
+  if #answered == 1 then
+    menu:add(('Arrakis: ask about %s'):format(answered[1].title), ask, answered[1])
+  elseif #answered > 1 then
+    menu:add('Arrakis: ask about an answer', pick)
   end
 
   if next(jobs) then
