@@ -3,6 +3,62 @@
 Every release has a theme of its own, the patch releases after it finish the same one. Packages of every release are on
 the [releases page](https://github.com/cyanide-burnout/TurboJedi/releases).
 
+## 0.16 — 2026-11-17
+
+Arrakis: a language model explains the entries and answers questions about them; the timeline gets ranges, their
+history and UTC.
+
+- Arrakis, `050-arrakis.lua`: Actions → Arrakis: explain this entry, which takes along up to 30 entries of its unit
+  before it and names the one chosen, or explain N marked entries. A language model behind the API of OpenAI or of
+  Anthropic that `arrakis.conf` tells answers what has happened, the likely cause and what to check: llama-server,
+  Ollama, vLLM, colibri, `fm serve` of macOS over SSH, OpenAI, Anthropic. Without the file nothing is offered and
+  nothing leaves the machine. lua-cjson for Lua 5.4 is needed, the packages of Debian, Ubuntu and openSUSE recommend it
+- The answer comes in a window with a line for a question under it: Ask sends the question with the entries, the answer
+  and the questions before it, as a conversation of that job alone, and the next answer comes the same way. Copy puts
+  the whole answer to the clipboard, PgUp and PgDn scroll a long one. A request waits in a window with a spinner, the
+  seconds so far and Cancel, the journal windows go on behind it
+- The answers, the questions and the entries an answer names are lines of a watch "Arrakis N" in F12: Enter on an answer
+  or a question brings it back with a line for the next question, Enter on an entry goes to it
+- An address of another machine is asked about before the first request; a yes is kept in
+  `~/.config/turbojedi/arrakis-trusted.txt` and holds while `url` stays the same
+- An answer cut at the limit of tokens says so, one of thinking only or an empty one fails and tells why; Anthropic gets
+  2048 tokens by default. `tokens` bounds an answer, `prompt` gives instructions of one's own and `record` keeps every
+  answer with its request, 0600, for teaching a model of one's own
+- Under `sudo` Arrakis takes `arrakis.conf` of the user of sudo, its `prompt` and `record` left out, and keeps the yes
+  in the home of that user
+- Window → Console: `print()` and `log()` of the plugins, their errors, the problems of the start, what each plugin has
+  been loaded from and why one offers nothing, and what callers of D-Bus have done; a watch of TurboJedi itself that
+  stays, F8 in its lines clears them
+- Timeline: B draws the bars in Braille, two intervals a cell. Shift with the arrows, dragging or Shift+click select
+  intervals, Z or a double click zooms into them, Ctrl-T sets the range; Ctrl-Z, a right click and Ctrl-Y go back and
+  forth along the ranges and steps, + and - included. Its own status line tells the keys, clicked as well
+- Timeline: U turns it to hours and days of UTC; intervals of hours and days go by the wall clock, a day the clocks
+  change has 23 or 25 hours. A layout keeps the bars and the zone
+- Ctrl-T has a UTC check box that turns the times over and keeps the moments; a time takes UTC at its end and fractions
+  of a second as journalctl reads them, Ctrl-G starts in the zone of the window
+- Window → Shadows: off, light, medium as Turbo Vision has them, or dark, for every window and dialog, shown as soon as
+  chosen and kept in `screen.conf`
+- The process of an entry opens in htop where it is installed, in top otherwise
+- D-Bus: `Describe` of a timeline in front tells its filter, step, range and the interval under the cursor or the
+  selection with their counts. `Invoke(plugin, method, values)` calls a method a plugin offers by `registerMethod()`.
+  Files of allow, `/etc/turbojedi/allow.d/*.conf` and `~/.config/turbojedi/allow.conf`, name the users and groups
+  answered besides the own one and root, and the methods they may call, `Invoke:plugin` or `Invoke:plugin.method` for
+  one plugin or one method. See DBUS.md
+- `copy =` of `~/.config/turbojedi/clipboard.conf` names the command of the clipboard when no option or environment
+  does; under `sudo` the file of the user of sudo is taken and its command runs as that user
+- `update.ini` and `screen.ini` are `update.conf` and `screen.conf` now, so the check for updates on start is asked
+  about once more. Under `sudo` they are the ones of the user of sudo, written as that user; a file of settings is
+  written whole by a file beside it
+- Plugins: `watch(options)` makes a watch the plugin feeds itself and `watch:follow(options, func, ...)` lets the
+  journal feed it, `watch(options, func)` of 0.15 still follows at once. A line of a watch takes an action for Enter and
+  a double click, `{ action = func }`. `message(text, title, { input = prompt })` asks a question under a text. `sudo()`
+  tells the user of sudo, `log()` writes to the console, `append()` adds to a file of the process alone, `settings()`
+  keeps a file among the settings of TurboJedi, `registerMethod()` offers a method to D-Bus. A wait of `fetch()`,
+  `dbus()` or `query()` shows a spinner and the seconds so far. See PLUGINS.md
+- The example of Asterisk finds the CLI of a build of its own in `/opt/asterisk` or `/usr/local/sbin` as well
+
+Thanks to icelord.
+
 ## 0.15.1 — 2026-11-16
 
 - Plugins call a method of a service on the system or the user bus by `dbus()`, with typed values, waiting in an action
