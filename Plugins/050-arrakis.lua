@@ -125,7 +125,7 @@ local function line(item)
   return ('%s %s%s %s%s %s: %s'):format(
     stamp and turbojedi.date('%Y-%m-%d %H:%M:%S', stamp // 1000000) .. ('.%03d'):format((stamp // 1000) % 1000) or '?',
     first(item._HOSTNAME) or '?', unit and (' ' .. unit) or '', name, pid and ('[' .. pid .. ']') or '',
-    LEVELS[priority] or 'INFO', first(item.MESSAGE) or '')
+    LEVELS[priority] or 'INFO', ((first(item.MESSAGE) or ''):gsub('%s+$', '')))
 end
 
 -- Numbered lines up to the budget, the newest kept when there are too many: what has failed last tells most
@@ -236,7 +236,7 @@ local function done(code, body, more, job)
     return
   end
 
-  job.watch:status(('done, %d entries'):format(#job.items))
+  job.watch:status('done')
   job.watch:add(text, nil, { quiet = true })
 
   local named = { }
@@ -252,7 +252,7 @@ local function done(code, body, more, job)
   turbojedi.message(text, 'Arrakis')
 end
 
-local function analyze(items)
+local function analyze(items, what)
   if not trusted then
     if not turbojedi.confirm(('The entries go to %s, another machine. Send them?'):format(host)) then return end
     trusted = true
@@ -261,7 +261,7 @@ local function analyze(items)
   number = number + 1
 
   -- A watch of nothing, its lines are the job: a field no entry has, the journal has nothing to read for it
-  local watch, reason = turbojedi.watch({ title = ('Arrakis %d: %d entries'):format(number, #items),
+  local watch, reason = turbojedi.watch({ title = ('Arrakis %d: %s'):format(number, what or (#items .. ' entries')),
                                           matches = { ARRAKIS_NOTHING = tostring(number) } }, function() end)
 
   if not watch then
@@ -292,7 +292,7 @@ local function single(item)
     end
   end
 
-  analyze(items)
+  analyze(items, (#items > 1) and ('an entry and %d before it'):format(#items - 1) or 'an entry')
 end
 
 local function cancel()
