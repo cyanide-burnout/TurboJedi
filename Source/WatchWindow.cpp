@@ -680,7 +680,7 @@ void WatchLogView::handleEvent(TEvent& event)
       (event.message.command == cmJournalClear))
   {
     // F8 of the menu, as a journal window clears
-    watch->clear();
+    ClearPluginWatchLines(watch);
     MarkPluginWatchesChanged();
     drawView();
     clearEvent(event);
@@ -775,7 +775,7 @@ void WatchLogView::handleEvent(TEvent& event)
       if (line != watch->lines.end())
       {
         // The cursor goes on to the next one
-        watch->erase(chosen);
+        ErasePluginWatchLine(watch, chosen);
         move(index);
         MarkPluginWatchesChanged();
       }

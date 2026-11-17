@@ -4638,6 +4638,30 @@ bool RemovePluginWatch(int number)
   return true;
 }
 
+void ErasePluginWatchLine(JournalWatch* watch, uint64_t line)
+{
+  watch->erase(line);
+
+  if (state != nullptr)
+  {
+    DropLineActions(watch->number, line);
+  }
+
+  changed = true;
+}
+
+void ClearPluginWatchLines(JournalWatch* watch)
+{
+  watch->clear();
+
+  if (state != nullptr)
+  {
+    DropLineActions(watch->number, 0);
+  }
+
+  changed = true;
+}
+
 bool RunPluginWatchLine(JournalWatch* watch, uint64_t line)
 {
   int base;
