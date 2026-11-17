@@ -16,11 +16,17 @@
 --   language = ru
 --   budget   = 12000
 --   timeout  = 600
+--   tokens   = 512
+--   prompt   = /etc/turbojedi/arrakis.prompt
+--   record   = /var/tmp/arrakis.jsonl
 --
 -- format is openai or anthropic, which /v1/messages in the url tells as well; key a token for a service that wants one,
 -- chmod 600 the file then; language of the answers, the one of the locale without it; budget characters of entries a
--- request takes at most; timeout seconds a request may take, 0 for no limit. A value goes to the end of its line, a
--- comment is a line of its own.
+-- request takes at most; timeout seconds a request may take, 0 for no limit; tokens of an answer at most, the service
+-- decides without it (1024 for Anthropic, which wants it said). prompt is a file of instructions instead of the ones
+-- built in, {language} there the language of the answers: a model taught on instructions of its own gets them. record
+-- is a file every answer goes to as a line of JSON with its request, for teaching a model of one's own on them: the
+-- entries are in it, keep it where they may be. A value goes to the end of its line, a comment is a line of its own.
 --
 -- An address of another machine is told once before the first request goes there: the entries leave the machine then.
 -- JSON is lua-cjson for Lua 5.4: lua-cjson of Debian and Ubuntu, lua54-cjson of openSUSE; elsewhere
@@ -80,6 +86,15 @@ local function load()
   settings.format  = settings.format or (settings.url and settings.url:match('/v1/messages$') and 'anthropic') or 'openai'
   settings.budget  = tonumber(settings.budget) or 12000
   settings.timeout = tonumber(settings.timeout) or 600
+  settings.tokens  = tonumber(settings.tokens)
+
+  if settings.prompt then
+    -- Instructions of one's own, the ones a model has been taught on
+    local file = io.open(settings.prompt)
+    if not file then error(('prompt %s of %s cannot be read'):format(settings.prompt, settings.files)) end
+    settings.instructions = file:read('a'):gsub('%s+$', '')
+    file:close()
+  end
 
   if (not settings.url) or (not settings.url:match('^https?://')) or
      ((settings.format ~= 'openai') and (settings.format ~= 'anthropic')) or
@@ -111,8 +126,9 @@ end
 local host    = settings.url:match('^https?://%[([^%]]+)%]') or settings.url:match('^https?://([^/:]+)') or '?'
 local trusted = (host == 'localhost') or (host == '::1') or (host:match('^127%.%d+%.%d+%.%d+$') ~= nil)
 
-turbojedi.log(('%s: %s at %s, model %s, answers in %s%s'):format(settings.files, settings.format, settings.url,
-  settings.model or 'of the server', settings.language, trusted and '' or ', another machine: asked before the first request'))
+turbojedi.log(('%s: %s at %s, model %s, answers in %s%s%s%s'):format(settings.files, settings.format, settings.url,
+  settings.model or 'of the server', settings.language, settings.prompt and (', instructions of ' .. settings.prompt) or '',
+  settings.record and (', answers recorded to ' .. settings.record) or '', trusted and '' or ', another machine: asked before the first request'))
 
 local jobs   = { }   -- Requests on the way, by their number
 local number = 0
@@ -158,15 +174,17 @@ local function listing(items)
   return table.concat(lines, '\n')
 end
 
+-- The instructions built in; prompt of the settings takes their place. Tools that teach a model of one's own read them
+-- here, the way the plugin sends them
 local INSTRUCTIONS = [[You help an administrator of a Linux server read entries of its systemd journal. Each entry is a
 line [number] time host unit identifier[pid] LEVEL: message. Tell in a few sentences what has happened, the likely
 cause, and what to check or do next. Name the entries that matter by their numbers in square brackets, as [3]. Do not
-repeat the entries. Plain text, no Markdown. Answer in %s.]]
+repeat the entries. Plain text, no Markdown. Answer in {language}.]]
 
--- The request of the format of the service
+-- The request of the format of the service, with the instructions and the entries it has been made of
 local function request(items)
   local language = LANGUAGES[settings.language] or settings.language
-  local system   = INSTRUCTIONS:format(language)
+  local system   = (settings.instructions or INSTRUCTIONS):gsub('{language}', function() return language end)
   local user     = listing(items) .. '\n\nAnswer in ' .. language .. '.'
   local headers  = { ['Content-Type'] = 'application/json' }
   local body
@@ -174,16 +192,31 @@ local function request(items)
   if settings.format == 'anthropic' then
     headers['anthropic-version'] = '2023-06-01'
     if settings.key then headers['x-api-key'] = settings.key end
-    body = { model = settings.model, max_tokens = TOKENS, stream = false, system = system,
+    body = { model = settings.model, max_tokens = settings.tokens or TOKENS, stream = false, system = system,
              messages = { { role = 'user', content = user } } }
   else
     if settings.key then headers.Authorization = 'Bearer ' .. settings.key end
     -- The whole answer at once: some servers stream when not told, fm serve of macOS for one
-    body = { model = settings.model, stream = false,
+    body = { model = settings.model, max_tokens = settings.tokens, stream = false,
              messages = { { role = 'system', content = system }, { role = 'user', content = user } } }
   end
 
-  return { url = settings.url, method = 'POST', headers = headers, body = cjson.encode(body), timeout = settings.timeout }
+  return { url = settings.url, method = 'POST', headers = headers, body = cjson.encode(body), timeout = settings.timeout },
+         system, user
+end
+
+-- An answer with its request as a line of JSON of the file of record, for teaching a model of one's own
+local function keep(job, text)
+  local file, reason = io.open(settings.record, 'a')
+
+  if not file then
+    turbojedi.log(('record %s cannot be written: %s'):format(settings.record, tostring(reason)), { problem = true })
+    return
+  end
+
+  file:write(cjson.encode({ time = os.time(), url = settings.url, model = settings.model, format = settings.format,
+                            language = settings.language, system = job.system, user = job.user, answer = text }), '\n')
+  file:close()
 end
 
 -- The text of an answer, or nil and why there is none
@@ -248,6 +281,10 @@ local function done(code, body, more, job)
   job.watch:status('done')
   job.watch:add(text, nil, { quiet = true })
 
+  if settings.record then
+    keep(job, text)
+  end
+
   local named = { }
 
   for index in text:gmatch('%[(%d+)%]') do
@@ -278,10 +315,11 @@ local function analyze(items, what)
     return
   end
 
-  local job = { number = number, items = items, watch = watch }
+  local query, system, user = request(items)
+  local job = { number = number, items = items, watch = watch, system = system, user = user }
 
   watch:status(('working at %s'):format(host))
-  job.request = turbojedi.fetch(request(items), done, job)
+  job.request = turbojedi.fetch(query, done, job)
   jobs[number] = job
 end
 

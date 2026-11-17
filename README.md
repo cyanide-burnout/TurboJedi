@@ -454,9 +454,18 @@ language = ru
 budget   = 12000
 # seconds a request may take, 0 for no limit
 timeout  = 600
+# tokens of an answer at most, the service decides without it
+tokens   = 512
+# instructions of your own instead of the ones built in, {language} there the language of the answers
+prompt   = /etc/turbojedi/arrakis.prompt
+# every answer with its request as a line of JSON, to teach a model of your own on
+record   = /var/tmp/arrakis.jsonl
 ```
 
-A line is `key = value` to its end, a comment is a line of its own that starts with `#`.
+A line is `key = value` to its end, a comment is a line of its own that starts with `#`. `prompt` and `record` are for a
+model of your own: `record` keeps what a large model has answered on your journals, a set to teach a small one on, and
+`prompt` gives that small one the instructions it has been taught with. The record holds the entries: keep it where they
+may be.
 
 Any service of the API of OpenAI or of Anthropic does, on this machine or not:
 
