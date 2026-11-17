@@ -427,7 +427,8 @@ in a window, stays in a watch "Arrakis N" of F12, and the entries it names are l
 TurboJedi goes on while the model thinks; Actions offers to cancel a job that goes on.
 
 Nothing happens without a file: `/etc/turbojedi/arrakis.conf` of root for every user, `~/.config/turbojedi/arrakis.conf`
-of the user over it.
+of the user over it. Run by `sudo turbojedi`, the file in the home of the user who has run sudo goes over both, so the
+same file serves TurboJedi run as yourself and as root.
 
 ```
 url      = http://127.0.0.1:8080/v1/chat/completions

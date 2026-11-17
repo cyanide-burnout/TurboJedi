@@ -43,6 +43,7 @@ extern "C"
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pwd.h>
 #include <unistd.h>
 #include <sys/stat.h>
 
@@ -2601,6 +2602,51 @@ static int GetUniversal(lua_State* state)
   return 1;
 }
 
+// sudo(): the user who has run TurboJedi as root by sudo, { name, uid, home }, nil otherwise; the system tells the home,
+// the passwd file or a directory service, for a plugin to read a file of settings of that user
+static int GetSudoUser(lua_State* state)
+{
+  char* end;
+  char buffer[4096];
+  const char* value;
+  unsigned long uid;
+  struct passwd entry;
+  struct passwd* user;
+
+  value = getenv("SUDO_UID");
+
+  if ((getuid() != 0) ||
+      (value == nullptr) ||
+      (*value == '\0') ||
+      (strspn(value, "0123456789") != strlen(value)))
+  {
+    lua_pushnil(state);
+    return 1;
+  }
+
+  errno = 0;
+  uid   = strtoul(value, &end, 10);
+
+  if ((errno != 0) ||
+      (uid == 0) ||
+      (uid >= (unsigned long)(uid_t)-1) ||
+      (getpwuid_r((uid_t)uid, &entry, buffer, sizeof(buffer), &user) != 0) ||
+      (user == nullptr))
+  {
+    lua_pushnil(state);
+    return 1;
+  }
+
+  lua_createtable(state, 0, 3);
+  lua_pushstring(state, user->pw_name);
+  lua_setfield(state, -2, "name");
+  lua_pushinteger(state, user->pw_uid);
+  lua_setfield(state, -2, "uid");
+  lua_pushstring(state, user->pw_dir);
+  lua_setfield(state, -2, "home");
+  return 1;
+}
+
 // date(format, time): os.date() in the zone the user has chosen for the watches, ! in front of the format forces UTC
 static int FormatDate(lua_State* state)
 {
@@ -3014,6 +3060,7 @@ static const luaL_Reg functions[] =
   { "matches",         Call<Matches,         PHASE_ANY>    },
   { "which",           Call<Which,           PHASE_ANY>    },
   { "utc",             Call<GetUniversal,    PHASE_ANY>    },
+  { "sudo",            Call<GetSudoUser,     PHASE_ANY>    },
   { "date",            Call<FormatDate,      PHASE_ANY>    },
   { "poll",            Call<AddWatch,        PHASE_WATCH>  },
   { "timeout",         Call<AddTimer,        PHASE_WATCH>  },

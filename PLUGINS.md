@@ -39,7 +39,9 @@ of plugins to use it.
 ### Plugins and root
 
 The directory of the user is the one of the running process, by its `XDG_CONFIG_HOME` or `HOME`, as for `last.jedi`.
-Under `sudo` it is root's, never the one of `SUDO_USER`.
+Under `sudo` it is root's, never the one of `SUDO_USER`, for plugins and modules. A plugin may still read settings of
+the user of sudo, data and not code: `sudo()` tells that user and the home the system has for them, as Arrakis reads
+`~/.config/turbojedi/arrakis.conf` of the one who has run `sudo turbojedi`.
 
 Run by root, TurboJedi uses a plugin or a module only when root alone can change it: the file and every directory above
 it, up to `/`, links resolved, belong to root, and the others cannot write to them. The group may write when it is
@@ -177,6 +179,7 @@ argument whatever it holds, no shell sees it.
 | `regex(text, pattern, flags)` | any time | the first match, or `nil` |
 | `matches(text, pattern, flags)` | any time | an iterator over every match |
 | `which(name)` | any time | the path of a program in `PATH`, or `nil` |
+| `sudo()` | any time | the user who has run TurboJedi as root by `sudo`: `{ name = ..., uid = ..., home = ... }`, `nil` otherwise; for a file of settings of that user, see Plugins and root |
 | `utc()` | any time | `true` when the user wants the times of the watches in UTC, `false` for the local zone |
 | `date(format, time)` | any time | `os.date()` in the zone the user has chosen for the watches: put it in its place for the times a watch shows. `!` in front of the format forces UTC as in `os.date()`, `*t` is left to `os.date()` |
 

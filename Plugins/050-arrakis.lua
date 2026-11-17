@@ -6,7 +6,8 @@
 -- vLLM, colibri, OpenAI) or of Anthropic. On Arrakis they mine the spice, here the sense of the journal.
 --
 -- Nothing happens without a file of settings: /etc/turbojedi/arrakis.conf of root for every user, then
--- ~/.config/turbojedi/arrakis.conf of the user over it:
+-- ~/.config/turbojedi/arrakis.conf of the user over it; run by sudo, the one of the user of sudo over both, settings and
+-- not code, which the user could send anywhere from the screen anyway:
 --
 --   url      = http://127.0.0.1:8080/v1/chat/completions
 --   model    = qwen2.5-1.5b-instruct
@@ -50,8 +51,15 @@ local function load()
   local user     = home .. '/turbojedi/arrakis.conf'
   local settings = { }
   local found    = read(SYSTEM, settings)
+  local sudo     = turbojedi.sudo and turbojedi.sudo()
 
   found = read(user, settings) or found
+
+  if sudo then
+    -- The user who has run sudo, not root, has set up the engine
+    user  = sudo.home .. '/.config/turbojedi/arrakis.conf'
+    found = read(user, settings) or found
+  end
 
   if not found then
     -- Not set up: nothing is offered, nothing is sent anywhere
