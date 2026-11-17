@@ -613,15 +613,40 @@ static int AddItem(lua_State* state)
   return 0;
 }
 
+static bool GetOption(lua_State* state, int index, const char* name, std::string& value);
+
+// message(text, title, options): the text with OK; { input = prompt } puts a line to type a question into under it, the
+// line comes back by Ask, nil by Close or an empty line
 static int ShowMessage(lua_State* state)
 {
   std::string text;
   std::string title;
+  std::string prompt;
+  std::string value;
 
   if ((!GetString(state, 1, text)) ||
       ((!lua_isnoneornil(state, 2)) && (!GetString(state, 2, title))))
   {
     return Fail(state, "message() takes a text and a title");
+  }
+
+  if (!lua_isnoneornil(state, 3))
+  {
+    if ((lua_type(state, 3) != LUA_TTABLE) ||
+        (!GetOption(state, 3, "input", prompt)))
+    {
+      return Fail(state, "message() takes options of { input = prompt } after the title");
+    }
+
+    if ((!AskActionText(title.empty() ? "Message" : title.c_str(), text, prompt, value)) ||
+        (value.find_first_not_of(" \t") == std::string::npos))
+    {
+      lua_pushnil(state);
+      return 1;
+    }
+
+    lua_pushlstring(state, value.data(), value.size());
+    return 1;
   }
 
   ShowActionText(title.empty() ? "Message" : title.c_str(), text);

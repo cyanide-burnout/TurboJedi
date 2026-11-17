@@ -30,8 +30,9 @@
 -- record of the file of the user of sudo are left out: root reads and writes no path a user names. A value goes to the
 -- end of its line, a comment is a line of its own.
 --
--- Actions asks about an answer too: a question goes with the whole conversation of its job, the entries, the answers and
--- the questions before it; a job starts on its own, nothing of the others goes along. The record keeps the first
+-- An answer comes with a line for a question under it, and Actions brings one of the last ones back to ask about: the
+-- question goes with the whole conversation of its job, the entries, the answers and the questions before it; a job
+-- starts on its own, nothing of the others goes along. The record keeps the first
 -- request of a job and its answer only.
 --
 -- An address of another machine is told once before the first request goes there: the entries leave the machine then.
@@ -288,6 +289,8 @@ local function answer(code, body)
   return text
 end
 
+local converse
+
 -- A failure in the watch and on the screen; the window has told it, so the line comes read. A question that has no
 -- answer is not a part of the conversation
 local function failed(job, text)
@@ -345,25 +348,30 @@ local function done(code, body, more, job)
   table.insert(answered, 1, job)
   answered[ANSWERED + 1] = nil
 
-  turbojedi.message(text, 'Arrakis')
+  converse(job)
 end
 
--- A question about an answer: the whole conversation of the job goes along, the entries, the answers and the questions
--- before it
-local function ask(job)
-  if jobs[job.number] then
-    turbojedi.message(('Arrakis is still working at %s'):format(job.title), 'Arrakis')
-    return
-  end
-
-  local question = turbojedi.input(('Ask about %s:'):format(job.title), '')
-  if not question or not question:find('%S') then return end
+-- The last answer of a job with a line for a question under it: the question goes with the whole conversation of the
+-- job, the entries, the answers and the questions before it, and its answer comes the same way
+converse = function(job)
+  local question = turbojedi.message(job.messages[#job.messages].content, job.title, { input = '~Q~uestion about the answer' })
+  if not question then return end
 
   job.messages[#job.messages + 1] = { role = 'user', content = question .. '\n\nAnswer in ' .. language() .. '.' }
   job.watch:add('? ' .. question, nil, { quiet = true })
   job.watch:status(('working at %s'):format(host))
   job.request = turbojedi.fetch(send(job.system, job.messages), done, job)
   jobs[job.number] = job
+end
+
+-- An answer of before, to ask about it again
+local function ask(job)
+  if jobs[job.number] then
+    turbojedi.message(('Arrakis is still working at %s'):format(job.title), 'Arrakis')
+    return
+  end
+
+  converse(job)
 end
 
 local function pick()

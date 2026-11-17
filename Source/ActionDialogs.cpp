@@ -17,6 +17,7 @@
 
 #include "ActionDialogs.h"
 #include "PageDialog.h"
+#include "PageView.h"
 
 #include <string.h>
 
@@ -52,6 +53,48 @@ static int CountRows(const std::vector<std::string>& lines, int width)
   {
     // Words may leave a row a little short, one more is spare
     rows += std::max(1, (strwidth(line) + width - 1) / width) + ((strwidth(line) > width) ? 1 : 0);
+  }
+
+  return rows;
+}
+
+// The words of the lines in rows of the width at most, a word wider than it on a row of its own; the spaces a line
+// starts with stay
+static std::vector<std::string> Wrap(const std::vector<std::string>& lines, int width)
+{
+  size_t start;
+  size_t end;
+  bool fresh;
+  std::string row;
+  std::string word;
+  std::string next;
+  std::vector<std::string> rows;
+
+  for (const std::string& line : lines)
+  {
+    row   = std::string();
+    fresh = true;
+
+    for (start = 0; start < line.size(); start = end + 1)
+    {
+      end  = std::min(line.find(' ', start), line.size());
+      word = line.substr(start, end - start);
+      next = fresh ? word : row + " " + word;
+
+      if ((!fresh) &&
+          (!row.empty()) &&
+          (!word.empty()) &&
+          (strwidth(next) > width))
+      {
+        rows.push_back(row);
+        next = word;
+      }
+
+      row   = next;
+      fresh = false;
+    }
+
+    rows.push_back(row);
   }
 
   return rows;
@@ -196,6 +239,51 @@ void ShowActionText(const char* title, const std::string& text)
   dialog = new PageDialog(bounds, title, lines);
   TProgram::deskTop->execView(dialog);
   TObject::destroy(dialog);
+}
+
+bool AskActionText(const char* title, const std::string& text, const std::string& prompt, std::string& value)
+{
+  int width;
+  int height;
+  ushort result;
+  TRect desktop;
+  TDialog* dialog;
+  TInputLine* line;
+  TScrollBar* bar;
+  std::vector<std::string> rows;
+  char data[INPUT_LENGTH + 1];
+
+  // As wide as the desktop lets a text be read, as high as its rows and the line under them need
+  desktop = TProgram::deskTop->getExtent();
+  width   = std::max(std::min(100, desktop.b.x - 4), std::min(40, desktop.b.x));
+  rows    = Wrap(Split(text), width - 5);
+  height  = std::max(std::min((int)rows.size() + 8, desktop.b.y - 2), std::min(11, desktop.b.y));
+  dialog  = new TDialog(TRect(0, 0, width, height), title);
+  bar     = new TScrollBar(TRect(width - 2, 1, width - 1, height - 7));
+  line    = new TInputLine(TRect(3, height - 6, width - 3, height - 5), INPUT_LENGTH);
+
+  dialog->options |= ofCentered;
+  dialog->insert(bar);
+  dialog->insert(new PageView(TRect(1, 1, width - 2, height - 7), nullptr, bar, rows, false));
+  dialog->insert(line);
+  dialog->insert(new TLabel(TRect(2, height - 7, width - 2, height - 6), prompt.c_str(), line));
+  dialog->insert(new TButton(TRect(width / 2 - 12, height - 4, width / 2 - 2, height - 2), "~A~sk", cmOK, bfDefault));
+  dialog->insert(new TButton(TRect(width / 2 + 2, height - 4, width / 2 + 12, height - 2), "C~l~ose", cmCancel, bfNormal));
+
+  strnzcpy(data, value.c_str(), sizeof(data));
+  line->setData(data);
+  line->select();
+
+  result = TProgram::deskTop->execView(dialog);
+
+  if (result == cmOK)
+  {
+    line->getData(data);
+    value = data;
+  }
+
+  TObject::destroy(dialog);
+  return result == cmOK;
 }
 
 bool AskActionConfirm(const std::string& text)

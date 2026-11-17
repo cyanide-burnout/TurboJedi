@@ -14,6 +14,10 @@
 // Text with OK
 void ShowActionText(const char* title, const std::string& text);
 
+// Text with a line to type a question into under it, Ask and Close: false when closed, the text wrapped at the width
+// of the dialog and scrolled when it is longer than the desktop
+bool AskActionText(const char* title, const std::string& text, const std::string& prompt, std::string& value);
+
 // Yes or No, No is the default one, Esc is No as well
 bool AskActionConfirm(const std::string& text);
 

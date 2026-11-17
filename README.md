@@ -438,9 +438,11 @@ language model behind an HTTP API tells what has happened, the likely cause and 
 in a window, stays in a watch "Arrakis N" of F12, and the entries it names are lines there that go to them by Enter.
 TurboJedi goes on while the model thinks; Actions offers to cancel a job that goes on.
 
-Actions → Arrakis: ask about an answer puts a question to the model about one of the last ten answers: the entries,
-the answer and the questions before it go along, as a conversation of that job alone; the answer comes the same way and
-its question and text are lines of the watch. Every job starts on its own, the model remembers nothing of the others.
+Under the answer is a line for a question about it, what a number of an error means for one: Ask sends it with the
+entries, the answer and the questions before it, as a conversation of that job alone, and the answer comes the same
+way, with a line for the next question; Close ends it. Actions → Arrakis: ask about an answer brings one of the last ten
+back. The questions and the answers are lines of the watch as well. Every job starts on its own, the model remembers
+nothing of the others.
 
 Nothing happens without a file: `/etc/turbojedi/arrakis.conf` of root for every user, `~/.config/turbojedi/arrakis.conf`
 of the user over it. Run by `sudo turbojedi`, the file in the home of the user who has run sudo goes over both, so the
