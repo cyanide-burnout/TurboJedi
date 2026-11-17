@@ -3133,8 +3133,7 @@ static int SetWatchStatus(lua_State* state)
   return 0;
 }
 
-// The action of a line of a watch, all of them with no line: the line has gone. One left of a line the user has deleted
-// or of the oldest that have gone past the limit is never called, the line is not there to choose
+// The action of a line of a watch, all of them with no line: the line has gone
 static void DropLineActions(int watch, lua_Integer line)
 {
   int base;
@@ -3151,6 +3150,42 @@ static void DropLineActions(int watch, lua_Integer line)
   {
     lua_pushnil(state);
     lua_rawseti(state, -2, line);
+  }
+
+  lua_settop(state, base);
+}
+
+// The actions of the lines that have gone: the oldest past the limit, the ones the user has deleted. The lines go in the
+// order of their numbers, the actions are few
+static void PruneLineActions(JournalWatch* watch)
+{
+  int base;
+  lua_Integer line;
+  std::deque<JournalWatchLine>::iterator found;
+
+  base = lua_gettop(state);
+  lua_getfield(state, LUA_REGISTRYINDEX, ACTIONS);
+
+  if (lua_rawgeti(state, -1, watch->number) == LUA_TTABLE)
+  {
+    lua_pushnil(state);
+
+    while (lua_next(state, -2) != 0)
+    {
+      lua_pop(state, 1);
+      line  = lua_tointeger(state, -1);
+      found = std::lower_bound(watch->lines.begin(), watch->lines.end(), (uint64_t)line,
+                               [] (const JournalWatchLine& item, uint64_t number) { return item.number < number; });
+
+      if ((found == watch->lines.end()) ||
+          (found->number != (uint64_t)line))
+      {
+        // Clearing a field of the table it goes through is allowed
+        lua_pushvalue(state, -1);
+        lua_pushnil(state);
+        lua_rawset(state, -4);
+      }
+    }
   }
 
   lua_settop(state, base);
@@ -3202,6 +3237,7 @@ static int AddWatchLine(lua_State* state)
   lua_settop(state, 4);
   number = watch->add(text, entry, GetFlag(state, 4, "quiet"));
   changed = true;
+  PruneLineActions(watch);
 
   if ((lua_type(state, 4) == LUA_TTABLE) &&
       (lua_getfield(state, 4, "action") == LUA_TFUNCTION))
