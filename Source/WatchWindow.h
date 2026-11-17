@@ -15,6 +15,9 @@
 
 #include <string>
 
+class JournalWatch;
+struct JournalPosition;
+
 // The watches of the plugins in a list, the one with the newest line on top, and the lines of a watch, the newest on top.
 // Neither keeps anything of its own: the watches live in the engine of the plugins, the windows show them as they are
 // whenever they change. A line is read once it has been shown; the list, once it has been looked at
@@ -66,6 +69,7 @@ class WatchLogView : public TView
     TScrollBar* bar;
 
     void move(int index);
+    void open(JournalWatch* watch, uint64_t line, const JournalPosition& entry);
 };
 
 class WatchWindow : public TWindow

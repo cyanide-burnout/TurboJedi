@@ -320,9 +320,6 @@ local function done(code, body, more, job)
     return
   end
 
-  job.watch:status('done')
-  job.watch:add(text, nil, { quiet = true })
-
   if not job.messages then
     -- The first answer: the record is of single requests, the way a model of one's own is taught
     job.messages = { { role = 'user', content = job.user } }
@@ -331,6 +328,11 @@ local function done(code, body, more, job)
   end
 
   job.messages[#job.messages + 1] = { role = 'assistant', content = text }
+
+  -- Enter or a double click on the answer in the watch brings it back with a line for a question
+  local index = #job.messages
+  job.watch:status('done')
+  job.watch:add(text, nil, { quiet = true, action = function() converse(job, index) end })
 
   for found in text:gmatch('%[(%d+)%]') do
     local index = tonumber(found)
@@ -351,14 +353,25 @@ local function done(code, body, more, job)
   converse(job)
 end
 
--- The last answer of a job with a line for a question under it: the question goes with the whole conversation of the
--- job, the entries, the answers and the questions before it, and its answer comes the same way
-converse = function(job)
-  local question = turbojedi.message(job.messages[#job.messages].content, job.title, { input = '~Q~uestion about the answer' })
+-- An answer of a job, the last one without the index of its message, with a line for a question under it: the question
+-- goes with the whole conversation of the job, the entries, the answers and the questions before it, and its answer
+-- comes the same way
+converse = function(job, index)
+  if jobs[job.number] then
+    turbojedi.message(('Arrakis is still working at %s'):format(job.title), 'Arrakis')
+    return
+  end
+
+  local shown    = job.messages[index or #job.messages]
+  local text     = ((shown and (shown.role == 'assistant')) and shown or job.messages[#job.messages]).content
+  local question = turbojedi.message(text, job.title, { input = '~Q~uestion about the answer' })
   if not question then return end
 
   job.messages[#job.messages + 1] = { role = 'user', content = question .. '\n\nAnswer in ' .. language() .. '.' }
-  job.watch:add('? ' .. question, nil, { quiet = true })
+
+  -- The question in the watch brings its answer back, the one that comes next
+  local following = #job.messages + 1
+  job.watch:add('? ' .. question, nil, { quiet = true, action = function() converse(job, following) end })
   job.watch:status(('working at %s'):format(host))
   job.request = turbojedi.fetch(send(job.system, job.messages), done, job)
   jobs[job.number] = job
@@ -366,11 +379,6 @@ end
 
 -- An answer of before, to ask about it again
 local function ask(job)
-  if jobs[job.number] then
-    turbojedi.message(('Arrakis is still working at %s'):format(job.title), 'Arrakis')
-    return
-  end
-
   converse(job)
 end
 

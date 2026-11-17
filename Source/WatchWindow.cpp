@@ -515,6 +515,19 @@ void WatchLogView::move(int index)
   drawView();
 }
 
+// Enter or a double click on a line: the action the plugin has given it, or the entry of it in a window. The lines may
+// change under the action, the plugin adds and removes them
+void WatchLogView::open(JournalWatch* watch, uint64_t line, const JournalPosition& entry)
+{
+  if ((!RunPluginWatchLine(watch, line)) &&
+      (!entry.cursor.empty()))
+  {
+    ShowPluginWatchEntry(watch, entry);
+  }
+
+  drawView();
+}
+
 void WatchLogView::draw()
 {
   int y;
@@ -689,10 +702,9 @@ void WatchLogView::handleEvent(TEvent& event)
       line = std::find_if(watch->lines.begin(), watch->lines.end(), [this] (const JournalWatchLine& item) { return item.number == chosen; });
 
       if ((event.mouse.eventFlags & meDoubleClick) &&
-          (line != watch->lines.end()) &&
-          (!line->entry.cursor.empty()))
+          (line != watch->lines.end()))
       {
-        ShowPluginWatchEntry(watch, line->entry);
+        open(watch, line->number, line->entry);
       }
     }
 
@@ -751,11 +763,9 @@ void WatchLogView::handleEvent(TEvent& event)
     case kbEnd:   move(count - 1);       break;
 
     case kbEnter:
-      if ((line != watch->lines.end()) &&
-          (!line->entry.cursor.empty()))
+      if (line != watch->lines.end())
       {
-        // To the entry of the line in a window
-        ShowPluginWatchEntry(watch, line->entry);
+        open(watch, line->number, line->entry);
       }
       break;
 

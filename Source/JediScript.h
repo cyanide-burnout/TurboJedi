@@ -73,6 +73,7 @@ int IndexPluginWatch(const JournalWatch* watch);
 
 bool RemovePluginWatch(int number);                                            // Delete in the list of watches, false for the console
 void ShowPluginWatchEntry(JournalWatch* watch, const JournalPosition& entry);  // Enter on a line: the entry in a window
+bool RunPluginWatchLine(JournalWatch* watch, uint64_t line);                    // Enter on a line: its action, false without one
 
 // Watches have changed since the last time: their windows and the status line are drawn again
 void MarkPluginWatchesChanged();

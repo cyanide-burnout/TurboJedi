@@ -816,7 +816,7 @@ monitoring of the server: closed TurboJedi or a broken SSH connection watch noth
 |---|---|
 | `watch:follow(options, func, ...)` | the journal feeds the watch, see Following the journal above |
 | `watch:status(text)` | the status of the watch in the list |
-| `watch:add(text, entry, options)` | a line of the watch with its time, of one or several lines of text; with an entry, Enter on it goes to the entry in the window of the watch. `{ raise = true }` brings the list up with a bell, the watch red and blinking until its lines are read; `{ quiet = true }` adds it read, for a list of a state that changes all the time and is not news. The number of the line |
+| `watch:add(text, entry, options)` | a line of the watch with its time, of one or several lines of text; with an entry, Enter on it goes to the entry in the window of the watch. `{ action = func }` makes Enter or a double click on it call `func(watch, line)` instead, as a callback of the watch: a dialog of the plugin about that line, the answer of Arrakis with a line for a question for one. `{ raise = true }` brings the list up with a bell, the watch red and blinking until its lines are read; `{ quiet = true }` adds it read, for a list of a state that changes all the time and is not news. The number of the line |
 | `watch:delete(line)` | the line of a number `add` has given |
 | `watch:clear()` | all its lines |
 | `watch:context(table)` | the data a layout keeps from now on |
@@ -825,7 +825,7 @@ monitoring of the server: closed TurboJedi or a broken SSH connection watch noth
 - A watch keeps its last 1000 lines. What it writes and how often is up to the plugin: a log of every entry, a line
   with a count, several lines of text.
 - In the list, Enter shows the lines of a watch, Delete or Backspace removes it after a question. In the lines, Enter
-  goes to the entry, Delete or Backspace takes a line away, F8 clears them; a line is read once it has been shown. The
+  or a double click calls the action of a line or goes to its entry, Delete or Backspace takes a line away, F8 clears them; a line is read once it has been shown. The
   status line of both windows tells their keys, its items are clicked as well; Backspace is the key a Mac calls delete.
 - U in either window turns the times of all the watches over between the local zone and UTC, the status line tells
   which one it is and a layout keeps it. The times the windows show follow at once; a plugin that writes times into its

@@ -101,6 +101,7 @@ extern "C"
 #define NAMES     "TurboJedi.names"     // Of the plugin of every handler, by the same index
 #define RESTORERS "TurboJedi.restorers" // Functions of registerRestore() by the names of their plugins
 #define METHODS   "TurboJedi.methods"   // Tables of the functions of registerMethod() by the names of their plugins
+#define ACTIONS   "TurboJedi.actions"   // Tables of the actions of the lines of a watch by its number, by the numbers of the lines
 #define MENU      "TurboJedi.menu"
 
 static const char* const SystemDirectories[] = { "/usr/share/turbojedi/plugins", "/usr/local/share/turbojedi/plugins" };
@@ -3132,9 +3133,33 @@ static int SetWatchStatus(lua_State* state)
   return 0;
 }
 
+// The action of a line of a watch, all of them with no line: the line has gone. One left of a line the user has deleted
+// or of the oldest that have gone past the limit is never called, the line is not there to choose
+static void DropLineActions(int watch, lua_Integer line)
+{
+  int base;
+
+  base = lua_gettop(state);
+  lua_getfield(state, LUA_REGISTRYINDEX, ACTIONS);
+
+  if (line == 0)
+  {
+    lua_pushnil(state);
+    lua_rawseti(state, -2, watch);
+  }
+  else if (lua_rawgeti(state, -1, watch) == LUA_TTABLE)
+  {
+    lua_pushnil(state);
+    lua_rawseti(state, -2, line);
+  }
+
+  lua_settop(state, base);
+}
+
 // watch:add(text, entry, options): a line of the list of the watch, its number to delete it by
 static int AddWatchLine(lua_State* state)
 {
+  uint64_t number;
   std::string text;
   JournalWatch* watch;
   JournalPosition entry;
@@ -3167,8 +3192,37 @@ static int AddWatchLine(lua_State* state)
     return 0;
   }
 
-  lua_pushinteger(state, watch->add(text, entry, GetFlag(state, 4, "quiet")));
+  if ((lua_type(state, 4) == LUA_TTABLE) &&
+      (lua_getfield(state, 4, "action") != LUA_TNIL) &&
+      (lua_type(state, -1) != LUA_TFUNCTION))
+  {
+    return Fail(state, "action of add() is a function");
+  }
+
+  lua_settop(state, 4);
+  number = watch->add(text, entry, GetFlag(state, 4, "quiet"));
   changed = true;
+
+  if ((lua_type(state, 4) == LUA_TTABLE) &&
+      (lua_getfield(state, 4, "action") == LUA_TFUNCTION))
+  {
+    // Enter or a double click on the line calls it, by the number of the watch and of the line
+    lua_getfield(state, LUA_REGISTRYINDEX, ACTIONS);
+
+    if (lua_rawgeti(state, -1, watch->number) != LUA_TTABLE)
+    {
+      lua_pop(state, 1);
+      lua_newtable(state);
+      lua_pushvalue(state, -1);
+      lua_rawseti(state, -3, watch->number);
+    }
+
+    lua_pushvalue(state, -3);
+    lua_rawseti(state, -2, number);
+  }
+
+  lua_settop(state, 4);
+  lua_pushinteger(state, number);
 
   if (GetFlag(state, 4, "raise"))
   {
@@ -3196,6 +3250,7 @@ static int DeleteWatchLine(lua_State* state)
   if ((watch = FindJournalWatch(GetHandle(state))) != nullptr)
   {
     watch->erase(number);
+    DropLineActions(watch->number, number);
     changed = true;
   }
 
@@ -3230,6 +3285,7 @@ static int ClearWatchLines(lua_State* state)
   if ((watch = FindJournalWatch(GetHandle(state))) != nullptr)
   {
     watch->clear();
+    DropLineActions(watch->number, 0);
     changed = true;
   }
 
@@ -3275,6 +3331,7 @@ static void CollectJournalWatches()
 
     luaL_unref(state, LUA_REGISTRYINDEX, watch->second->callback);
     luaL_unref(state, LUA_REGISTRYINDEX, watch->second->self);
+    DropLineActions(watch->first, 0);
     watch = journals.erase(watch);
   }
 }
@@ -3557,6 +3614,8 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
   lua_setfield(state, LUA_REGISTRYINDEX, RESTORERS);
   lua_newtable(state);
   lua_setfield(state, LUA_REGISTRYINDEX, METHODS);
+  lua_newtable(state);
+  lua_setfield(state, LUA_REGISTRYINDEX, ACTIONS);
 
   // The menu a handler gets: menu:add(title, func, ...)
   luaL_newmetatable(state, MENU);
@@ -4540,6 +4599,57 @@ bool RemovePluginWatch(int number)
   }
 
   DropJournalWatch(number);
+  return true;
+}
+
+bool RunPluginWatchLine(JournalWatch* watch, uint64_t line)
+{
+  int base;
+  int number;
+  std::string name;
+
+  if (state == nullptr)
+  {
+    return false;
+  }
+
+  base = lua_gettop(state);
+  lua_pushcfunction(state, Trace);
+  lua_getfield(state, LUA_REGISTRYINDEX, ACTIONS);
+
+  if ((lua_rawgeti(state, -1, watch->number) != LUA_TTABLE) ||
+      (lua_rawgeti(state, -1, line) != LUA_TFUNCTION))
+  {
+    lua_settop(state, base);
+    return false;
+  }
+
+  // action(watch, line) as a callback of the watch: dialogs, commands and requests, mark() in its window
+  lua_remove(state, base + 2);
+  lua_remove(state, base + 2);
+  lua_rawgeti(state, LUA_REGISTRYINDEX, watch->self);
+  lua_pushinteger(state, line);
+
+  number   = watch->number;
+  name     = watch->plugin;
+  phase    = PHASE_ENTRY;
+  plugin   = name;
+  watching = number;
+  origin   = GetWatchWindow(watch);
+
+  if (lua_pcall(state, 2, 0, base + 1) != LUA_OK)
+  {
+    phase    = PHASE_IDLE;
+    watching = 0;
+    origin   = nullptr;
+    ShowErrors({ name + ": " + GetError(state) });
+  }
+
+  phase    = PHASE_IDLE;
+  watching = 0;
+  origin   = nullptr;
+  lua_settop(state, base);
+  changed  = true;
   return true;
 }
 
