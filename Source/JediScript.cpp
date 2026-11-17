@@ -520,13 +520,23 @@ static int AppendText(lua_State* state)
   }
   else
   {
-    for (size_t done = 0; done < length; done += written)
+    for (size_t done = 0; done < length; )
     {
-      if ((written = write(handle, text + done, length - done)) < 0)
+      if (((written = write(handle, text + done, length - done)) < 0) &&
+          (errno == EINTR))
       {
-        reason = strerror(errno);
+        // A signal has come before anything has been written
+        continue;
+      }
+
+      if (written <= 0)
+      {
+        // Nothing written would be written forever
+        reason = (written < 0) ? strerror(errno) : "nothing could be written";
         break;
       }
+
+      done += written;
     }
   }
 
