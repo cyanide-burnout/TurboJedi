@@ -216,7 +216,7 @@ bool JournalQuery::step(int64_t deadline)
 
 // StepClock
 
-// The seconds a long work has taken so far, so that the wait is seen to go on
+// A spinner and the seconds a long work has taken so far, so that the wait is seen to go on
 class StepClock : public TView
 {
   public:
@@ -229,8 +229,10 @@ class StepClock : public TView
   private:
 
     int64_t start;
-    int64_t shown;
+    int64_t shown;  // The frame of the spinner drawn last, a tenth of a second each
 };
+
+static const char* const spinner[] = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" };
 
 StepClock::StepClock(const TRect& bounds) :
   TView(bounds),
@@ -243,8 +245,10 @@ void StepClock::draw()
 {
   TDrawBuffer buffer;
   char text[32];
+  int64_t elapsed;
 
-  snprintf(text, sizeof(text), "%lld s", (long long)((GetQueryMilliseconds() - start) / 1000));
+  elapsed = GetQueryMilliseconds() - start;
+  snprintf(text, sizeof(text), "%s %lld s", spinner[(elapsed / 100) % 10], (long long)(elapsed / 1000));
   buffer.moveChar(0, ' ', getColor(1), size.x);
   buffer.moveStr(0, text, getColor(1));
   writeLine(0, 0, size.x, 1, buffer);
@@ -252,11 +256,11 @@ void StepClock::draw()
 
 void StepClock::tick()
 {
-  int64_t seconds;
+  int64_t frame;
 
-  if ((seconds = (GetQueryMilliseconds() - start) / 1000) != shown)
+  if ((frame = (GetQueryMilliseconds() - start) / 100) != shown)
   {
-    shown = seconds;
+    shown = frame;
     drawView();
   }
 }

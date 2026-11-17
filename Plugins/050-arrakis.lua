@@ -150,7 +150,6 @@ turbojedi.log(('%s: %s at %s, model %s, answers in %s%s%s%s'):format(settings.fi
   settings.model or 'of the server', settings.language, settings.prompt and (', instructions of ' .. settings.prompt) or '',
   settings.record and (', answers recorded to ' .. settings.record) or '', trusted and '' or ', another machine: asked before the first request'))
 
-local jobs   = { }   -- Requests on the way, by their number
 local number = 0
 
 -- A field the journal has several times is a list, the first value tells enough here
@@ -327,8 +326,6 @@ end
 -- The answer has come: its text in the watch and on the screen, the entries it names as lines that go to them. The
 -- window shows it, so the lines come read and the watch does not call for attention
 local function done(code, body, more, job)
-  jobs[job.number] = nil
-
   if not code then
     failed(job, ('No answer from %s: %s, %s'):format(host, tostring(body), tostring(more)))
     return
@@ -373,11 +370,6 @@ end
 -- goes with the whole conversation of the job, the entries, the answers and the questions before it, and its answer
 -- comes the same way
 converse = function(job, index)
-  if jobs[job.number] then
-    turbojedi.message(('Arrakis is still working at %s'):format(job.title), 'Arrakis')
-    return
-  end
-
   local chosen   = job.messages[index or #job.messages]
   local text     = shown(job, (chosen and (chosen.role == 'assistant')) and (index or #job.messages) or #job.messages)
   local question = turbojedi.message(text, job.title, { input = '~Q~uestion about the answer' })
@@ -402,6 +394,8 @@ converse = function(job, index)
   done(code, body, more, job)
 end
 
+-- A request of a job waits for its answer in a window with the seconds so far and Cancel, the windows go on meanwhile
+
 local function analyze(items, what, focus)
   if not trusted then
     if not turbojedi.confirm(('The entries go to %s, another machine. Send them?'):format(host)) then return end
@@ -418,8 +412,14 @@ local function analyze(items, what, focus)
   local job = { number = number, title = title, items = items, watch = watch, system = system, user = user }
 
   watch:status(('working at %s'):format(host))
-  job.request = turbojedi.fetch(query, done, job)
-  jobs[number] = job
+  local code, body, more = turbojedi.fetch(query)
+
+  if (not code) and (body == 'cancel') then
+    watch:status('cancelled')
+    return
+  end
+
+  done(code, body, more, job)
 end
 
 -- A single entry is told with what has come before it from the same unit or program
@@ -446,29 +446,10 @@ local function single(item)
   end
 end
 
-local function cancel()
-  for key, job in pairs(jobs) do
-    job.request:cancel()
-    jobs[key] = nil
-
-    if job.messages then
-      -- A question cancelled, the answers before it are there to ask about
-      table.remove(job.messages)
-      job.watch:status('done, the last question cancelled')
-    else
-      job.watch:status('cancelled')
-    end
-  end
-end
-
 turbojedi.registerHandler(function(item, menu, context)
   if context.marked then
     menu:add(('Arrakis: explain %d marked entries'):format(#context.marked), analyze, context.marked)
   else
     menu:add('Arrakis: explain this entry', single, item)
-  end
-
-  if next(jobs) then
-    menu:add('Arrakis: cancel the jobs going on', cancel)
   end
 end)

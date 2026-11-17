@@ -436,7 +436,7 @@ On Arrakis they mine the spice; Arrakis of TurboJedi mines the sense of the jour
 explain N marked entries, or Arrakis: explain this entry, which takes along the 30 entries of its unit before it. A
 language model behind an HTTP API tells what has happened, the likely cause and what to check; the answer comes up
 in a window, stays in a watch "Arrakis N" of F12, and the entries it names are lines there that go to them by Enter.
-TurboJedi goes on while the model thinks; Actions offers to cancel a job that goes on.
+The request waits for the answer in a window with the seconds so far and Cancel, the journal windows go on behind it.
 
 Under the answer is a line for a question about it, what a number of an error means for one: Ask sends it with the
 entries, the answer and the questions before it, as a conversation of that job alone, waits for the answer in a
