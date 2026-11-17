@@ -155,6 +155,7 @@ argument whatever it holds, no shell sees it.
 | `registerHandler(func)` | loading | a handler, `func(entry, menu, context)` |
 | `registerRestore(func)` | loading | gets back the watches of the plugin a layout has kept, `func(context, position)` for each |
 | `registerMethod(name, func)` | loading | a method for `Invoke()` of D-Bus: `func(values)` with the values of the caller as a table, the table it returns is the answer; see below |
+| `log(text, options)` | any time | a line of the console, Window → Console, with the name of the plugin; `{ problem = true }` leaves it unread, the status line tells it. `print()` writes there too, as a quiet line |
 | `message(text, title)` | action, callback | a text with OK, a long one in a window to scroll; the title is "Message" without one |
 | `confirm(text)` | action, callback | Yes or No: `true` or `false`. No is the default one, Esc is No |
 | `input(prompt, value)` | action, callback | a line to edit, starting with the value: the line, or `nil` when cancelled |
@@ -721,6 +722,17 @@ busctl --system call me.burnaway.TurboJedi.U1000.P4242 /me/burnaway/TurboJedi me
   `{ type = 'as', value = { ... } }`. Nothing returned is an empty answer.
 - An error of the function goes to the caller as `Failed` with its message; the user is not told.
 - Only the methods a plugin has registered are there; a plugin that has failed to load has none.
+
+## The console
+
+`print()` of a plugin cannot write to the screen, Turbo Vision has it: its values, a tab between them, go to the
+console of TurboJedi as a line with the name of the plugin. `log(text)` does the same, `log(text, { problem = true })`
+leaves the line unread so that the status line calls for it. The console has the errors of the plugins as well, the
+problems of the start and what callers of D-Bus have done.
+
+It is a watch of TurboJedi itself, `turbojedi` with the key `console`: Window → Console or F12 shows it, `ListWatches()`
+and `GetWatchLines()` of D-Bus read it, a layout keeps the window of its lines. Nobody removes it, F8 in its lines
+clears them. `turbojedi` is no name for a plugin: a file of that name is left out.
 
 ## Watches of the journal
 

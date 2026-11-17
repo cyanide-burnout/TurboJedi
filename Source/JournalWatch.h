@@ -107,6 +107,7 @@ class JournalWatch
     std::string reason;    // Why it is stopped or failed
     JournalWatchState state;
     bool global;           // Set while its plugin has been loaded, a layout leaves it alone
+    bool permanent;        // The console of TurboJedi: nobody removes it, F8 clears its lines
     bool fresh;            // Lines have come since the list of watches has been seen
     bool raised;           // A line has raised the list, shown red until it is read
     JournalView* window;   // The window it goes to an entry in, nullptr without one; it is told when the window goes

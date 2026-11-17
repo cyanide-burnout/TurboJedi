@@ -171,6 +171,10 @@ make the menu and nothing else, as [PLUGINS.md](PLUGINS.md) asks. The call waits
 as the calls of the next section do. An entry that is not in the journal of the window gives
 `me.burnaway.TurboJedi.Error.NoEntry`.
 
+The console of TurboJedi is one of them: `plugin` `turbojedi`, `key` `console`, its lines `print()` and `log()` of the
+plugins, their errors, the problems of the start and the calls of the screen of this interface. An agent reads there what
+has gone wrong.
+
 A watch of `ListWatches()`:
 
 | Key | Type | |

@@ -27,6 +27,7 @@ JournalWatch::JournalWatch()
   number      = 0;
   state       = WATCH_ACTIVE;
   global      = false;
+  permanent   = false;
   fresh       = false;
   raised      = false;
   window      = nullptr;

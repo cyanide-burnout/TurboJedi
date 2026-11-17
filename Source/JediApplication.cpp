@@ -208,6 +208,7 @@ TMenuBar* JediApplication::initMenuBar(TRect bounds)
       *new TMenuItem("~L~ist...",     cmJournalWindows, kbAlt0,    hcNoContext, "Alt-0") +
       *new TMenuItem("Wa~t~ches",     cmJournalWatches, kbF12,     hcNoContext, "F12") +
       *new TMenuItem("Shado~w~s...",  cmJournalShadows, kbNoKey) +
+      *new TMenuItem("C~o~nsole",     cmJournalConsole, kbNoKey) +
       *new TMenuItem("~C~lose",       cmClose,          kbAltF3,   hcNoContext, "Alt-F3") +
     *new TSubMenu("~H~elp", kbAltH) +
       *new TMenuItem("~K~eys",              cmJournalHelp,   kbF1,      hcNoContext, "F1") +
@@ -313,6 +314,7 @@ void JediApplication::handleEvent(TEvent& event)
       case cmJournalClone:     clone();            break;
       case cmJournalWindows:   chooseWindow();     break;
       case cmJournalShadows:   chooseShadow();     break;
+      case cmJournalConsole:   ShowWatchLog(GetConsoleWatch()); break;
       case cmJournalOpen:      chooseOpen();       break;
       case cmJournalSave:      chooseSave();       break;
       case cmJournalHelp:      showHelp();         break;
@@ -328,6 +330,7 @@ void JediApplication::handleEvent(TEvent& event)
           for (const std::string& problem : problems)
           {
             text += (text.empty() ? "" : "\n\n") + problem;
+            LogConsole("start", problem, true);
           }
 
           problems.clear();
@@ -346,6 +349,7 @@ void JediApplication::handleEvent(TEvent& event)
           std::string report = reports.front();
 
           reports.erase(reports.begin());
+          LogConsole("command", report, true);
           ShowActionText("Command", report);
         }
         break;
@@ -915,7 +919,9 @@ void JediApplication::showHelp()
     "  F5, Ctrl-F5     Zoom, size or move the window",
     "  F9              Tile the windows",
     "  Alt-F3          Close the window",
-    "  Window menu     Shadows of every window and dialog: off, light, medium or dark",
+    "  Window menu     Shadows of every window and dialog: off, light, medium or dark;",
+    "                  Console: print() and log() of plugins, their errors, the problems",
+    "                  of the start and calls of D-Bus, a watch of F12 that stays",
     "  Ctrl-O, Ctrl-S  Open, save the layout of all windows",
     "",
     "Filter of the window, the journal applies it when asked",

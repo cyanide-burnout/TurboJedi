@@ -214,6 +214,7 @@ static void Notify(const std::string& text)
 {
   notice  = "API: " + text;
   noticed = true;
+  LogConsole("bus", text, false);
 }
 
 // t= of a cursor in hex, the time of its entry; zero when it does not tell

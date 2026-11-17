@@ -155,6 +155,7 @@ static int raising;       // A watch a line has raised the list of watches for, 
 static JournalFilter kept;  // The journal of a watch a layout restores, its function takes it as the base of watch()
 static bool universal;      // Times of the watches and of date() are of UTC, not of the local zone
 static int serial;
+static int console;  // The number of the watch of the console, made before the plugins
 static std::vector<std::string> directories;  // In the order a file of the same name takes the place: the user last
 static std::map<std::string, JournalExpression> expressions;
 
@@ -438,6 +439,43 @@ static int RegisterRestore(lua_State* state)
   lua_setfield(state, -2, plugin.c_str());
   lua_pop(state, 1);
 
+  return 0;
+}
+
+static bool GetFlag(lua_State* state, int index, const char* name);
+
+// print(...) of Lua: the values as print() writes them, a tab between them, a line of the console with the plugin
+static int PrintConsole(lua_State* state)
+{
+  int count;
+  size_t length;
+  std::string text;
+  const char* value;
+
+  count = lua_gettop(state);
+
+  for (int index = 1; index <= count; index ++)
+  {
+    value = luaL_tolstring(state, index, &length);
+    text += ((index > 1) ? "\t" : "") + std::string(value, length);
+    lua_pop(state, 1);
+  }
+
+  LogConsole(plugin.empty() ? std::string("lua") : plugin, text, false);
+  return 0;
+}
+
+// log(text, options): a line of the console with the plugin; { problem = true } leaves it unread
+static int LogText(lua_State* state)
+{
+  std::string text;
+
+  if (!GetString(state, 1, text))
+  {
+    return Fail(state, "log() takes a text");
+  }
+
+  LogConsole(plugin.empty() ? std::string("lua") : plugin, text, GetFlag(state, 2, "problem"));
   return 0;
 }
 
@@ -3041,6 +3079,7 @@ static const luaL_Reg functions[] =
   { "registerHandler", Call<RegisterHandler, PHASE_LOAD>   },
   { "registerRestore", Call<RegisterRestore, PHASE_LOAD>   },
   { "registerMethod",  Call<RegisterMethod,  PHASE_LOAD>   },
+  { "log",             Call<LogText,         PHASE_ANY>    },
   { "message",         Call<ShowMessage,     PHASE_DO>     },
   { "confirm",         Call<AskConfirm,      PHASE_DO>     },
   { "input",           Call<AskInput,        PHASE_DO>     },
@@ -3190,12 +3229,47 @@ static void ShowErrors(const std::vector<std::string>& errors)
   for (const std::string& error : errors)
   {
     text += (text.empty() ? "" : "\n\n") + error;
+    LogConsole("plugins", error, true);
   }
 
   ShowActionText("Plugins", text);
 }
 
 // Interface
+
+// The console comes before the plugins, their print() while they load goes there as well
+static void OpenConsole()
+{
+  std::unique_ptr<JournalWatch> watch(new JournalWatch());
+
+  watch->number    = ++ serial;
+  watch->order     = serial;
+  watch->plugin    = "turbojedi";
+  watch->title     = "Console";
+  watch->key       = "console";
+  watch->status    = "print() and log() of plugins, problems, calls of the bus";
+  watch->global    = true;
+  watch->permanent = true;
+  console          = watch->number;
+  journals[console] = std::move(watch);
+}
+
+void LogConsole(const std::string& source, const std::string& text, bool problem)
+{
+  JournalWatch* watch;
+
+  if ((watch = FindJournalWatch(console)) != nullptr)
+  {
+    // A problem calls for attention, the rest is there to be read
+    watch->add(source + ": " + text, { std::string(), 0 }, !problem);
+    changed = true;
+  }
+}
+
+int GetConsoleWatch()
+{
+  return console;
+}
 
 void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
 {
@@ -3206,6 +3280,8 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
   struct dirent* item;
   struct stat status;
   std::map<std::string, std::string> files;
+
+  OpenConsole();
 
   for (const char* system : SystemDirectories)
   {
@@ -3224,6 +3300,10 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
   }
 
   luaL_openlibs(state);
+
+  // print() of the plugins goes to the console, the screen belongs to Turbo Vision
+  lua_pushcfunction(state, PrintConsole);
+  lua_setglobal(state, "print");
 
   // turbojedi.version as git tells it: v0.15, v0.15-3-gabcdef of a build after it, or unknown
   luaL_newlib(state, functions);
@@ -3357,6 +3437,14 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
     }
 
     plugin = GetPluginName(file.first);
+
+    if (plugin == "turbojedi")
+    {
+      // The name of the console and of TurboJedi itself
+      errors.push_back(path + ": turbojedi is the name of TurboJedi itself, the plugin is left out");
+      continue;
+    }
+
     lua_pushcfunction(state, Trace);
 
     if ((luaL_loadfile(state, path.c_str()) != LUA_OK) ||
@@ -4193,9 +4281,19 @@ int IndexPluginWatch(const JournalWatch* watch)
   return std::find(list.begin(), list.end(), watch) - list.begin();
 }
 
-void RemovePluginWatch(int number)
+bool RemovePluginWatch(int number)
 {
+  JournalWatch* watch;
+
+  if (((watch = FindJournalWatch(number)) == nullptr) ||
+      (watch->permanent))
+  {
+    // The console stays
+    return false;
+  }
+
   DropJournalWatch(number);
+  return true;
 }
 
 void ShowPluginWatchEntry(JournalWatch* watch, const JournalPosition& entry)

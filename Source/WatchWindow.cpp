@@ -405,6 +405,15 @@ void WatchListView::handleEvent(TEvent& event)
     case kbCtrlH:
       if ((index < count) &&
           ((watch = watches[index]) != nullptr) &&
+          (watch->permanent))
+      {
+        // Of TurboJedi itself, only its lines go
+        messageBox("The console stays: F8 in its lines clears them.", mfInformation | mfOKButton);
+        break;
+      }
+
+      if ((index < count) &&
+          ((watch = watches[index]) != nullptr) &&
           (messageBox(mfConfirmation | mfYesButton | mfNoButton, "Remove the watch %s of %s? Its lines go along.", watch->title.c_str(), watch->plugin.c_str()) == cmYes))
       {
         RemovePluginWatch(chosen);

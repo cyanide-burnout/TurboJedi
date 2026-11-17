@@ -42,6 +42,12 @@ void DispatchPluginEvents();
 // Lua runs nothing now: the bus may make a menu
 bool IsPluginIdle();
 
+// The console of TurboJedi: a watch of its own, plugin turbojedi, key console, made before the plugins and never
+// removed; print() and log() of plugins, their errors, the problems of the start and what the bus has done go to its
+// lines, a problem unread
+void LogConsole(const std::string& source, const std::string& text, bool problem);
+int GetConsoleWatch();
+
 // Invoke() of the bus: the method a plugin has registered by registerMethod(), with the a{sv} at the place of the call
 // as its values, its answer appended to the reply as a{sv}; the error tells why it has failed. Only while Lua is idle
 #define PLUGIN_METHOD_DONE    0
@@ -65,7 +71,7 @@ JournalWatch* FindPluginWatch(const std::string& plugin, const std::string& titl
 JournalWatch* FindPluginWatch(const std::string& plugin, const std::string& key);  // By the key its plugin has given
 int IndexPluginWatch(const JournalWatch* watch);
 
-void RemovePluginWatch(int number);                                            // Delete in the list of watches
+bool RemovePluginWatch(int number);                                            // Delete in the list of watches, false for the console
 void ShowPluginWatchEntry(JournalWatch* watch, const JournalPosition& entry);  // Enter on a line: the entry in a window
 
 // Watches have changed since the last time: their windows and the status line are drawn again
