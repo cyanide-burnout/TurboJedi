@@ -16,6 +16,9 @@ local SAFE     = '^[%w._@:;/+#*-]+$'  -- A value the CLI takes as one argument, 
 
 local cli = turbojedi.which('asterisk')
 
+turbojedi.log(cli and 'calls, channels and the rest by asterisk -rx, the journal for their history'
+                   or 'asterisk is not installed here: only the history of an entry in the journal')
+
 local function run(command)
   turbojedi.output { 'asterisk', '-rx', command }
 end

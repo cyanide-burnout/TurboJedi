@@ -4,7 +4,12 @@
 
 -- A core dump systemd-coredump has told about: what it knows of it, a copy of that, its stack in gdb; they only look
 
-if not turbojedi.which('coredumpctl') then return end
+if not turbojedi.which('coredumpctl') then
+  turbojedi.log('coredumpctl is not installed, nothing to offer')
+  return
+end
+
+turbojedi.log('core dumps by coredumpctl' .. (turbojedi.which('gdb') and ', their stacks in gdb' or ', no gdb for their stacks'))
 
 local DUMPED = 'fc2e22bc6ee647b6b90729ab34a250b1'  -- MESSAGE_ID of systemd-coredump
 

@@ -12,7 +12,10 @@ if not turbojedi.watch then return end
 
 -- Only where an SSH server is installed, running or not: one started later is watched as well. sshd is in sbin, out of
 -- the PATH of a user
-if not (turbojedi.which('sshd') or io.open('/usr/sbin/sshd')) then return end
+if not (turbojedi.which('sshd') or io.open('/usr/sbin/sshd')) then
+  turbojedi.log('no sshd on this machine, no watch')
+  return
+end
 
 local WINDOW = 60   -- Seconds the rate is counted over
 local FLOOD  = 30   -- Failures in that time that raise the list, once for an address

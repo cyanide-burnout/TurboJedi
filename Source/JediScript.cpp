@@ -3271,9 +3271,41 @@ int GetConsoleWatch()
   return console;
 }
 
+// What a plugin has set while it has been loaded, for the console: nothing set means it has nothing to offer here
+static std::string DescribeLoaded(const std::string& path, size_t before)
+{
+  size_t methods;
+  size_t watching;
+  size_t handlers;
+  std::string text;
+
+  lua_getfield(state, LUA_REGISTRYINDEX, HANDLERS);
+  handlers = lua_rawlen(state, -1) - before;
+  lua_getfield(state, LUA_REGISTRYINDEX, METHODS);
+  methods = 0;
+
+  if (lua_getfield(state, -1, plugin.c_str()) == LUA_TTABLE)
+  {
+    for (lua_pushnil(state); lua_next(state, -2) != 0; lua_pop(state, 1)) methods ++;
+  }
+
+  lua_settop(state, 0);
+  watching = std::count_if(journals.begin(), journals.end(), [] (const std::pair<const int, std::unique_ptr<JournalWatch>>& watch)
+  {
+    return watch.second->plugin == plugin;
+  });
+
+  if (handlers > 0) text += ", " + std::to_string(handlers) + ((handlers == 1) ? " handler of the menu" : " handlers of the menu");
+  if (watching > 0) text += ", " + std::to_string(watching) + ((watching == 1) ? " watch" : " watches");
+  if (methods > 0)  text += ", " + std::to_string(methods) + ((methods == 1) ? " method" : " methods") + " for Invoke()";
+
+  return "loaded from " + path + (text.empty() ? ", it has set nothing: nothing to offer here" : text);
+}
+
 void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
 {
   DIR* folder;
+  size_t handlers;
   size_t length;
   std::string path;
   std::string reason;
@@ -3427,6 +3459,7 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
         (status.st_size == 0))
     {
       // An empty file or a link to /dev/null leaves out the plugin of that name
+      LogConsole(GetPluginName(file.first), "left out by " + path + ", empty", false);
       continue;
     }
 
@@ -3445,15 +3478,21 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
       continue;
     }
 
+    lua_getfield(state, LUA_REGISTRYINDEX, HANDLERS);
+    handlers = lua_rawlen(state, -1);
+    lua_settop(state, 0);
     lua_pushcfunction(state, Trace);
 
     if ((luaL_loadfile(state, path.c_str()) != LUA_OK) ||
         (lua_pcall(state, 0, 0, 1) != LUA_OK))
     {
       errors.push_back(GetError(state));
+      lua_settop(state, 0);
+      continue;
     }
 
     lua_settop(state, 0);
+    LogConsole(plugin, DescribeLoaded(path, handlers), false);
   }
 
   phase = PHASE_IDLE;

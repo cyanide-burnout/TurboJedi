@@ -33,6 +33,8 @@ for _, action in ipairs(ACTIONS) do
   end
 end
 
+turbojedi.log('for a block device: ' .. table.concat(titles, ', ') .. ', the ones whose programs are installed')
+
 local function choose(name)
   local _, index = turbojedi.choose('Device ' .. name, titles)
   if index then actions[index](name) end

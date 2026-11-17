@@ -48,6 +48,8 @@ for _, action in ipairs(ACTIONS) do
   end
 end
 
+turbojedi.log('for an address: ' .. table.concat(titles, ', ') .. ', the ones whose programs are installed')
+
 local function choose(address)
   local _, index = turbojedi.choose('Address ' .. address, titles)
   if index then actions[index](address) end

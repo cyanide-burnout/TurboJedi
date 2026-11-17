@@ -39,8 +39,11 @@ end
 local settings = load()
 
 if not settings then
+  turbojedi.log('no chat.conf: nothing to offer')
   return
 end
+
+turbojedi.log('entries sent to ' .. settings.format .. ' at ' .. (settings.url:match('^https?://[^/]+') or settings.url))
 
 -- A field the journal has several times is a list, the first value tells enough here
 local function first(value)

@@ -207,8 +207,8 @@ TMenuBar* JediApplication::initMenuBar(TRect bounds)
       *new TMenuItem("~P~revious",    cmPrev,           kbShiftF6, hcNoContext, "Shift-F6") +
       *new TMenuItem("~L~ist...",     cmJournalWindows, kbAlt0,    hcNoContext, "Alt-0") +
       *new TMenuItem("Wa~t~ches",     cmJournalWatches, kbF12,     hcNoContext, "F12") +
-      *new TMenuItem("Shado~w~s...",  cmJournalShadows, kbNoKey) +
       *new TMenuItem("C~o~nsole",     cmJournalConsole, kbNoKey) +
+      *new TMenuItem("Shado~w~s...",  cmJournalShadows, kbNoKey) +
       *new TMenuItem("~C~lose",       cmClose,          kbAltF3,   hcNoContext, "Alt-F3") +
     *new TSubMenu("~H~elp", kbAltH) +
       *new TMenuItem("~K~eys",              cmJournalHelp,   kbF1,      hcNoContext, "F1") +

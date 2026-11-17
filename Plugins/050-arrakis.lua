@@ -55,21 +55,27 @@ local function load()
   local home     = os.getenv('XDG_CONFIG_HOME') or ((os.getenv('HOME') or '') .. '/.config')
   local user     = home .. '/turbojedi/arrakis.conf'
   local settings = { }
-  local found    = read(SYSTEM, settings)
   local sudo     = turbojedi.sudo and turbojedi.sudo()
-
-  found = read(user, settings) or found
+  local paths    = { SYSTEM, user }
+  local used     = { }
 
   if sudo then
     -- The user who has run sudo, not root, has set up the engine
-    user  = sudo.home .. '/.config/turbojedi/arrakis.conf'
-    found = read(user, settings) or found
+    user = sudo.home .. '/.config/turbojedi/arrakis.conf'
+    paths[#paths + 1] = user
   end
 
-  if not found then
+  for _, path in ipairs(paths) do
+    if read(path, settings) then used[#used + 1] = path end
+  end
+
+  if #used == 0 then
     -- Not set up: nothing is offered, nothing is sent anywhere
+    turbojedi.log('no ' .. table.concat(paths, ', ') .. ': nothing to offer, nothing sent anywhere')
     return nil
   end
+
+  settings.files = table.concat(used, ', ')
 
   settings.format  = settings.format or (settings.url and settings.url:match('/v1/messages$') and 'anthropic') or 'openai'
   settings.budget  = tonumber(settings.budget) or 12000
@@ -104,6 +110,9 @@ end
 -- The host of the address, and whether it is this machine: another one is told once before the first request
 local host    = settings.url:match('^https?://%[([^%]]+)%]') or settings.url:match('^https?://([^/:]+)') or '?'
 local trusted = (host == 'localhost') or (host == '::1') or (host:match('^127%.%d+%.%d+%.%d+$') ~= nil)
+
+turbojedi.log(('%s: %s at %s, model %s, answers in %s%s'):format(settings.files, settings.format, settings.url,
+  settings.model or 'of the server', settings.language, trusted and '' or ', another machine: asked before the first request'))
 
 local jobs   = { }   -- Requests on the way, by their number
 local number = 0

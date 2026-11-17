@@ -730,6 +730,12 @@ console of TurboJedi as a line with the name of the plugin. `log(text)` does the
 leaves the line unread so that the status line calls for it. The console has the errors of the plugins as well, the
 problems of the start and what callers of D-Bus have done.
 
+At start it tells every plugin: the file it is loaded from and what it has set, handlers of the menu, watches, methods
+for `Invoke()`, or that it has set nothing and so has nothing to offer here; a plugin left out by an empty file of its
+name, and why one has failed. The plugins of the package tell their own reason as they decide, `fail2ban is not
+installed`, `no arrakis.conf`, the file and the service Arrakis talks to; a plugin of your own does well to tell its
+own too, by `log()`.
+
 It is a watch of TurboJedi itself, `turbojedi` with the key `console`: Window → Console or F12 shows it, `ListWatches()`
 and `GetWatchLines()` of D-Bus read it, a layout keeps the window of its lines. Nobody removes it, F8 in its lines
 clears them. `turbojedi` is no name for a plugin: a file of that name is left out.

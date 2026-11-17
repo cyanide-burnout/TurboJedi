@@ -68,8 +68,11 @@ end
 local rules = load()
 
 if not rules then
+  turbojedi.log('no alert.conf: no watches')
   return
 end
+
+turbojedi.log(#rules .. ((#rules == 1) and ' rule' or ' rules') .. ' of alert.conf')
 
 -- Times in the zone the user has chosen for the watches, UTC or local; os.date() before TurboJedi had date()
 local date = turbojedi.date or os.date

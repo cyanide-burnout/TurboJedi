@@ -8,6 +8,7 @@
 
 -- Only where fail2ban is installed, and for root: fail2ban-client answers nobody else, the items would only fail
 if not turbojedi.which('fail2ban-client') then
+  turbojedi.log('fail2ban is not installed, nothing to offer')
   return
 end
 
@@ -21,8 +22,11 @@ if status then
 end
 
 if uid ~= '0' then
+  turbojedi.log('not root: fail2ban-client answers root only, nothing to offer')
   return
 end
+
+turbojedi.log('ban and unban by fail2ban-client')
 
 -- IPv4, or IPv6 in full or with ::, not a time such as 12:34:56
 local ADDRESS = [[(?<![\w.:])(?<address>(?:\d{1,3}\.){3}\d{1,3}|(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4})*)?::(?:[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4})*)?)(?![\w.:])]]

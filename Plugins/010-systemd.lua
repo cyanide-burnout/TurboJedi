@@ -6,6 +6,7 @@
 -- systemd over D-Bus into the title of its status
 
 if not turbojedi.which('systemctl') then
+  turbojedi.log('systemctl is not installed, nothing to offer')
   return
 end
 
@@ -31,6 +32,8 @@ end
 
 -- htop where it is installed, top otherwise: both show the one process alone
 local viewer = turbojedi.which('htop') and 'htop' or 'top'
+
+turbojedi.log('units by systemctl, processes in ' .. viewer)
 
 local function top(pid)
   turbojedi.terminal { viewer, '-p', pid }
