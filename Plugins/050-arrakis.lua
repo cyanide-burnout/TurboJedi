@@ -298,11 +298,16 @@ local function answer(code, body)
   elseif text == '' then
     -- Why the model has stopped tells more than the empty text: a refusal, a filter of the service
     return nil, ('an empty text, stopped by %s'):format((reason ~= cjson.null) and tostring(reason) or 'nil')
-  elseif cut then
-    text = text .. '...\n\n(Cut at the limit of tokens: tokens of arrakis.conf gives more.)'
   end
 
-  return text
+  return text, nil, cut
+end
+
+-- Of the screen only: the conversation keeps the text as the model has given it
+local CUT = '...\n\n(Cut at the limit of tokens: tokens of arrakis.conf gives more.)'
+
+local function shown(job, index)
+  return job.messages[index].content .. (job.cut[index] and CUT or '')
 end
 
 local converse
@@ -329,7 +334,7 @@ local function done(code, body, more, job)
     return
   end
 
-  local text, failure = answer(code, body)
+  local text, failure, cut = answer(code, body)
 
   if not text then
     failed(job, ('%s has answered %s'):format(host, failure))
@@ -340,6 +345,7 @@ local function done(code, body, more, job)
     -- The first answer: the record is of single requests, the way a model of one's own is taught
     job.messages = { { role = 'user', content = job.user } }
     job.named    = { }
+    job.cut      = { }
     if settings.record then keep(job, text) end
   end
 
@@ -356,8 +362,9 @@ local function done(code, body, more, job)
 
   -- Enter or a double click on the answer in the watch brings it back with a line for a question
   local index = #job.messages
+  job.cut[index] = cut
   job.watch:status('done')
-  job.watch:add(text, nil, { quiet = true, action = function() converse(job, index) end })
+  job.watch:add(shown(job, index), nil, { quiet = true, action = function() converse(job, index) end })
 
   converse(job)
 end
@@ -371,8 +378,8 @@ converse = function(job, index)
     return
   end
 
-  local shown    = job.messages[index or #job.messages]
-  local text     = ((shown and (shown.role == 'assistant')) and shown or job.messages[#job.messages]).content
+  local chosen   = job.messages[index or #job.messages]
+  local text     = shown(job, (chosen and (chosen.role == 'assistant')) and (index or #job.messages) or #job.messages)
   local question = turbojedi.message(text, job.title, { input = '~Q~uestion about the answer' })
   if not question then return end
 
