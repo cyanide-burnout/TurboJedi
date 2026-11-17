@@ -7,6 +7,7 @@
 #define Uses_TDialog
 #define Uses_TButton
 #define Uses_TStaticText
+#define Uses_TDrawBuffer
 #define Uses_TEvent
 #include <tvision/tv.h>
 
@@ -15,6 +16,7 @@
 #include "Commands.h"
 
 #include <time.h>
+#include <stdio.h>
 #include <string.h>
 
 #include <algorithm>
@@ -212,13 +214,60 @@ bool JournalQuery::step(int64_t deadline)
   return true;
 }
 
+// StepClock
+
+// The seconds a long work has taken so far, so that the wait is seen to go on
+class StepClock : public TView
+{
+  public:
+
+    StepClock(const TRect& bounds);
+
+    void draw() override;
+    void tick();
+
+  private:
+
+    int64_t start;
+    int64_t shown;
+};
+
+StepClock::StepClock(const TRect& bounds) :
+  TView(bounds),
+  start(GetQueryMilliseconds() - STEP_QUIET),
+  shown(-1)
+{
+}
+
+void StepClock::draw()
+{
+  TDrawBuffer buffer;
+  char text[32];
+
+  snprintf(text, sizeof(text), "%lld s", (long long)((GetQueryMilliseconds() - start) / 1000));
+  buffer.moveChar(0, ' ', getColor(1), size.x);
+  buffer.moveStr(0, text, getColor(1));
+  writeLine(0, 0, size.x, 1, buffer);
+}
+
+void StepClock::tick()
+{
+  int64_t seconds;
+
+  if ((seconds = (GetQueryMilliseconds() - start) / 1000) != shown)
+  {
+    shown = seconds;
+    drawView();
+  }
+}
+
 // StepDialog
 
 class StepDialog : public TDialog
 {
   public:
 
-    StepDialog(const char* text, const std::function<bool(int64_t)>& step, int64_t deadline);
+    StepDialog(const char* text, const std::function<bool(int64_t)>& step, int64_t deadline, const char* title);
 
     void handleEvent(TEvent& event) override;
 
@@ -226,18 +275,20 @@ class StepDialog : public TDialog
 
     const std::function<bool(int64_t)>& step;
     int64_t deadline;
+    StepClock* clock;
 };
 
-StepDialog::StepDialog(const char* text, const std::function<bool(int64_t)>& step, int64_t deadline) :
+StepDialog::StepDialog(const char* text, const std::function<bool(int64_t)>& step, int64_t deadline, const char* title) :
   TWindowInit(&TDialog::initFrame),
-  TDialog(TRect(0, 0, 50, 8), "Reading"),
+  TDialog(TRect(0, 0, 50, 9), title),
   step(step)
 {
   this->deadline = deadline;
 
   options |= ofCentered;
   insert(new TStaticText(TRect(2, 2, 48, 3), text));
-  insert(new TButton(TRect(19, 5, 31, 7), "Cancel", cmCancel, bfDefault));
+  insert(clock = new StepClock(TRect(2, 3, 48, 4)));
+  insert(new TButton(TRect(19, 6, 31, 8), "Cancel", cmCancel, bfDefault));
 }
 
 void StepDialog::handleEvent(TEvent& event)
@@ -250,6 +301,7 @@ void StepDialog::handleEvent(TEvent& event)
     // Between the events, the windows go on
     poll          = static_cast<JournalPoll*>(event.message.infoPtr);
     poll->timeout = 0;
+    clock->tick();
 
     if (step(std::min(GetQueryMilliseconds() + STEP_TIME, (deadline > 0) ? deadline : INT64_MAX)))
     {
@@ -267,7 +319,7 @@ void StepDialog::handleEvent(TEvent& event)
   TDialog::handleEvent(event);
 }
 
-int RunSteps(const char* text, const std::function<bool(int64_t)>& step, int timeout)
+int RunSteps(const char* text, const std::function<bool(int64_t)>& step, int timeout, const char* title)
 {
   int result;
   int64_t deadline;
@@ -281,7 +333,7 @@ int RunSteps(const char* text, const std::function<bool(int64_t)>& step, int tim
     return STEPS_DONE;
   }
 
-  dialog = new StepDialog(text, step, deadline);
+  dialog = new StepDialog(text, step, deadline, title);
   result = TProgram::deskTop->execView(dialog);
   TObject::destroy(dialog);
 

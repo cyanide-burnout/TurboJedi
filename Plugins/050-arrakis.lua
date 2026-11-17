@@ -388,9 +388,18 @@ converse = function(job, index)
   -- The question in the watch brings its answer back, the one that comes next
   local following = #job.messages + 1
   job.watch:add('? ' .. question, nil, { quiet = true, action = function() converse(job, following) end })
+  -- The answer is waited for in a dialog with the seconds and Cancel, the conversation goes on from it
   job.watch:status(('working at %s'):format(host))
-  job.request = turbojedi.fetch(send(job.system, job.messages), done, job)
-  jobs[job.number] = job
+  local code, body, more = turbojedi.fetch(send(job.system, job.messages))
+
+  if (not code) and (body == 'cancel') then
+    -- The question goes, the answers before it stay to ask about
+    table.remove(job.messages)
+    job.watch:status('done, the last question cancelled')
+    return
+  end
+
+  done(code, body, more, job)
 end
 
 local function analyze(items, what, focus)

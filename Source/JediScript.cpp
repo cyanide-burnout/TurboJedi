@@ -1918,7 +1918,7 @@ static int Fetch(lua_State* state)
     }
 
     return IsFetchDone(number);
-  }, 0))
+  }, 0, "Waiting"))
   {
     case STEPS_DONE:
       TakeFetch(number, answer);
@@ -2643,7 +2643,7 @@ static int CallDBus(lua_State* state)
       return PushDBusAnswer(state, nullptr, failure);
     }
   }
-  else if (RunSteps(Fit("Waiting for " + service, 46).c_str(), [number] (int64_t deadline) { return WaitDBusCall(number, deadline); }, 0) != STEPS_DONE)
+  else if (RunSteps(Fit("Waiting for " + service, 46).c_str(), [number] (int64_t deadline) { return WaitDBusCall(number, deadline); }, 0, "Waiting") != STEPS_DONE)
   {
     CancelDBusCall(number);
     failure.name = "cancel";

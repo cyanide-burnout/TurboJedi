@@ -439,8 +439,9 @@ in a window, stays in a watch "Arrakis N" of F12, and the entries it names are l
 TurboJedi goes on while the model thinks; Actions offers to cancel a job that goes on.
 
 Under the answer is a line for a question about it, what a number of an error means for one: Ask sends it with the
-entries, the answer and the questions before it, as a conversation of that job alone, and the answer comes the same
-way, with a line for the next question; Close ends it. PgUp and PgDn scroll a long answer, Copy puts all of it to the
+entries, the answer and the questions before it, as a conversation of that job alone, waits for the answer in a
+window with the seconds so far and Cancel, and the answer comes the same way, with a line for the next question; Close
+ends it. PgUp and PgDn scroll a long answer, Copy puts all of it to the
 clipboard, a command in it whole. An answer cut at the limit of tokens says so: `tokens` of `arrakis.conf` gives more,
 and a model that thinks first needs more of them. Enter or a double click on an answer or a question among the
 lines of its watch in F12 brings it back; the questions and the answers are lines there as well. Every job starts on

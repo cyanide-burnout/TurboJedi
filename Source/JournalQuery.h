@@ -64,9 +64,9 @@ bool TestJournalText(sd_journal* journal, JournalMatcher& matcher, bool exclude)
 #define STEPS_CANCEL  2
 
 // A long work for a plugin by steps: each runs up to the deadline in milliseconds of CLOCK_MONOTONIC and tells whether the
-// work is over. Without a word for a moment, then with a dialog of the text and Cancel while the windows go on, until the
-// timeout in seconds, zero for none
-int RunSteps(const char* text, const std::function<bool(int64_t)>& step, int timeout);
+// work is over. Without a word for a moment, then with a dialog of the title, the text, the seconds so far and Cancel while
+// the windows go on, until the timeout in seconds, zero for none
+int RunSteps(const char* text, const std::function<bool(int64_t)>& step, int timeout, const char* title = "Reading");
 
 // A query read through for an action that way. A handler making the menu calls step() with the deadline of the menu instead
 void RunJournalQuery(JournalQuery& query, int timeout);
