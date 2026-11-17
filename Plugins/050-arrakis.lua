@@ -36,7 +36,7 @@
 -- request of a job and its answer only.
 --
 -- An address of another machine is asked about before the first request goes there, the entries leave the machine then;
--- a yes is kept in ~/.config/turbojedi/arrakis-trusted.conf of the one who runs TurboJedi and holds while the url stays.
+-- a yes is kept in ~/.config/turbojedi/arrakis-trusted.txt of the one who runs TurboJedi and holds while the url stays.
 -- JSON is lua-cjson for Lua 5.4: lua-cjson of Debian and Ubuntu, lua54-cjson of openSUSE; elsewhere
 -- luarocks --lua-version 5.4 install lua-cjson
 
@@ -144,16 +144,16 @@ if not found then
 end
 
 -- The host of the address, and whether it is this machine: another one is asked about once, and an address the user
--- has said yes to is kept in arrakis-trusted.conf of the one who runs TurboJedi, a line url = ... each, until it changes
+-- has said yes to is kept in arrakis-trusted.txt of the one who runs TurboJedi, a url a line, until it changes
 local host    = settings.url:match('^https?://%[([^%]]+)%]') or settings.url:match('^https?://([^/:]+)') or '?'
-local TRUSTED = (os.getenv('XDG_CONFIG_HOME') or ((os.getenv('HOME') or '') .. '/.config')) .. '/turbojedi/arrakis-trusted.conf'
+local TRUSTED = (os.getenv('XDG_CONFIG_HOME') or ((os.getenv('HOME') or '') .. '/.config')) .. '/turbojedi/arrakis-trusted.txt'
 local trusted = (host == 'localhost') or (host == '::1') or (host:match('^127%.%d+%.%d+%.%d+$') ~= nil)
 
 if not trusted then
   local file = io.open(TRUSTED)
 
   for line in file and file:lines() or function() end do
-    if line:match('^%s*url%s*=%s*(.-)%s*$') == settings.url then trusted = true end
+    if line:match('^%s*(.-)%s*$') == settings.url then trusted = true end
   end
 
   if file then file:close() end
@@ -415,7 +415,7 @@ local function analyze(items, what, focus)
     trusted = true
 
     -- Not asked again for this url; a file that cannot be written leaves it to this run
-    local kept, reason = turbojedi.append(TRUSTED, 'url = ' .. settings.url .. '\n')
+    local kept, reason = turbojedi.append(TRUSTED, settings.url .. '\n')
     if not kept then turbojedi.log(('%s cannot keep the answer: %s'):format(TRUSTED, tostring(reason)), { problem = true }) end
   end
 
