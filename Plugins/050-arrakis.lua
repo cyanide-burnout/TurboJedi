@@ -196,11 +196,18 @@ line [number] time host unit identifier[pid] LEVEL: message. Tell in a few sente
 cause, and what to check or do next. Name the entries that matter by their numbers in square brackets, as [3]. Do not
 repeat the entries. Plain text, no Markdown. Answer in {language}.]]
 
--- The request of the format of the service, with the instructions and the entries it has been made of
-local function request(items)
+-- The request of the format of the service, with the instructions and the entries it has been made of; focus is the
+-- number of the entry chosen when the ones before it are only what has led to it
+local function request(items, focus)
   local language = LANGUAGES[settings.language] or settings.language
   local system   = (settings.instructions or INSTRUCTIONS):gsub('{language}', function() return language end)
-  local user     = listing(items) .. '\n\nAnswer in ' .. language .. '.'
+  local user     = listing(items)
+
+  if focus then
+    user = user .. ('\n\nExplain entry [%d]. The entries before it are of the same unit or program, only what has led to it.'):format(focus)
+  end
+
+  user = user .. '\n\nAnswer in ' .. language .. '.'
   local headers  = { ['Content-Type'] = 'application/json' }
   local body
 
@@ -300,8 +307,8 @@ local function done(code, body, more, job)
 
   local named = { }
 
-  for index in text:gmatch('%[(%d+)%]') do
-    index = tonumber(index)
+  for found in text:gmatch('%[(%d+)%]') do
+    local index = tonumber(found)
     if job.items[index] and not named[index] then
       named[index] = true
       job.watch:add(('[%d] %s'):format(index, line(job.items[index])), job.items[index], { quiet = true })
@@ -311,7 +318,7 @@ local function done(code, body, more, job)
   turbojedi.message(text, 'Arrakis')
 end
 
-local function analyze(items, what)
+local function analyze(items, what, focus)
   if not trusted then
     if not turbojedi.confirm(('The entries go to %s, another machine. Send them?'):format(host)) then return end
     trusted = true
@@ -322,7 +329,7 @@ local function analyze(items, what)
   -- A watch of the job, its status and the answer in its lines; it reads no journal
   local watch = turbojedi.watch({ title = ('Arrakis %d: %s'):format(number, what or (#items .. ' entries')) })
 
-  local query, system, user = request(items)
+  local query, system, user = request(items, focus)
   local job = { number = number, items = items, watch = watch, system = system, user = user }
 
   watch:status(('working at %s'):format(host))
@@ -346,7 +353,12 @@ local function single(item)
     end
   end
 
-  analyze(items, (#items > 1) and ('an entry and %d before it'):format(#items - 1) or 'an entry')
+  -- The model is told which one is asked about, or it explains them all
+  if #items > 1 then
+    analyze(items, ('an entry and %d before it'):format(#items - 1), #items)
+  else
+    analyze(items, 'an entry')
+  end
 end
 
 local function cancel()
