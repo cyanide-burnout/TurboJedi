@@ -266,24 +266,38 @@ local function answer(code, body)
   end
 
   local text
+  local cut
 
+  -- The limit of tokens reached: the text stops where it has been, of a model that thinks first maybe before any
   if settings.format == 'anthropic' then
     local parts = { }
     for _, part in ipairs(type(data.content) == 'table' and data.content or { }) do
       if (type(part) == 'table') and (part.type == 'text') then parts[#parts + 1] = part.text end
     end
     text = table.concat(parts, '\n')
+    cut  = data.stop_reason == 'max_tokens'
   else
     local choice = type(data.choices) == 'table' and data.choices[1]
     text = type(choice) == 'table' and type(choice.message) == 'table' and choice.message.content
+    cut  = type(choice) == 'table' and choice.finish_reason == 'length'
+    if cut and (text == cjson.null) then text = '' end
   end
 
   if type(text) ~= 'string' then
     return nil, 'no text in the answer: ' .. body:sub(1, 200)
   end
 
-  -- A reasoning model thinks aloud first, the answer is after it
-  text = text:gsub('<think>.-</think>', ''):gsub('^%s+', ''):gsub('%s+$', '')
+  -- A reasoning model thinks aloud first, the answer is after it; cut while thinking, there is none
+  text = text:gsub('<think>.-</think>', ''):gsub('<think>.*$', ''):gsub('^%s+', ''):gsub('%s+$', '')
+
+  if cut and (text == '') then
+    return nil, 'nothing but thinking before the limit of tokens: raise tokens of arrakis.conf'
+  elseif text == '' then
+    return nil, 'an empty text'
+  elseif cut then
+    text = text .. '...\n\n(Cut at the limit of tokens: tokens of arrakis.conf gives more.)'
+  end
+
   return text
 end
 

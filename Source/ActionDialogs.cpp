@@ -18,6 +18,8 @@
 #include "ActionDialogs.h"
 #include "PageDialog.h"
 #include "PageView.h"
+#include "Commands.h"
+#include "JediClipboard.h"
 
 #include <string.h>
 
@@ -217,6 +219,69 @@ void ChoiceDialog::handleEvent(TEvent& event)
   }
 }
 
+// AnswerDialog
+
+// The text, a line for a question and Ask, Copy, Close: the keys that scroll the text do it while the line has the focus,
+// Copy puts the whole text to the clipboard as it has come, not as it is wrapped
+class AnswerDialog : public TDialog
+{
+  public:
+
+    AnswerDialog(const TRect& bounds, const char* title, const std::string& text);
+
+    void handleEvent(TEvent& event) override;
+
+    TScrollBar* bar;
+
+  private:
+
+    std::string text;
+};
+
+AnswerDialog::AnswerDialog(const TRect& bounds, const char* title, const std::string& text) :
+  TWindowInit(&TDialog::initFrame),
+  TDialog(bounds, title),
+  bar(nullptr),
+  text(text)
+{
+}
+
+void AnswerDialog::handleEvent(TEvent& event)
+{
+  int step;
+
+  if ((event.what == evCommand) &&
+      (event.message.command == cmPageCopy))
+  {
+    // A command of the user or the clipboard of Turbo Vision, either may block for a while
+    CopyClipboardText(text);
+    clearEvent(event);
+    return;
+  }
+
+  if ((event.what == evKeyDown) &&
+      (bar != nullptr))
+  {
+    switch (event.keyDown.keyCode)
+    {
+      case kbUp:    step = -1;               break;
+      case kbDown:  step = 1;                break;
+      case kbPgUp:  step = -bar->pgStep;     break;
+      case kbPgDn:  step = bar->pgStep;      break;
+      default:      step = 0;                break;
+    }
+
+    if (step != 0)
+    {
+      bar->setValue(bar->value + step);
+      clearEvent(event);
+      return;
+    }
+  }
+
+  TDialog::handleEvent(event);
+}
+
 // Interface
 
 void ShowActionText(const char* title, const std::string& text)
@@ -247,7 +312,7 @@ bool AskActionText(const char* title, const std::string& text, const std::string
   int height;
   ushort result;
   TRect desktop;
-  TDialog* dialog;
+  AnswerDialog* dialog;
   TInputLine* line;
   TScrollBar* bar;
   std::vector<std::string> rows;
@@ -258,7 +323,7 @@ bool AskActionText(const char* title, const std::string& text, const std::string
   width   = std::max(std::min(100, desktop.b.x - 4), std::min(40, desktop.b.x));
   rows    = Wrap(Split(text), width - 5);
   height  = std::max(std::min((int)rows.size() + 8, desktop.b.y - 2), std::min(11, desktop.b.y));
-  dialog  = new TDialog(TRect(0, 0, width, height), title);
+  dialog  = new AnswerDialog(TRect(0, 0, width, height), title, text);
   bar     = new TScrollBar(TRect(width - 2, 1, width - 1, height - 7));
   line    = new TInputLine(TRect(3, height - 6, width - 3, height - 5), INPUT_LENGTH);
 
@@ -267,8 +332,10 @@ bool AskActionText(const char* title, const std::string& text, const std::string
   dialog->insert(new PageView(TRect(1, 1, width - 2, height - 7), nullptr, bar, rows, false));
   dialog->insert(line);
   dialog->insert(new TLabel(TRect(2, height - 7, width - 2, height - 6), prompt.c_str(), line));
-  dialog->insert(new TButton(TRect(width / 2 - 12, height - 4, width / 2 - 2, height - 2), "~A~sk", cmOK, bfDefault));
-  dialog->insert(new TButton(TRect(width / 2 + 2, height - 4, width / 2 + 12, height - 2), "C~l~ose", cmCancel, bfNormal));
+  dialog->insert(new TButton(TRect(width / 2 - 17, height - 4, width / 2 - 7, height - 2), "~A~sk", cmOK, bfDefault));
+  dialog->insert(new TButton(TRect(width / 2 - 5, height - 4, width / 2 + 5, height - 2), "~C~opy", cmPageCopy, bfNormal));
+  dialog->insert(new TButton(TRect(width / 2 + 7, height - 4, width / 2 + 17, height - 2), "C~l~ose", cmCancel, bfNormal));
+  dialog->bar = bar;
 
   strnzcpy(data, value.c_str(), sizeof(data));
   line->setData(data);
