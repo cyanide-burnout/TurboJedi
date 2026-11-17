@@ -229,10 +229,11 @@ class StepClock : public TView
   private:
 
     int64_t start;
-    int64_t shown;  // The frame of the spinner drawn last, a tenth of a second each
+    int64_t shown;  // The frame of the spinner drawn last, an eighth of a second each
 };
 
-static const char* const spinner[] = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" };
+// ASCII, which every font has; Braille or other dots are not in all of them
+static const char* const spinner[] = { "|", "/", "-", "\\" };
 
 StepClock::StepClock(const TRect& bounds) :
   TView(bounds),
@@ -248,7 +249,7 @@ void StepClock::draw()
   int64_t elapsed;
 
   elapsed = GetQueryMilliseconds() - start;
-  snprintf(text, sizeof(text), "%s %lld s", spinner[(elapsed / 100) % 10], (long long)(elapsed / 1000));
+  snprintf(text, sizeof(text), "%s %lld s", spinner[(elapsed / 125) % 4], (long long)(elapsed / 1000));
   buffer.moveChar(0, ' ', getColor(1), size.x);
   buffer.moveStr(0, text, getColor(1));
   writeLine(0, 0, size.x, 1, buffer);
@@ -258,7 +259,7 @@ void StepClock::tick()
 {
   int64_t frame;
 
-  if ((frame = (GetQueryMilliseconds() - start) / 100) != shown)
+  if ((frame = (GetQueryMilliseconds() - start) / 125) != shown)
   {
     shown = frame;
     drawView();
