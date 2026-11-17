@@ -440,10 +440,9 @@ TurboJedi goes on while the model thinks; Actions offers to cancel a job that go
 
 Under the answer is a line for a question about it, what a number of an error means for one: Ask sends it with the
 entries, the answer and the questions before it, as a conversation of that job alone, and the answer comes the same
-way, with a line for the next question; Close ends it. Actions → Arrakis: ask about an answer brings one of the last ten
-back, and so does Enter or a double click on an answer or a question among the lines of its watch in F12. The
-questions and the answers are lines of the watch as well. Every job starts on its own, the model remembers
-nothing of the others.
+way, with a line for the next question; Close ends it. Enter or a double click on an answer or a question among the
+lines of its watch in F12 brings it back; the questions and the answers are lines there as well. Every job starts on
+its own, the model remembers nothing of the others.
 
 Nothing happens without a file: `/etc/turbojedi/arrakis.conf` of root for every user, `~/.config/turbojedi/arrakis.conf`
 of the user over it. Run by `sudo turbojedi`, the file in the home of the user who has run sudo goes over both, so the

@@ -30,9 +30,9 @@
 -- record of the file of the user of sudo are left out: root reads and writes no path a user names. A value goes to the
 -- end of its line, a comment is a line of its own.
 --
--- An answer comes with a line for a question under it, and Actions brings one of the last ones back to ask about: the
--- question goes with the whole conversation of its job, the entries, the answers and the questions before it; a job
--- starts on its own, nothing of the others goes along. The record keeps the first
+-- An answer comes with a line for a question under it, and Enter on an answer or a question in the lines of its watch
+-- brings it back: the question goes with the whole conversation of its job, the entries, the answers and the questions
+-- before it; a job starts on its own, nothing of the others goes along. The record keeps the first
 -- request of a job and its answer only.
 --
 -- An address of another machine is told once before the first request goes there: the entries leave the machine then.
@@ -150,10 +150,8 @@ turbojedi.log(('%s: %s at %s, model %s, answers in %s%s%s%s'):format(settings.fi
   settings.model or 'of the server', settings.language, settings.prompt and (', instructions of ' .. settings.prompt) or '',
   settings.record and (', answers recorded to ' .. settings.record) or '', trusted and '' or ', another machine: asked before the first request'))
 
-local jobs     = { }   -- Requests on the way, by their number
-local answered = { }   -- Jobs that have an answer to ask about, the latest first
-local number   = 0
-local ANSWERED = 10    -- Of them kept to ask about
+local jobs   = { }   -- Requests on the way, by their number
+local number = 0
 
 -- A field the journal has several times is a list, the first value tells enough here
 local function first(value)
@@ -343,14 +341,6 @@ local function done(code, body, more, job)
   job.watch:status('done')
   job.watch:add(text, nil, { quiet = true, action = function() converse(job, index) end })
 
-  -- The latest answer first among the ones to ask about
-  for index, other in ipairs(answered) do
-    if other == job then table.remove(answered, index) break end
-  end
-
-  table.insert(answered, 1, job)
-  answered[ANSWERED + 1] = nil
-
   converse(job)
 end
 
@@ -376,21 +366,6 @@ converse = function(job, index)
   job.watch:status(('working at %s'):format(host))
   job.request = turbojedi.fetch(send(job.system, job.messages), done, job)
   jobs[job.number] = job
-end
-
--- An answer of before, to ask about it again
-local function ask(job)
-  converse(job)
-end
-
-local function pick()
-  if #answered == 1 then return ask(answered[1]) end
-
-  local titles = { }
-  for index, job in ipairs(answered) do titles[index] = job.title end
-
-  local _, index = turbojedi.choose('Arrakis: ask about', titles)
-  if index then ask(answered[index]) end
 end
 
 local function analyze(items, what, focus)
@@ -457,12 +432,6 @@ turbojedi.registerHandler(function(item, menu, context)
     menu:add(('Arrakis: explain %d marked entries'):format(#context.marked), analyze, context.marked)
   else
     menu:add('Arrakis: explain this entry', single, item)
-  end
-
-  if #answered == 1 then
-    menu:add(('Arrakis: ask about %s'):format(answered[1].title), ask, answered[1])
-  elseif #answered > 1 then
-    menu:add('Arrakis: ask about an answer', pick)
   end
 
   if next(jobs) then
