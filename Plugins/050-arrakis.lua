@@ -35,7 +35,8 @@
 -- before it; a job starts on its own, nothing of the others goes along. The record keeps the first
 -- request of a job and its answer only.
 --
--- An address of another machine is told once before the first request goes there: the entries leave the machine then.
+-- An address of another machine is asked about before the first request goes there, the entries leave the machine then;
+-- a yes is kept in ~/.config/turbojedi/arrakis.trusted of the one who runs TurboJedi and holds while the url stays.
 -- JSON is lua-cjson for Lua 5.4: lua-cjson of Debian and Ubuntu, lua54-cjson of openSUSE; elsewhere
 -- luarocks --lua-version 5.4 install lua-cjson
 
@@ -142,9 +143,21 @@ if not found then
         'elsewhere luarocks --lua-version 5.4 install lua-cjson')
 end
 
--- The host of the address, and whether it is this machine: another one is told once before the first request
+-- The host of the address, and whether it is this machine: another one is asked about once, and an address the user
+-- has said yes to is kept in arrakis.trusted of the one who runs TurboJedi, until the url changes
 local host    = settings.url:match('^https?://%[([^%]]+)%]') or settings.url:match('^https?://([^/:]+)') or '?'
+local TRUSTED = (os.getenv('XDG_CONFIG_HOME') or ((os.getenv('HOME') or '') .. '/.config')) .. '/turbojedi/arrakis.trusted'
 local trusted = (host == 'localhost') or (host == '::1') or (host:match('^127%.%d+%.%d+%.%d+$') ~= nil)
+
+if not trusted then
+  local file = io.open(TRUSTED)
+
+  for line in file and file:lines() or function() end do
+    if line == settings.url then trusted = true end
+  end
+
+  if file then file:close() end
+end
 
 turbojedi.log(('%s: %s at %s, model %s, answers in %s%s%s%s'):format(settings.files, settings.format, settings.url,
   settings.model or 'of the server', settings.language, settings.prompt and (', instructions of ' .. settings.prompt) or '',
@@ -396,11 +409,14 @@ converse = function(job, index)
 end
 
 -- A request of a job waits for its answer in a window with the seconds so far and Cancel, the windows go on meanwhile
-
 local function analyze(items, what, focus)
   if not trusted then
     if not turbojedi.confirm(('The entries go to %s, another machine. Send them?'):format(host)) then return end
     trusted = true
+
+    -- Not asked again for this url; a file that cannot be written leaves it to this run
+    local kept, reason = turbojedi.append(TRUSTED, settings.url .. '\n')
+    if not kept then turbojedi.log(('%s cannot keep the answer: %s'):format(TRUSTED, tostring(reason)), { problem = true }) end
   end
 
   number = number + 1
