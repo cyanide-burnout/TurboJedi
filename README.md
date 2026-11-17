@@ -463,8 +463,9 @@ language = ru
 budget   = 12000
 # seconds a request may take, 0 for no limit
 timeout  = 600
-# tokens of an answer at most, the service decides without it
-tokens   = 512
+# tokens of an answer at most, the service decides without it, 2048 for Anthropic;
+# a model that thinks first needs several thousand
+tokens   = 2048
 # instructions of your own instead of the ones built in, {language} there the language of the answers
 prompt   = /etc/turbojedi/arrakis.prompt
 # every answer with its request as a line of JSON, to teach a model of your own on

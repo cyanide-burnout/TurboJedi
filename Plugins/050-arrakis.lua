@@ -16,14 +16,14 @@
 --   language = ru
 --   budget   = 12000
 --   timeout  = 600
---   tokens   = 512
+--   tokens   = 2048
 --   prompt   = /etc/turbojedi/arrakis.prompt
 --   record   = /var/tmp/arrakis.jsonl
 --
 -- format is openai or anthropic, which /v1/messages in the url tells as well; key a token for a service that wants one,
 -- chmod 600 the file then; language of the answers, the one of the locale without it; budget characters of entries a
 -- request takes at most; timeout seconds a request may take, 0 for no limit; tokens of an answer at most, the service
--- decides without it (1024 for Anthropic, which wants it said). prompt is a file of instructions instead of the ones
+-- decides without it (2048 for Anthropic, which wants it said). prompt is a file of instructions instead of the ones
 -- built in, {language} there the language of the answers: a model taught on instructions of its own gets them. record
 -- is a file every answer goes to as a line of JSON with its request, for teaching a model of one's own on them: the
 -- entries are in it, so it is made 0600 and written only when it is a file of the process alone. Under sudo, prompt and
@@ -41,7 +41,7 @@
 
 local SYSTEM  = '/etc/turbojedi/arrakis.conf'
 local CONTEXT = 30      -- Entries before a single one, of its unit or identifier, to tell the model what has led to it
-local TOKENS  = 1024    -- Of an answer, Anthropic wants it said
+local TOKENS  = 2048    -- Of an answer, Anthropic wants it said: a few sentences of Cyrillic take a thousand
 
 local LEVELS = { [0] = 'EMERG', 'ALERT', 'CRIT', 'ERR', 'WARNING', 'NOTICE', 'INFO', 'DEBUG' }
 
@@ -267,6 +267,7 @@ local function answer(code, body)
 
   local text
   local cut
+  local reason
 
   -- The limit of tokens reached: the text stops where it has been, of a model that thinks first maybe before any
   if settings.format == 'anthropic' then
@@ -275,11 +276,13 @@ local function answer(code, body)
       if (type(part) == 'table') and (part.type == 'text') then parts[#parts + 1] = part.text end
     end
     text = table.concat(parts, '\n')
-    cut  = data.stop_reason == 'max_tokens'
+    reason = data.stop_reason
+    cut    = reason == 'max_tokens'
   else
     local choice = type(data.choices) == 'table' and data.choices[1]
     text = type(choice) == 'table' and type(choice.message) == 'table' and choice.message.content
-    cut  = type(choice) == 'table' and choice.finish_reason == 'length'
+    reason = type(choice) == 'table' and choice.finish_reason or nil
+    cut    = reason == 'length'
     if cut and (text == cjson.null) then text = '' end
   end
 
@@ -293,7 +296,8 @@ local function answer(code, body)
   if cut and (text == '') then
     return nil, 'nothing but thinking before the limit of tokens: raise tokens of arrakis.conf'
   elseif text == '' then
-    return nil, 'an empty text'
+    -- Why the model has stopped tells more than the empty text: a refusal, a filter of the service
+    return nil, ('an empty text, stopped by %s'):format((reason ~= cjson.null) and tostring(reason) or 'nil')
   elseif cut then
     text = text .. '...\n\n(Cut at the limit of tokens: tokens of arrakis.conf gives more.)'
   end
