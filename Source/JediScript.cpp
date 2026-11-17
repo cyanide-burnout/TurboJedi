@@ -16,6 +16,7 @@
 #include "JediDBus.h"
 #include "ActionDialogs.h"
 #include "JediClipboard.h"
+#include "JediSettings.h"
 #include "JournalExpression.h"
 #include "JournalView.h"
 #include "JournalQuery.h"
@@ -2743,6 +2744,64 @@ static int GetUniversal(lua_State* state)
   return 1;
 }
 
+// settings(name, text): a file of the plugin among the ones TurboJedi writes by itself, ~/.config/turbojedi/name, under
+// sudo the one of the user of sudo, read and written as that user. Without the text, its text or nil; with it, the file
+// replaced whole, true or nil and why
+static int Settings(lua_State* state)
+{
+  FILE* file;
+  size_t length;
+  std::string name;
+  std::string text;
+  std::string path;
+  char buffer[4096];
+
+  if ((!GetString(state, 1, name)) ||
+      (name.empty()) ||
+      (name[0] == '.') ||
+      (name.find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-") != std::string::npos))
+  {
+    return Fail(state, "settings() takes the name of a file, letters, digits, dots, dashes and underscores");
+  }
+
+  if ((!lua_isnoneornil(state, 2)) &&
+      (!GetString(state, 2, text)))
+  {
+    return Fail(state, "settings() takes a text after the name");
+  }
+
+  path = GetSettingsPath(name);
+
+  if (lua_isnoneornil(state, 2))
+  {
+    if ((path.empty()) ||
+        ((file = OpenSettings(path)) == nullptr))
+    {
+      lua_pushnil(state);
+      return 1;
+    }
+
+    while ((length = fread(buffer, 1, sizeof(buffer), file)) > 0)
+    {
+      text.append(buffer, length);
+    }
+
+    fclose(file);
+    lua_pushlstring(state, text.data(), text.size());
+    return 1;
+  }
+
+  if (!SaveSettings(path, text))
+  {
+    lua_pushnil(state);
+    lua_pushstring(state, path.empty() ? "there is no directory of settings, HOME is not set" : (path + " cannot be written").c_str());
+    return 2;
+  }
+
+  lua_pushboolean(state, true);
+  return 1;
+}
+
 // sudo(): the user who has run TurboJedi as root by sudo, { name, uid, home }, nil otherwise; the system tells the home,
 // the passwd file or a directory service, for a plugin to read a file of settings of that user
 static int GetSudoUser(lua_State* state)
@@ -3399,6 +3458,7 @@ static const luaL_Reg functions[] =
   { "which",           Call<Which,           PHASE_ANY>    },
   { "utc",             Call<GetUniversal,    PHASE_ANY>    },
   { "sudo",            Call<GetSudoUser,     PHASE_ANY>    },
+  { "settings",        Call<Settings,        PHASE_ANY>    },
   { "date",            Call<FormatDate,      PHASE_ANY>    },
   { "poll",            Call<AddWatch,        PHASE_WATCH>  },
   { "timeout",         Call<AddTimer,        PHASE_WATCH>  },

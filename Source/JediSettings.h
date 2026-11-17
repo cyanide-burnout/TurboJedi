@@ -10,11 +10,16 @@
 
 #include <string>
 
-// Files TurboJedi writes by itself, update.conf and screen.conf: run by sudo, they are the ones of the user of sudo, read
-// and written as that user, so that root and the user see one choice and the files stay theirs
+// Files TurboJedi writes by itself, update.conf and screen.conf and the ones of settings() of the plugins: run by sudo,
+// they are the ones of the user of sudo, read and written as that user, so that root and the user see one choice and the
+// files stay theirs
 
 // The user of sudo the files are of, 0 for the process itself; a user the system does not know leaves them unwritten
 void SetSettingsUser(uid_t user);
+
+// The directory of the files, ~/.config/turbojedi/ of the user, and a file of a name there; empty without a directory
+void SetSettingsDirectory(const std::string& directory);
+std::string GetSettingsPath(const std::string& name);
 
 // The file to read, nullptr without one: a regular file of its user, not a link
 FILE* OpenSettings(const std::string& path);

@@ -428,20 +428,24 @@ int main(int count, char* const* arguments)
   WriteTerminal("\x1b[22;2t");
   atexit(RestoreTitle);
 
-  // Plugins are run before the windows, their problems are told once the windows are up
-  LoadPlugins(GetConfigPath(PLUGIN_DIRECTORY), problems);
-
-  // What TurboJedi writes by itself is of the user of sudo, root asks nothing that user has answered already
+  // What TurboJedi and its plugins write by themselves is of the user of sudo, root asks nothing that user has answered
+  // already; known before the plugins load, settings() of theirs reads it then
   if (GetSudoPath(SCREEN_SETTINGS, runner, screen) &&
-      GetSudoPath(UPDATE_SETTINGS, runner, update))
+      GetSudoPath(UPDATE_SETTINGS, runner, update) &&
+      GetSudoPath("", runner, path))
   {
     SetSettingsUser(runner);
+    SetSettingsDirectory(path);
   }
   else
   {
     screen = GetConfigPath(SCREEN_SETTINGS);
     update = GetConfigPath(UPDATE_SETTINGS);
+    SetSettingsDirectory(GetConfigPath(""));
   }
+
+  // Plugins are run before the windows, their problems are told once the windows are up
+  LoadPlugins(GetConfigPath(PLUGIN_DIRECTORY), problems);
 
   // Shadows of the windows are the user's, whatever layout or command line comes
   LoadJediShadow(screen);

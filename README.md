@@ -491,8 +491,9 @@ Any service of the API of OpenAI or of Anthropic does, on this machine or not:
 | OpenAI, Anthropic | `https://api.openai.com/v1/chat/completions`, `https://api.anthropic.com/v1/messages`, with `key` |
 
 An address that is not of this machine is asked about before the first request: the entries leave it then. A yes is
-kept in `~/.config/turbojedi/arrakis-trusted.txt` of whoever runs TurboJedi, a `url` a line, and holds while
-`url` stays the same; another `url` is asked about again, and deleting the line or the file forgets it. Without a file nothing leaves, which is what a contour of PCI DSS wants: put a local engine there or no file at all.
+kept in `~/.config/turbojedi/arrakis-trusted.txt`, under `sudo` the one of your home, a `url` a line, and holds while
+`url` stays the same; another `url` is asked about again, and deleting the line or the file forgets it. Without a file
+nothing leaves, which is what a contour of PCI DSS wants: put a local engine there or no file at all.
 
 **The model of your Mac, for free.** macOS 26 has a language model on the device and `fm serve` that serves it with
 the API of OpenAI. Forward it to the server over SSH, and TurboJedi there asks your Mac, the entries going nowhere else:

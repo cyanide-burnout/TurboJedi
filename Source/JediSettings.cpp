@@ -21,6 +21,17 @@ static bool lost;
 static uid_t uid;
 static gid_t gid;
 static std::vector<gid_t> groups;
+static std::string folder;
+
+void SetSettingsDirectory(const std::string& directory)
+{
+  folder = directory;
+}
+
+std::string GetSettingsPath(const std::string& name)
+{
+  return folder.empty() ? std::string() : folder + name;
+}
 
 void SetSettingsUser(uid_t user)
 {
