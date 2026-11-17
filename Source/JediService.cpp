@@ -24,6 +24,7 @@
 #include <systemd/sd-bus.h>
 
 #include <pwd.h>
+#include <grp.h>
 #include <time.h>
 #include <errno.h>
 #include <stdio.h>
@@ -101,7 +102,8 @@ static uint64_t started;    // Microseconds of CLOCK_REALTIME
 // A user answered besides the own one and root, by the files of allow: every method, or the ones named
 struct Permission
 {
-  uid_t uid;
+  bool group;                     // id is a GID: the members of the group the system tells, the primary one included
+  unsigned id;
   bool limited;                   // methods= has been given: the ones it names only, a mistyped one is not all of them
   std::set<std::string> methods;
 };
@@ -438,7 +440,56 @@ template <typename Function> static int Reply(sd_bus_message* call, Function mak
 
 // Who calls: the real UID the bus tells, never the name. Its own user, root, and the user of sudo of a root instance for
 // as long as it lives
-static int Allow(sd_bus_message* message, sd_bus_error* error)
+// Of the groups the system database tells for the user of the UID, not the ones of the process the bus may not tell
+static bool IsMember(uid_t uid, gid_t gid)
+{
+  int count;
+  char buffer[4096];
+  struct passwd entry;
+  struct passwd* user;
+  std::vector<gid_t> groups;
+
+  if ((getpwuid_r(uid, &entry, buffer, sizeof(buffer), &user) != 0) ||
+      (user == nullptr))
+  {
+    return false;
+  }
+
+  count = 64;
+  groups.resize(count);
+
+  if (getgrouplist(user->pw_name, user->pw_gid, groups.data(), &count) < 0)
+  {
+    // count tells how many there are
+    groups.resize(count);
+
+    if (getgrouplist(user->pw_name, user->pw_gid, groups.data(), &count) < 0)
+    {
+      return false;
+    }
+  }
+
+  groups.resize(count);
+  return std::find(groups.begin(), groups.end(), gid) != groups.end();
+}
+
+// A method a permission names: one of the bus, or Invoke:plugin and Invoke:plugin.method for Invoke() of those only
+static bool Permits(const Permission& permission, const char* member, const std::string& plugin, const std::string& method)
+{
+  if ((!permission.limited) ||
+      (permission.methods.count(member) != 0))
+  {
+    return true;
+  }
+
+  return (strcmp(member, "Invoke") == 0) &&
+         (!plugin.empty()) &&
+         ((permission.methods.count("Invoke:" + plugin) != 0) ||
+          (permission.methods.count("Invoke:" + plugin + "." + method) != 0));
+}
+
+// Invoke() tells its plugin and method, the files of allow may name them
+static int Allow(sd_bus_message* message, sd_bus_error* error, const std::string& plugin = std::string(), const std::string& method = std::string())
 {
   int result;
   uid_t uid;
@@ -464,9 +515,8 @@ static int Allow(sd_bus_message* message, sd_bus_error* error)
 
   for (const Permission& permission : permissions)
   {
-    if ((permission.uid == uid) &&
-        ((!permission.limited) ||
-         (permission.methods.count(sd_bus_message_get_member(message)) != 0)))
+    if ((permission.group ? IsMember(uid, permission.id) : (permission.id == uid)) &&
+        (Permits(permission, sd_bus_message_get_member(message), plugin, method)))
     {
       // A service or another user the files let in, for the methods they name
       return 0;
@@ -991,8 +1041,8 @@ static int Invoke(sd_bus_message* message, void*, sd_bus_error* error)
   const char* method;
   Operation operation;
 
-  if (((result = Allow(message, error)) < 0) ||
-      ((result = sd_bus_message_read(message, "ss", &name, &method)) < 0))
+  if (((result = sd_bus_message_read(message, "ss", &name, &method)) < 0) ||
+      ((result = Allow(message, error, name, method)) < 0))
   {
     return result;
   }
@@ -1438,6 +1488,7 @@ static void ReadPermissions(const std::string& path, std::vector<std::string>& p
 {
   int number;
   bool known;
+  bool numeric;
   char* end;
   char line[1024];
   FILE* file;
@@ -1451,6 +1502,7 @@ static void ReadPermissions(const std::string& path, std::vector<std::string>& p
   std::string method;
   std::set<std::string> names;
   struct passwd* user;
+  struct group* group;
 
   if ((path.empty()) ||
       ((file = fopen(path.c_str(), "r")) == nullptr))
@@ -1486,20 +1538,24 @@ static void ReadPermissions(const std::string& path, std::vector<std::string>& p
     key   = TrimText(text.substr(0, equal));
     value = TrimText(text.substr(equal + 1));
 
-    if (key == "user")
+    if ((key == "user") ||
+        (key == "group"))
     {
-      // A number is a UID, anything else a name the system has
-      id    = strtoul(value.c_str(), &end, 10);
-      user  = ((!value.empty()) && (*end == '\0')) ? nullptr : getpwnam(value.c_str());
-      known = ((!value.empty()) && (*end == '\0')) || (user != nullptr);
+      // Digits only are a UID or a GID, anything else a name the system has
+      errno   = 0;
+      id      = strtoul(value.c_str(), &end, 10);
+      numeric = (!value.empty()) && (value.find_first_not_of("0123456789") == std::string::npos);
+      user    = ((!numeric) && (key == "user"))  ? getpwnam(value.c_str()) : nullptr;
+      group   = ((!numeric) && (key == "group")) ? getgrnam(value.c_str()) : nullptr;
+      known   = numeric ? ((errno == 0) && (*end == '\0') && (id < (unsigned long)(uid_t)-1) && (id == (unsigned long)(uid_t)id)) : ((user != nullptr) || (group != nullptr));
 
       if (!known)
       {
-        problems.push_back(path + ", line " + std::to_string(number) + ": no user " + value + ", its lines are left out");
+        problems.push_back(path + ", line " + std::to_string(number) + ": no " + ((key == "user") ? (numeric ? "UID " : "user ") : (numeric ? "GID " : "group ")) + value + ", its lines are left out");
         continue;
       }
 
-      permissions.push_back({ (user != nullptr) ? user->pw_uid : (uid_t)id, false, { } });
+      permissions.push_back({ key == "group", (user != nullptr) ? (unsigned)user->pw_uid : (group != nullptr) ? (unsigned)group->gr_gid : (unsigned)id, false, { } });
       continue;
     }
 
@@ -1508,7 +1564,7 @@ static void ReadPermissions(const std::string& path, std::vector<std::string>& p
       if (!known)
       {
         // Of no user, or of one left out
-        problems.push_back(path + ", line " + std::to_string(number) + ": methods go after user");
+        problems.push_back(path + ", line " + std::to_string(number) + ": methods go after user or group");
         continue;
       }
 
@@ -1519,7 +1575,8 @@ static void ReadPermissions(const std::string& path, std::vector<std::string>& p
         comma  = std::min(value.find(',', start), value.size());
         method = TrimText(value.substr(start, comma - start));
 
-        if (names.count(method) == 0)
+        if ((names.count(method) == 0) &&
+            ((method.compare(0, 7, "Invoke:") != 0) || (method.size() == 7) || (method.find_first_of(" \t") != std::string::npos)))
         {
           problems.push_back(path + ", line " + std::to_string(number) + ": no method " + method);
           continue;

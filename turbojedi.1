@@ -215,8 +215,9 @@ It is opened on the next start unless a layout or filter options are given.
 Shadows of the windows chosen in Window, Shadows: \fBshadows=off\fR, \fBlight\fR, \fBmedium\fR or \fBdark\fR.
 .TP
 .I $XDG_CONFIG_HOME/turbojedi/allow.conf, /etc/turbojedi/allow.d/*.conf
-Users answered on D-Bus besides the own one and root: \fBuser=\fR a name or a UID, \fBmethods=\fR the methods it
-may call, all of them without it. See DBUS.md.
+Users answered on D-Bus besides the own one and root, a block each: \fBuser=\fR a name or a UID, or \fBgroup=\fR a
+name or a GID for its members, then \fBmethods=\fR the methods it may call, all of them without it;
+\fBInvoke:\fIplugin\fR or \fBInvoke:\fIplugin.method\fR for the methods of one plugin. See DBUS.md.
 .TP
 .I $XDG_CONFIG_HOME/turbojedi/plugins
 Plugins of the user in Lua 5.4, \fI~/.config/turbojedi/plugins\fR without XDG_CONFIG_HOME.

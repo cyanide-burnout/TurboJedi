@@ -54,13 +54,18 @@ Other users are answered when a file says so, a service of its own user for one:
 ```
 # A service that analyzes entries: reads and marks, does not move the windows
 user=arrakis
-methods=Describe,ListWindows,GetMarked,GetEntry,Query,Mark,Invoke
+methods=Describe,ListWindows,GetMarked,GetEntry,Query,Mark,Invoke:arrakis
 ```
 
-`user` is a name or a UID, `methods` the ones it may call, comma separated; without `methods` all of them. A user
-named in several files gets what all of them give. The files only add: the own user and root are answered whatever they
-say, and an instance of root reads `allow.conf` of root. They are read at start; a mistake in them, a user the system
-does not know or a method there is not, is told in the window of problems and that line is left out.
+`user` is a name or a UID, `group` a name or a GID for every member of the group, `methods` the ones it may call,
+comma separated, for the `user` or `group` before them; without `methods` all of them. Members of a group are the ones
+the system database tells (`getgrouplist()`, the primary group included), not the groups a process has taken since
+its start. `Invoke`
+lets it call every method of every plugin; `Invoke:arrakis` the methods of the plugin `arrakis` only,
+`Invoke:arrakis.notify` that one method of it. A user named in several files gets what all of them give. The files
+only add: the own user and root are answered whatever they say, and an instance of root reads `allow.conf` of root.
+They are read at start; a mistake in them, a user, a group or an id the system does not know or a method there is not,
+is told in the window of problems and that line is left out.
 
 Anyone else gets `me.burnaway.TurboJedi.Error.Denied`.
 
