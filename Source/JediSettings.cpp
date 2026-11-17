@@ -168,7 +168,8 @@ bool SaveSettings(const std::string& path, const std::string& text)
     free(real);
   }
 
-  temporary = target + ".new";
+  // Of this process: two TurboJedi saving at once replace the file one after the other, each with a whole one
+  temporary = target + "." + std::to_string(getpid()) + ".new";
 
   if (!drop)
   {

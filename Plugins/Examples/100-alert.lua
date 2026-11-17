@@ -86,9 +86,10 @@ local failures = { }
 for _, rule in ipairs(rules) do
   local count = 0
 
-  local watch, failure = turbojedi.follow(
+  local watch = turbojedi.watch({ title = rule.name })
+
+  local followed, failure = watch:follow(
   {
-    title    = rule.name,
     matches  = rule.matches,
     priority = rule.priority,
     text     = rule.text,
@@ -106,8 +107,9 @@ for _, rule in ipairs(rules) do
     watch:add(tostring(entry.MESSAGE), entry, { raise = rule.raise })
   end)
 
-  if not watch then
+  if not followed then
     -- The journal cannot be read, the other rules go on
+    watch:remove()
     failures[#failures + 1] = rule.name .. ': ' .. failure
   end
 end

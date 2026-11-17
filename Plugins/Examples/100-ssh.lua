@@ -108,10 +108,10 @@ local function name(source, user)
   end
 end
 
-watch = turbojedi.follow(
+watch = turbojedi.watch({ title = 'SSH attacks', key = 'attacks' })
+
+local followed = watch:follow(
 {
-  title   = 'SSH attacks',
-  key     = 'attacks',
   matches = { SYSLOG_IDENTIFIER = { 'sshd', 'sshd-session', 'sshd-auth' } },  -- OpenSSH of 9.8 and later logs as all three
   -- The text of a filter is matched against identifier[pid]: message, as a window matches it
   text    = ': (?:Invalid user|Failed|Accepted|Connection closed by|Disconnected from|error: maximum authentication)',
@@ -162,7 +162,10 @@ function(entry)
   tell(now)
 end)
 
-if not watch then return end
+if not followed then
+  watch:remove()
+  return
+end
 
 -- Addresses silent for long go, now and then; the rates of the lines follow the time, as the status does
 turbojedi.timeout(30000, function()
