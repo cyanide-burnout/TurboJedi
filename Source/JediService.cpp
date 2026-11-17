@@ -1489,6 +1489,7 @@ static void ReadPermissions(const std::string& path, std::vector<std::string>& p
   int number;
   bool known;
   bool numeric;
+  bool fits;
   char* end;
   char line[1024];
   FILE* file;
@@ -1547,7 +1548,10 @@ static void ReadPermissions(const std::string& path, std::vector<std::string>& p
       numeric = (!value.empty()) && (value.find_first_not_of("0123456789") == std::string::npos);
       user    = ((!numeric) && (key == "user"))  ? getpwnam(value.c_str()) : nullptr;
       group   = ((!numeric) && (key == "group")) ? getgrnam(value.c_str()) : nullptr;
-      known   = numeric ? ((errno == 0) && (*end == '\0') && (id < (unsigned long)(uid_t)-1) && (id == (unsigned long)(uid_t)id)) : ((user != nullptr) || (group != nullptr));
+      fits    = (key == "user") ?
+        ((id < (unsigned long)(uid_t)-1) && (id == (unsigned long)(uid_t)id)) :
+        ((id < (unsigned long)(gid_t)-1) && (id == (unsigned long)(gid_t)id));
+      known   = numeric ? ((errno == 0) && (*end == '\0') && fits) : ((user != nullptr) || (group != nullptr));
 
       if (!known)
       {
