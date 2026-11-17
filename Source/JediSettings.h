@@ -1,0 +1,25 @@
+#ifndef JEDISETTINGS_H
+#define JEDISETTINGS_H
+
+// TurboJedi, Turbo Journald Interface
+// https://github.com/cyanide-burnout/TurboJedi
+// Artem Prilutskiy, 2026
+
+#include <sys/types.h>
+#include <stdio.h>
+
+#include <string>
+
+// Files TurboJedi writes by itself, update.conf and screen.conf: run by sudo, they are the ones of the user of sudo, read
+// and written as that user, so that root and the user see one choice and the files stay theirs
+
+// The user of sudo the files are of, 0 for the process itself; a user the system does not know leaves them unwritten
+void SetSettingsUser(uid_t user);
+
+// The file to read, nullptr without one: a regular file of its user, not a link
+FILE* OpenSettings(const std::string& path);
+
+// The text as the whole file, its directories made when they are not there, false when it cannot be written
+bool SaveSettings(const std::string& path, const std::string& text);
+
+#endif

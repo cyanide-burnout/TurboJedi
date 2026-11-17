@@ -11,6 +11,7 @@
 #include "JediScript.h"
 #include "JediService.h"
 #include "JediShadow.h"
+#include "JediSettings.h"
 
 #include <time.h>
 #include <errno.h>
@@ -31,8 +32,8 @@
 
 #define DEFAULT_HISTORY  1000
 #define LAST_LAYOUT      "last.jedi"
-#define UPDATE_SETTINGS  "update.ini"
-#define SCREEN_SETTINGS  "screen.ini"
+#define UPDATE_SETTINGS  "update.conf"
+#define SCREEN_SETTINGS  "screen.conf"
 #define CLIPBOARD_FILE   "clipboard.conf"
 #define ALLOW_SETTINGS   "allow.conf"
 #define PLUGIN_DIRECTORY "plugins"
@@ -230,6 +231,8 @@ int main(int count, char* const* arguments)
   std::string clipboard;
   std::string path;
   std::string last;
+  std::string screen;
+  std::string update;
   bool chosen;
   uid_t runner;
   std::string error;
@@ -428,10 +431,22 @@ int main(int count, char* const* arguments)
   // Plugins are run before the windows, their problems are told once the windows are up
   LoadPlugins(GetConfigPath(PLUGIN_DIRECTORY), problems);
 
-  // Shadows of the windows are the user's, whatever layout or command line comes
-  LoadJediShadow(GetConfigPath(SCREEN_SETTINGS));
+  // What TurboJedi writes by itself is of the user of sudo, root asks nothing that user has answered already
+  if (GetSudoPath(SCREEN_SETTINGS, runner, screen) &&
+      GetSudoPath(UPDATE_SETTINGS, runner, update))
+  {
+    SetSettingsUser(runner);
+  }
+  else
+  {
+    screen = GetConfigPath(SCREEN_SETTINGS);
+    update = GetConfigPath(UPDATE_SETTINGS);
+  }
 
-  application = new JediApplication(filter, history, layout, GetConfigPath(UPDATE_SETTINGS));
+  // Shadows of the windows are the user's, whatever layout or command line comes
+  LoadJediShadow(screen);
+
+  application = new JediApplication(filter, history, layout, update);
 
   // The programming interface on the system bus, for agents through turbojedi-mcp.py; without the bus or its policy none
   OpenService(GetConfigPath(ALLOW_SETTINGS), problems);

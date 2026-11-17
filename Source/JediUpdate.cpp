@@ -4,6 +4,7 @@
 
 #include "Version.h"
 #include "JediUpdate.h"
+#include "JediSettings.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -257,7 +258,7 @@ void JediUpdate::load(const std::string& path)
   this->path = path;
 
   if ((path.empty()) ||
-      ((file = fopen(path.c_str(), "r")) == nullptr))
+      ((file = OpenSettings(path)) == nullptr))
   {
     // Nothing chosen yet
     return;
@@ -287,17 +288,8 @@ void JediUpdate::load(const std::string& path)
 
 void JediUpdate::save()
 {
-  FILE* file;
-
-  if ((path.empty()) ||
-      ((file = fopen(path.c_str(), "w")) == nullptr))
-  {
-    // Kept for this run only
-    return;
-  }
-
-  fprintf(file, "startup=%s\nchecked=%lld\nshown=%s\n", startup ? "yes" : "no", (long long)checked, shown.c_str());
-  fclose(file);
+  // Kept for this run only when it cannot be written
+  SaveSettings(path, std::string("startup=") + (startup ? "yes" : "no") + "\nchecked=" + std::to_string((long long)checked) + "\nshown=" + shown + "\n");
 }
 
 bool JediUpdate::due() const

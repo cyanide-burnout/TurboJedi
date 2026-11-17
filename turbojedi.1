@@ -218,8 +218,14 @@ the one of the user of sudo, its command run as that user, never as root.
 The layout kept on exit, \fI~/.config/turbojedi/last.jedi\fR without XDG_CONFIG_HOME.
 It is opened on the next start unless a layout or filter options are given.
 .TP
-.I $XDG_CONFIG_HOME/turbojedi/screen.ini
+.I $XDG_CONFIG_HOME/turbojedi/screen.conf
 Shadows of the windows chosen in Window, Shadows: \fBshadows=off\fR, \fBlight\fR, \fBmedium\fR or \fBdark\fR.
+.TP
+.I $XDG_CONFIG_HOME/turbojedi/update.conf
+The choice of the check for updates on start and the last answer: \fBstartup=yes\fR or \fBno\fR, \fBchecked=\fR and
+\fBshown=\fR. Under
+.BR sudo (8)
+this file and \fIscreen.conf\fR are the ones of the user of sudo, read and written as that user.
 .TP
 .I $XDG_CONFIG_HOME/turbojedi/allow.conf, /etc/turbojedi/allow.d/*.conf
 Users answered on D-Bus besides the own one and root, a block each: \fBuser=\fR a name or a UID, or \fBgroup=\fR a

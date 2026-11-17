@@ -69,6 +69,7 @@ OBJECTS := \
 	$(SOURCE)/TimelineWindow.o \
 	$(SOURCE)/JournalTools.o \
 	$(SOURCE)/JournalLayout.o \
+	$(SOURCE)/JediSettings.o \
 	$(SOURCE)/JediShadow.o \
 	$(SOURCE)/SourceDialog.o \
 	$(SOURCE)/PickDialog.o \

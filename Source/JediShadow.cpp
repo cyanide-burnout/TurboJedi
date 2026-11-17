@@ -5,6 +5,7 @@
 #define Uses_TProgram
 #define Uses_TDeskTop
 #include "JediShadow.h"
+#include "JediSettings.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -28,7 +29,7 @@ void LoadJediShadow(const std::string& path)
   file = path;
 
   if ((path.empty()) ||
-      ((stream = fopen(path.c_str(), "r")) == nullptr))
+      ((stream = OpenSettings(path)) == nullptr))
   {
     // Nothing chosen yet
     return;
@@ -60,17 +61,12 @@ void LoadJediShadow(const std::string& path)
 
 void SetJediShadow(int value, bool keep)
 {
-  FILE* stream;
-
   level = value;
   ApplyJediShadow();
 
-  if ((keep) &&
-      (!file.empty()) &&
-      ((stream = fopen(file.c_str(), "w")) != nullptr))
+  if (keep)
   {
-    fprintf(stream, "shadows=%s\n", names[level]);
-    fclose(stream);
+    SaveSettings(file, std::string("shadows=") + names[level] + "\n");
   }
 
   if (TProgram::deskTop != nullptr)

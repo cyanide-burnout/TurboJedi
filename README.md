@@ -57,8 +57,9 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd, PC
   the last one comes back on the next start
 - Check for updates in the Help menu: asks GitHub for the latest release only when chosen, shows it
   with the command of the install script; nothing goes to the network otherwise. Its answer has the choice
-  of a check on start, once a day and only about a newer release, kept in `$XDG_CONFIG_HOME/turbojedi/update.ini`;
-  the first start without that file asks for the choice once, Yes or No
+  of a check on start, once a day and only about a newer release, kept in `$XDG_CONFIG_HOME/turbojedi/update.conf`;
+  the first start without that file asks for the choice once, Yes or No. Under `sudo` it is the file of your home,
+  written as you, so root asks nothing you have answered already
 
 ## Installation
 
@@ -303,7 +304,7 @@ window to the time of the selected line, and a layout keeps their directories fo
 | Ctrl-O, Ctrl-S | open, save a layout; both start at the layout opened or saved last, Save offers its file again |
 | F5, Ctrl-F5, F6, F9, Alt-F3 | zoom, size, next, tile, close |
 | Window → Console | the console of TurboJedi: `print()` and `log()` of the plugins, their errors, the problems of the start and what callers of D-Bus have done, a problem left unread; a watch of its own in F12 that stays, F8 in its lines clears them |
-| Window → Shadows | of every window and dialog: off, light, medium as Turbo Vision has them, or dark; kept in `$XDG_CONFIG_HOME/turbojedi/screen.ini` whatever layout comes |
+| Window → Shadows | of every window and dialog: off, light, medium as Turbo Vision has them, or dark; kept in `$XDG_CONFIG_HOME/turbojedi/screen.conf` whatever layout comes, under `sudo` the one of your home, written as you |
 | Alt-0 | list of the windows to go to, the one used before is under the cursor |
 | F12 | watches of plugins with their status, Enter shows the lines of one, Delete or Backspace removes it, U turns their times to UTC and back |
 | Alt-X | exit |
