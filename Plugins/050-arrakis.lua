@@ -11,11 +11,16 @@
 --
 --   url      = http://127.0.0.1:8080/v1/chat/completions
 --   model    = qwen2.5-1.5b-instruct
---   format   = openai          (or anthropic; /v1/messages in the url tells it as well)
---   key      = ...             (a token for a service that wants one: chmod 600 the file then)
---   language = ru              (of the answers; the one of the locale without it)
---   budget   = 12000           (characters of entries a request takes at most)
---   timeout  = 600             (seconds a request may take, 0 for no limit)
+--   format   = openai
+--   key      = ...
+--   language = ru
+--   budget   = 12000
+--   timeout  = 600
+--
+-- format is openai or anthropic, which /v1/messages in the url tells as well; key a token for a service that wants one,
+-- chmod 600 the file then; language of the answers, the one of the locale without it; budget characters of entries a
+-- request takes at most; timeout seconds a request may take, 0 for no limit. A value goes to the end of its line, a
+-- comment is a line of its own.
 --
 -- An address of another machine is told once before the first request goes there: the entries leave the machine then.
 -- JSON is lua-cjson for Lua 5.4: lua-cjson of Debian and Ubuntu, lua54-cjson of openSUSE; elsewhere
@@ -207,26 +212,32 @@ local function answer(code, body)
   return text
 end
 
--- The answer has come: its text in the watch and on the screen, the entries it names as lines that go to them
+-- A failure in the watch and on the screen; the window has told it, so the line comes read
+local function failed(job, text)
+  job.watch:status('failed')
+  job.watch:add(text, nil, { quiet = true })
+  turbojedi.message(text, 'Arrakis')
+end
+
+-- The answer has come: its text in the watch and on the screen, the entries it names as lines that go to them. The
+-- window shows it, so the lines come read and the watch does not call for attention
 local function done(code, body, more, job)
   jobs[job.number] = nil
 
   if not code then
-    job.watch:status(('failed: %s, %s'):format(tostring(body), tostring(more)))
-    job.watch:add(('No answer from %s: %s, %s'):format(host, tostring(body), tostring(more)), nil, { raise = true })
+    failed(job, ('No answer from %s: %s, %s'):format(host, tostring(body), tostring(more)))
     return
   end
 
   local text, failure = answer(code, body)
 
   if not text then
-    job.watch:status('failed: ' .. failure)
-    job.watch:add(('%s has answered %s'):format(host, failure), nil, { raise = true })
+    failed(job, ('%s has answered %s'):format(host, failure))
     return
   end
 
   job.watch:status(('done, %d entries'):format(#job.items))
-  job.watch:add(text, nil, { raise = true })
+  job.watch:add(text, nil, { quiet = true })
 
   local named = { }
 

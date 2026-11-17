@@ -13,6 +13,8 @@
 #include "JediShadow.h"
 
 #include <time.h>
+#include <errno.h>
+#include <pwd.h>
 #include <stdio.h>
 #include <locale.h>
 #include <langinfo.h>
@@ -31,6 +33,7 @@
 #define LAST_LAYOUT      "last.jedi"
 #define UPDATE_SETTINGS  "update.ini"
 #define SCREEN_SETTINGS  "screen.ini"
+#define CLIPBOARD_FILE   "clipboard.conf"
 #define ALLOW_SETTINGS   "allow.conf"
 #define PLUGIN_DIRECTORY "plugins"
 #define FILE_LIMIT        65536  // Open files the soft limit is raised to at most
@@ -119,6 +122,43 @@ static void RaiseFileLimit()
   }
 }
 
+// The user who has run TurboJedi as root by sudo and the file of theirs, false without sudo
+static bool GetSudoPath(const char* name, uid_t& user, std::string& path)
+{
+  char* end;
+  char buffer[4096];
+  const char* value;
+  unsigned long number;
+  struct passwd entry;
+  struct passwd* found;
+
+  value = getenv("SUDO_UID");
+
+  if ((getuid() != 0) ||
+      (value == nullptr) ||
+      (*value == '\0') ||
+      (strspn(value, "0123456789") != strlen(value)))
+  {
+    return false;
+  }
+
+  errno  = 0;
+  number = strtoul(value, &end, 10);
+
+  if ((errno != 0) ||
+      (number == 0) ||
+      (number >= (unsigned long)(uid_t)-1) ||
+      (getpwuid_r((uid_t)number, &entry, buffer, sizeof(buffer), &found) != 0) ||
+      (found == nullptr))
+  {
+    return false;
+  }
+
+  user = found->pw_uid;
+  path = std::string(found->pw_dir) + "/.config/turbojedi/" + name;
+  return true;
+}
+
 static std::string GetConfigPath(const char* name)
 {
   size_t position;
@@ -163,8 +203,9 @@ static void PrintUsage(const char* name)
   printf("  -c, --layout FILE     windows of a layout saved by File, Save layout, options are left for new windows then\n");
   printf("      --clipboard-copy COMMAND\n");
   printf("                        command of sh that takes copied lines on its standard input, such as remote-copy.sh\n");
-  printf("                        of RemoteClipboard, instead of $TURBOJEDI_CLIPBOARD_COPY; the clipboard of the terminal\n");
-  printf("                        takes them when the command fails or does not finish in 3 seconds\n");
+  printf("                        of RemoteClipboard, over $TURBOJEDI_CLIPBOARD_COPY and copy = of clipboard.conf, which\n");
+  printf("                        sudo takes of its user and runs as that user; the clipboard of the terminal takes them\n");
+  printf("                        when the command fails or does not finish in 3 seconds\n");
   printf("\n");
   printf("The layout of all windows is kept on exit in $XDG_CONFIG_HOME/turbojedi/%s and comes back on the next start\n", LAST_LAYOUT);
   printf("without a layout and filter options\n");
@@ -187,7 +228,10 @@ int main(int count, char* const* arguments)
   std::string value;
   std::string layout;
   std::string clipboard;
+  std::string path;
   std::string last;
+  bool chosen;
+  uid_t runner;
   std::string error;
   std::vector<JournalLayout> windows;
   std::vector<std::string> watches;
@@ -228,8 +272,9 @@ int main(int count, char* const* arguments)
   filter.columns   = JOURNAL_COLUMN_DEFAULT;
   filter.highlight = JOURNAL_HIGHLIGHT_BUILTIN;
 
-  // The option goes over the environment, an empty one leaves the clipboard of Turbo Vision
-  clipboard = (getenv("TURBOJEDI_CLIPBOARD_COPY") != nullptr) ? getenv("TURBOJEDI_CLIPBOARD_COPY") : "";
+  // The option goes over the environment, an empty one leaves the clipboard of Turbo Vision; clipboard.conf without both
+  chosen    = getenv("TURBOJEDI_CLIPBOARD_COPY") != nullptr;
+  clipboard = chosen ? getenv("TURBOJEDI_CLIPBOARD_COPY") : "";
 
   while ((result = getopt_long(count, arguments, "t:u:U:p:kS:bD:c:n:mrH:h", options, nullptr)) > 0)
   {
@@ -307,6 +352,7 @@ int main(int count, char* const* arguments)
 
       case 'C':
         clipboard = optarg;
+        chosen    = true;
         break;
 
       case 'H':
@@ -358,7 +404,22 @@ int main(int count, char* const* arguments)
   SetTextLocale();
   RaiseFileLimit();
 
-  SetClipboardCommand(clipboard);
+  runner = 0;
+
+  if ((!chosen) &&
+      (GetSudoPath(CLIPBOARD_FILE, runner, path)) &&
+      (ReadClipboardCommand(path, runner, clipboard)))
+  {
+    // The command of the user of sudo runs as that user, root never runs what a user has written
+    chosen = true;
+  }
+  else if (!chosen)
+  {
+    runner = 0;
+    ReadClipboardCommand(GetConfigPath(CLIPBOARD_FILE), getuid(), clipboard);
+  }
+
+  SetClipboardCommand(clipboard, runner);
 
   // The title of the terminal is kept to be given back after the statics of Turbo Vision made with the application
   WriteTerminal("\x1b[22;2t");

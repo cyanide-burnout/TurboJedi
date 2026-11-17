@@ -202,12 +202,22 @@ export TURBOJEDI_CLIPBOARD_COPY="$HOME/remote-copy.sh"
 turbojedi
 ```
 
+or once and for all in `~/.config/turbojedi/clipboard.conf`, a line of its own:
+
+```
+copy = /home/you/remote-copy.sh
+```
+
+The option goes over the environment, the environment over the file. The file is read only when it is a regular
+file of your own, not a link.
+
 When the command exits with an error or does not finish in 3 seconds, the clipboard of the terminal takes the
 lines as usual. Input lines of the dialogs keep the clipboard of Turbo Vision, pasting is up to the terminal.
 
-Under `sudo` the command runs as root, while the clipboard belongs to you: `remote-copy.sh` looks for the socket
-of `$USER`, and `sudo` leaves `TURBOJEDI_CLIPBOARD_COPY` and `SSH_TTY` out of the environment. Give the command
-by the option and let it go back to your user, `sudo -u` sets `USER` and `HOME` of that user:
+Under `sudo` the clipboard still belongs to you: `sudo turbojedi` takes `clipboard.conf` of your home and runs its
+command as you, with your groups, `HOME`, `USER` and `LOGNAME`, never as root; what you have written there is no
+more than you can run yourself. `sudo` leaves `TURBOJEDI_CLIPBOARD_COPY` out of the environment, so the file is the
+way. A command given by the option or kept by `sudo -E` runs as root, as before, and goes back to your user by itself:
 
 ```
 sudo turbojedi --clipboard-copy "sudo -u $USER $HOME/remote-copy.sh"
@@ -433,12 +443,19 @@ same file serves TurboJedi run as yourself and as root.
 ```
 url      = http://127.0.0.1:8080/v1/chat/completions
 model    = qwen2.5-1.5b-instruct
-format   = openai              # or anthropic, which /v1/messages tells as well
-key      = ...                 # a token for a service that wants one: chmod 600 the file then
-language = ru                  # of the answers, the one of the locale without it
-budget   = 12000               # characters of entries a request takes, the newest kept
-timeout  = 600                 # seconds a request may take, 0 for no limit
+# openai, or anthropic, which /v1/messages tells as well
+format   = openai
+# a token for a service that wants one: chmod 600 the file then
+key      = ...
+# of the answers, the one of the locale without it
+language = ru
+# characters of entries a request takes, the newest kept
+budget   = 12000
+# seconds a request may take, 0 for no limit
+timeout  = 600
 ```
+
+A line is `key = value` to its end, a comment is a line of its own that starts with `#`.
 
 Any service of the API of OpenAI or of Anthropic does, on this machine or not:
 

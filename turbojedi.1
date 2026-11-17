@@ -65,8 +65,9 @@ Windows of a layout saved by File, Save layout. Options are left for new windows
 Command of
 .BR sh (1)
 that takes copied lines on its standard input instead of the clipboard of the terminal, such as
-\fBremote-copy.sh\fR of RemoteClipboard. It goes over \fBTURBOJEDI_CLIPBOARD_COPY\fR. When the command exits
-with an error or does not finish in 3 seconds, the clipboard of the terminal takes the lines.
+\fBremote-copy.sh\fR of RemoteClipboard. It goes over \fBTURBOJEDI_CLIPBOARD_COPY\fR, which goes over
+\fIclipboard.conf\fR. When the command exits with an error or does not finish in 3 seconds, the clipboard of the
+terminal takes the lines.
 .TP
 \fB\-h\fR, \fB\-\-help\fR
 Usage.
@@ -203,9 +204,15 @@ Exit.
 .B TURBOJEDI_CLIPBOARD_COPY
 Command that takes copied lines, like \fB\-\-clipboard\-copy\fR.
 .BR sudo (8)
-leaves it out of the environment and runs the command as root; give it by the option then, going back to
-your user, such as \fB\-\-clipboard\-copy "sudo \-u $USER $HOME/remote-copy.sh"\fR.
+leaves it out of the environment; \fIclipboard.conf\fR of the user of sudo is taken then, its command run as that
+user.
 .SH FILES
+.TP
+.I $XDG_CONFIG_HOME/turbojedi/clipboard.conf
+\fBcopy =\fR \fICOMMAND\fR, the command that takes copied lines when neither \fB\-\-clipboard\-copy\fR nor
+\fBTURBOJEDI_CLIPBOARD_COPY\fR gives one; a regular file of the user, not a link. Under
+.BR sudo (8)
+the one of the user of sudo, its command run as that user, never as root.
 .TP
 .I $XDG_CONFIG_HOME/turbojedi/last.jedi
 The layout kept on exit, \fI~/.config/turbojedi/last.jedi\fR without XDG_CONFIG_HOME.
