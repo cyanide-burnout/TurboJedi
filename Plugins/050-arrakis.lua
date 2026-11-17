@@ -1,0 +1,297 @@
+-- TurboJedi, Turbo Journald Interface
+-- https://github.com/cyanide-burnout/TurboJedi
+-- Artem Prilutskiy, 2026
+
+-- Arrakis: entries explained by a language model behind an HTTP API of the format of OpenAI (llama-server, Ollama,
+-- vLLM, colibri, OpenAI) or of Anthropic. On Arrakis they mine the spice, here the sense of the journal.
+--
+-- Nothing happens without a file of settings: /etc/turbojedi/arrakis.conf of root for every user, then
+-- ~/.config/turbojedi/arrakis.conf of the user over it:
+--
+--   url      = http://127.0.0.1:8080/v1/chat/completions
+--   model    = qwen2.5-1.5b-instruct
+--   format   = openai          (or anthropic; /v1/messages in the url tells it as well)
+--   key      = ...             (a token for a service that wants one: chmod 600 the file then)
+--   language = ru              (of the answers; the one of the locale without it)
+--   budget   = 12000           (characters of entries a request takes at most)
+--   timeout  = 600             (seconds a request may take, 0 for no limit)
+--
+-- An address of another machine is told once before the first request goes there: the entries leave the machine then.
+-- JSON is lua-cjson for Lua 5.4: lua-cjson of Debian and Ubuntu, lua54-cjson of openSUSE; elsewhere
+-- luarocks --lua-version 5.4 install lua-cjson
+
+local SYSTEM  = '/etc/turbojedi/arrakis.conf'
+local CONTEXT = 30      -- Entries before a single one, of its unit or identifier, to tell the model what has led to it
+local TOKENS  = 1024    -- Of an answer, Anthropic wants it said
+
+local LEVELS = { [0] = 'EMERG', 'ALERT', 'CRIT', 'ERR', 'WARNING', 'NOTICE', 'INFO', 'DEBUG' }
+
+-- A small model follows the name of a language, not its code
+local LANGUAGES = { en = 'English', ru = 'Russian', uk = 'Ukrainian', de = 'German', fr = 'French', es = 'Spanish',
+                    it = 'Italian', pt = 'Portuguese', pl = 'Polish', nl = 'Dutch', cs = 'Czech', sv = 'Swedish',
+                    tr = 'Turkish', ja = 'Japanese', zh = 'Chinese', ko = 'Korean', he = 'Hebrew', ar = 'Arabic' }
+
+-- Settings of a file over the ones there are; false when there is no file
+local function read(path, settings)
+  local file = io.open(path)
+  if not file then return false end
+
+  for line in file:lines() do
+    local key, value = line:match('^%s*([%w_]+)%s*=%s*(.-)%s*$')
+    if key then settings[key] = value end
+  end
+
+  file:close()
+  return true
+end
+
+local function load()
+  local home     = os.getenv('XDG_CONFIG_HOME') or ((os.getenv('HOME') or '') .. '/.config')
+  local user     = home .. '/turbojedi/arrakis.conf'
+  local settings = { }
+  local found    = read(SYSTEM, settings)
+
+  found = read(user, settings) or found
+
+  if not found then
+    -- Not set up: nothing is offered, nothing is sent anywhere
+    return nil
+  end
+
+  settings.format  = settings.format or (settings.url and settings.url:match('/v1/messages$') and 'anthropic') or 'openai'
+  settings.budget  = tonumber(settings.budget) or 12000
+  settings.timeout = tonumber(settings.timeout) or 600
+
+  if (not settings.url) or (not settings.url:match('^https?://')) or
+     ((settings.format ~= 'openai') and (settings.format ~= 'anthropic')) or
+     ((settings.format == 'anthropic') and (not settings.model)) then
+    error(('%s or %s needs url of http or https, format of openai or anthropic, and model for anthropic'):format(SYSTEM, user))
+  end
+
+  -- The language of the answers, of the locale when not said: ru of ru_RU.UTF-8, en of C.UTF-8 and POSIX
+  local locale = os.getenv('LC_ALL') or os.getenv('LC_MESSAGES') or os.getenv('LANG') or ''
+  settings.language = settings.language or locale:match('^(%l%l%l?)_') or locale:match('^(%l%l%l?)$') or 'en'
+
+  return settings
+end
+
+local settings = load()
+
+if not settings then
+  return
+end
+
+local found, cjson = pcall(require, 'cjson')
+
+if not found then
+  error('lua-cjson for Lua 5.4 is needed: lua-cjson of Debian and Ubuntu, lua54-cjson of openSUSE; ' ..
+        'elsewhere luarocks --lua-version 5.4 install lua-cjson')
+end
+
+-- The host of the address, and whether it is this machine: another one is told once before the first request
+local host    = settings.url:match('^https?://%[([^%]]+)%]') or settings.url:match('^https?://([^/:]+)') or '?'
+local trusted = (host == 'localhost') or (host == '::1') or (host:match('^127%.%d+%.%d+%.%d+$') ~= nil)
+
+local jobs   = { }   -- Requests on the way, by their number
+local number = 0
+
+-- A field the journal has several times is a list, the first value tells enough here
+local function first(value)
+  if type(value) == 'table' then return value[1] end
+  return value
+end
+
+-- One line of an entry for the model: time in the zone of the user, host, unit, process, level, message
+local function line(item)
+  local stamp    = item.__REALTIME_TIMESTAMP
+  local name     = first(item.SYSLOG_IDENTIFIER) or first(item._COMM) or '?'
+  local pid      = first(item._PID)
+  local unit     = first(item._SYSTEMD_UNIT)
+  local priority = tonumber(first(item.PRIORITY) or '')
+
+  return ('%s %s%s %s%s %s: %s'):format(
+    stamp and turbojedi.date('%Y-%m-%d %H:%M:%S', stamp // 1000000) .. ('.%03d'):format((stamp // 1000) % 1000) or '?',
+    first(item._HOSTNAME) or '?', unit and (' ' .. unit) or '', name, pid and ('[' .. pid .. ']') or '',
+    LEVELS[priority] or 'INFO', first(item.MESSAGE) or '')
+end
+
+-- Numbered lines up to the budget, the newest kept when there are too many: what has failed last tells most
+local function listing(items)
+  local lines = { }
+  local size  = 0
+  local start = #items
+
+  while start > 0 do
+    local text = ('[%d] %s'):format(start, line(items[start]))
+    if (size + #text > settings.budget) and (#lines > 0) then break end
+    table.insert(lines, 1, text)
+    size  = size + #text + 1
+    start = start - 1
+  end
+
+  if start > 0 then
+    table.insert(lines, 1, ('(%d older entries left out)'):format(start))
+  end
+
+  return table.concat(lines, '\n')
+end
+
+local INSTRUCTIONS = [[You help an administrator of a Linux server read entries of its systemd journal. Each entry is a
+line [number] time host unit identifier[pid] LEVEL: message. Tell in a few sentences what has happened, the likely
+cause, and what to check or do next. Name the entries that matter by their numbers in square brackets, as [3]. Do not
+repeat the entries. Plain text, no Markdown. Answer in %s.]]
+
+-- The request of the format of the service
+local function request(items)
+  local language = LANGUAGES[settings.language] or settings.language
+  local system   = INSTRUCTIONS:format(language)
+  local user     = listing(items) .. '\n\nAnswer in ' .. language .. '.'
+  local headers  = { ['Content-Type'] = 'application/json' }
+  local body
+
+  if settings.format == 'anthropic' then
+    headers['anthropic-version'] = '2023-06-01'
+    if settings.key then headers['x-api-key'] = settings.key end
+    body = { model = settings.model, max_tokens = TOKENS, stream = false, system = system,
+             messages = { { role = 'user', content = user } } }
+  else
+    if settings.key then headers.Authorization = 'Bearer ' .. settings.key end
+    -- The whole answer at once: some servers stream when not told, fm serve of macOS for one
+    body = { model = settings.model, stream = false,
+             messages = { { role = 'system', content = system }, { role = 'user', content = user } } }
+  end
+
+  return { url = settings.url, method = 'POST', headers = headers, body = cjson.encode(body), timeout = settings.timeout }
+end
+
+-- The text of an answer, or nil and why there is none
+local function answer(code, body)
+  local decoded, data = pcall(cjson.decode, body)
+
+  if not decoded or (type(data) ~= 'table') then
+    return nil, ('%d, not JSON: %s'):format(code, body:sub(1, 200))
+  end
+
+  if (code < 200) or (code > 299) then
+    local failure = type(data.error) == 'table' and data.error.message or data.error or data.message
+    return nil, ('%d: %s'):format(code, type(failure) == 'string' and failure or body:sub(1, 200))
+  end
+
+  local text
+
+  if settings.format == 'anthropic' then
+    local parts = { }
+    for _, part in ipairs(type(data.content) == 'table' and data.content or { }) do
+      if (type(part) == 'table') and (part.type == 'text') then parts[#parts + 1] = part.text end
+    end
+    text = table.concat(parts, '\n')
+  else
+    local choice = type(data.choices) == 'table' and data.choices[1]
+    text = type(choice) == 'table' and type(choice.message) == 'table' and choice.message.content
+  end
+
+  if type(text) ~= 'string' then
+    return nil, 'no text in the answer: ' .. body:sub(1, 200)
+  end
+
+  -- A reasoning model thinks aloud first, the answer is after it
+  text = text:gsub('<think>.-</think>', ''):gsub('^%s+', ''):gsub('%s+$', '')
+  return text
+end
+
+-- The answer has come: its text in the watch and on the screen, the entries it names as lines that go to them
+local function done(code, body, more, job)
+  jobs[job.number] = nil
+
+  if not code then
+    job.watch:status(('failed: %s, %s'):format(tostring(body), tostring(more)))
+    job.watch:add(('No answer from %s: %s, %s'):format(host, tostring(body), tostring(more)), nil, { raise = true })
+    return
+  end
+
+  local text, failure = answer(code, body)
+
+  if not text then
+    job.watch:status('failed: ' .. failure)
+    job.watch:add(('%s has answered %s'):format(host, failure), nil, { raise = true })
+    return
+  end
+
+  job.watch:status(('done, %d entries'):format(#job.items))
+  job.watch:add(text, nil, { raise = true })
+
+  local named = { }
+
+  for index in text:gmatch('%[(%d+)%]') do
+    index = tonumber(index)
+    if job.items[index] and not named[index] then
+      named[index] = true
+      job.watch:add(('[%d] %s'):format(index, line(job.items[index])), job.items[index], { quiet = true })
+    end
+  end
+
+  turbojedi.message(text, 'Arrakis')
+end
+
+local function analyze(items)
+  if not trusted then
+    if not turbojedi.confirm(('The entries go to %s, another machine. Send them?'):format(host)) then return end
+    trusted = true
+  end
+
+  number = number + 1
+
+  -- A watch of nothing, its lines are the job: a field no entry has, the journal has nothing to read for it
+  local watch, reason = turbojedi.watch({ title = ('Arrakis %d: %d entries'):format(number, #items),
+                                          matches = { ARRAKIS_NOTHING = tostring(number) } }, function() end)
+
+  if not watch then
+    turbojedi.message('Arrakis cannot keep the job: ' .. tostring(reason), 'Arrakis')
+    return
+  end
+
+  local job = { number = number, items = items, watch = watch }
+
+  watch:status(('working at %s'):format(host))
+  job.request = turbojedi.fetch(request(items), done, job)
+  jobs[number] = job
+end
+
+-- A single entry is told with what has come before it from the same unit or program
+local function single(item)
+  local items   = { item }
+  local unit    = first(item._SYSTEMD_UNIT)
+  local name    = first(item.SYSLOG_IDENTIFIER)
+  local matches = unit and { _SYSTEMD_UNIT = unit } or (name and { SYSLOG_IDENTIFIER = name })
+
+  if matches and item.__CURSOR then
+    local before = turbojedi.query({ matches = matches, before = item.__CURSOR, limit = CONTEXT })
+
+    for _, earlier in ipairs(before or { }) do
+      -- From the newest back: each goes in front
+      table.insert(items, 1, earlier)
+    end
+  end
+
+  analyze(items)
+end
+
+local function cancel()
+  for key, job in pairs(jobs) do
+    job.request:cancel()
+    job.watch:status('cancelled')
+    jobs[key] = nil
+  end
+end
+
+turbojedi.registerHandler(function(item, menu, context)
+  if context.marked then
+    menu:add(('Arrakis: explain %d marked entries'):format(#context.marked), analyze, context.marked)
+  else
+    menu:add('Arrakis: explain this entry', single, item)
+  end
+
+  if next(jobs) then
+    menu:add('Arrakis: cancel the jobs going on', cancel)
+  end
+end)

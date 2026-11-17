@@ -12,7 +12,7 @@ Architecture: any
 Depends:
   ${shlibs:Depends}, ${misc:Depends}
 Recommends:
-  python3, python3-dbus
+  python3, python3-dbus, lua-cjson
 Suggests:
   grc
 Description: Turbo Vision viewer of the systemd journal

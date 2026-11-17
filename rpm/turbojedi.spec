@@ -20,6 +20,8 @@ Provides:       bundled(tvision) = %{turbojedi_tvision}
 Recommends:     python3
 %if 0%{?suse_version}
 Recommends:     python3-dbus-python
+# Arrakis reads JSON by lua-cjson, the other distributions have none for Lua 5.4
+Recommends:     lua54-cjson
 %else
 Recommends:     python3-dbus
 %endif

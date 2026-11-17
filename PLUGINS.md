@@ -892,6 +892,13 @@ confirmation, which warns when the address is the one of your own SSH session: a
 user out. An address of this machine itself, such as the one sshd tells as `to`, gets no items. `fail2ban-client`
 answers nobody but root, so a TurboJedi of another user has no items of it.
 
+### Arrakis
+
+`050-arrakis.lua` of the package explains the marked entries, or the entry and what has come before it, by a language
+model behind the HTTP API of OpenAI or Anthropic that `arrakis.conf` tells; see README. Without the file it does
+nothing. A plugin of `fetch()`, `query()`, a watch whose lines are the job and `message(text, title)`, the way a plugin
+of your own may ask a service.
+
 ### SSH attacks
 
 `/usr/share/turbojedi/examples/100-ssh.lua` watches the SSH server of this machine, where there is one, while TurboJedi

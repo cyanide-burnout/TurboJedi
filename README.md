@@ -39,7 +39,8 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd, PC
 - Actions of an entry by plugins in Lua 5.4: Alt-F10, A, F11, Shift-F10 or a right click opens the menu of what the
   plugins offer for it, each item named with its plugin. The plugins of the package: the status of the unit of the
   entry, its state told in the menu, its unit file and its process in htop or top, the route, lookup, whois, ping and
-  path of an address, a core dump in coredumpctl and gdb, a ban in fail2ban after a confirmation; the attacks on the
+  path of an address, a core dump in coredumpctl and gdb, a ban in fail2ban after a confirmation, the marked entries
+  explained by a language model of your choice (Arrakis, below); the attacks on the
   SSH server in a watch, block devices, Asterisk, alerts and a chat are in the examples. Plugins ask with dialogs, run
   commands in the background, in a window or on the terminal, ask web services over HTTP, call services over D-Bus
   with typed values and keep sockets and timers going, see [PLUGINS.md](PLUGINS.md)
@@ -369,6 +370,8 @@ brings these:
   gdb
 - `040-fail2ban.lua`, for root where fail2ban is installed: Ban and Unban of an address of the entry, after asking for
   the jail and a confirmation, never for an address of this machine
+- `050-arrakis.lua`, where `arrakis.conf` tells a language model: the marked entries, or the entry and what has come
+  before it, explained by the model; see [Arrakis](#arrakis) below
 
 Plugins that change things, or that would come up by chance, are examples in `/usr/share/turbojedi/examples` and are not
 run by themselves: `100-ssh.lua`, a watch of the attacks on the SSH server of this machine while TurboJedi is open, an
@@ -414,6 +417,60 @@ claude mcp add turbojedi -- ssh server turbojedi-mcp.py
 
 How to connect Claude Code, Codex or another client, and what to ask: [MCP.md](MCP.md). The interface on the system
 bus, for scripts of your own: [DBUS.md](DBUS.md).
+
+### Arrakis
+
+On Arrakis they mine the spice; Arrakis of TurboJedi mines the sense of the journal. Mark entries, Actions → Arrakis:
+explain N marked entries, or Arrakis: explain this entry, which takes along the 30 entries of its unit before it. A
+language model behind an HTTP API tells what has happened, the likely cause and what to check; the answer comes up
+in a window, stays in a watch "Arrakis N" of F12, and the entries it names are lines there that go to them by Enter.
+TurboJedi goes on while the model thinks; Actions offers to cancel a job that goes on.
+
+Nothing happens without a file: `/etc/turbojedi/arrakis.conf` of root for every user, `~/.config/turbojedi/arrakis.conf`
+of the user over it.
+
+```
+url      = http://127.0.0.1:8080/v1/chat/completions
+model    = qwen2.5-1.5b-instruct
+format   = openai              # or anthropic, which /v1/messages tells as well
+key      = ...                 # a token for a service that wants one: chmod 600 the file then
+language = ru                  # of the answers, the one of the locale without it
+budget   = 12000               # characters of entries a request takes, the newest kept
+timeout  = 600                 # seconds a request may take, 0 for no limit
+```
+
+Any service of the API of OpenAI or of Anthropic does, on this machine or not:
+
+| Engine | `url` |
+|---|---|
+| llama-server of llama.cpp | `http://127.0.0.1:8080/v1/chat/completions`; a model of 0.5–1.5B runs on the CPU of a VM of 2 GB |
+| Ollama | `http://127.0.0.1:11434/v1/chat/completions` |
+| colibri | `/v1/chat/completions` of `coli serve`; 8 GB of memory at least |
+| vLLM, a server of your own | its `/v1/chat/completions` |
+| OpenAI, Anthropic | `https://api.openai.com/v1/chat/completions`, `https://api.anthropic.com/v1/messages`, with `key` |
+
+An address that is not of this machine is told once before the first request: the entries leave it then. Without a
+file nothing leaves, which is what a contour of PCI DSS wants: put a local engine there or no file at all.
+
+**The model of your Mac, for free.** macOS 26 has a language model on the device and `fm serve` that serves it with
+the API of OpenAI. Forward it to the server over SSH, and TurboJedi there asks your Mac, the entries going nowhere else:
+
+```
+fm serve --port 1976                      # on the Mac, listens on 127.0.0.1
+ssh -R 1976:127.0.0.1:1976 server         # the port of the Mac on 127.0.0.1 of the server
+```
+
+```
+url   = http://127.0.0.1:1976/v1/chat/completions
+model = system
+```
+
+The forwarded port is open to every user of the server while you are logged in: they cannot read anything through it,
+but they could ask your Mac too.
+
+The plugin needs lua-cjson for Lua 5.4: `lua-cjson` of Debian and Ubuntu and `lua54-cjson` of openSUSE come with the
+package as recommended ones; Fedora, EL9, Amazon Linux and Arch have none, `luarocks --lua-version 5.4 install
+lua-cjson` builds it there. Without it a file of Arrakis is told about at start and the plugin offers nothing.
 
 ## Last layout
 
