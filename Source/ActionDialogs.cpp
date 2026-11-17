@@ -219,6 +219,42 @@ void ChoiceDialog::handleEvent(TEvent& event)
   }
 }
 
+// AnswerPage
+
+// The text of an answer: the cursor stays in the line of the question, the bar of a long text shows where it is all the
+// same, which a scroller of Turbo Vision hides without the focus
+class AnswerPage : public PageView
+{
+  public:
+
+    AnswerPage(const TRect& bounds, TScrollBar* vertical, const std::vector<std::string>& lines);
+
+    void setState(ushort state, Boolean enable) override;
+
+  private:
+
+    TScrollBar* bar;
+};
+
+AnswerPage::AnswerPage(const TRect& bounds, TScrollBar* vertical, const std::vector<std::string>& lines) :
+  PageView(bounds, nullptr, vertical, lines, false),
+  bar(vertical)
+{
+}
+
+void AnswerPage::setState(ushort state, Boolean enable)
+{
+  PageView::setState(state, enable);
+
+  if ((bar != nullptr) &&
+      (state & (sfActive | sfSelected)))
+  {
+    // Only for a text longer than the room it has
+    if (limit.y > size.y) bar->show();
+    else                  bar->hide();
+  }
+}
+
 // AnswerDialog
 
 // The text, a line for a question and Ask, Copy, Close: the keys that scroll the text do it while the line has the focus,
@@ -329,7 +365,7 @@ bool AskActionText(const char* title, const std::string& text, const std::string
 
   dialog->options |= ofCentered;
   dialog->insert(bar);
-  dialog->insert(new PageView(TRect(1, 1, width - 2, height - 7), nullptr, bar, rows, false));
+  dialog->insert(new AnswerPage(TRect(1, 1, width - 2, height - 7), bar, rows));
   dialog->insert(line);
   dialog->insert(new TLabel(TRect(2, height - 7, width - 2, height - 6), prompt.c_str(), line));
   dialog->insert(new TButton(TRect(width / 2 - 17, height - 4, width / 2 - 7, height - 2), "~A~sk", cmOK, bfDefault));
