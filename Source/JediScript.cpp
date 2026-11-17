@@ -98,6 +98,7 @@ extern "C"
 #define DBUS      "TurboJedi.dbus"
 #define NAMES     "TurboJedi.names"     // Of the plugin of every handler, by the same index
 #define RESTORERS "TurboJedi.restorers" // Functions of registerRestore() by the names of their plugins
+#define METHODS   "TurboJedi.methods"   // Tables of the functions of registerMethod() by the names of their plugins
 #define MENU      "TurboJedi.menu"
 
 static const char* const SystemDirectories[] = { "/usr/share/turbojedi/plugins", "/usr/local/share/turbojedi/plugins" };
@@ -439,6 +440,33 @@ static int RegisterRestore(lua_State* state)
   return 0;
 }
 
+// registerMethod(name, func): func(values) for Invoke() of the bus, the table it returns is the answer
+static int RegisterMethod(lua_State* state)
+{
+  if ((lua_type(state, 1) != LUA_TSTRING) ||
+      (lua_type(state, 2) != LUA_TFUNCTION))
+  {
+    return Fail(state, "registerMethod() takes a name and a function");
+  }
+
+  lua_getfield(state, LUA_REGISTRYINDEX, METHODS);
+
+  if (lua_getfield(state, -1, plugin.c_str()) != LUA_TTABLE)
+  {
+    // The first method of the plugin
+    lua_pop(state, 1);
+    lua_newtable(state);
+    lua_pushvalue(state, -1);
+    lua_setfield(state, -3, plugin.c_str());
+  }
+
+  lua_pushvalue(state, 2);
+  lua_setfield(state, -2, lua_tostring(state, 1));
+  lua_pop(state, 2);
+
+  return 0;
+}
+
 static int AddItem(lua_State* state)
 {
   int index;
@@ -472,13 +500,15 @@ static int AddItem(lua_State* state)
 static int ShowMessage(lua_State* state)
 {
   std::string text;
+  std::string title;
 
-  if (!GetString(state, 1, text))
+  if ((!GetString(state, 1, text)) ||
+      ((!lua_isnoneornil(state, 2)) && (!GetString(state, 2, title))))
   {
-    return Fail(state, "message() takes a text");
+    return Fail(state, "message() takes a text and a title");
   }
 
-  ShowActionText("Message", text);
+  ShowActionText(title.empty() ? "Message" : title.c_str(), text);
   return 0;
 }
 
@@ -2964,6 +2994,7 @@ static const luaL_Reg functions[] =
 {
   { "registerHandler", Call<RegisterHandler, PHASE_LOAD>   },
   { "registerRestore", Call<RegisterRestore, PHASE_LOAD>   },
+  { "registerMethod",  Call<RegisterMethod,  PHASE_LOAD>   },
   { "message",         Call<ShowMessage,     PHASE_DO>     },
   { "confirm",         Call<AskConfirm,      PHASE_DO>     },
   { "input",           Call<AskInput,        PHASE_DO>     },
@@ -3159,6 +3190,8 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
   lua_setfield(state, LUA_REGISTRYINDEX, NAMES);
   lua_newtable(state);
   lua_setfield(state, LUA_REGISTRYINDEX, RESTORERS);
+  lua_newtable(state);
+  lua_setfield(state, LUA_REGISTRYINDEX, METHODS);
 
   // The menu a handler gets: menu:add(title, func, ...)
   luaL_newmetatable(state, MENU);
@@ -4352,6 +4385,72 @@ void SetPluginUniversal(bool value)
 bool IsPluginIdle()
 {
   return (state != nullptr) && (phase == PHASE_IDLE);
+}
+
+int InvokePluginMethod(const std::string& name, const std::string& method, sd_bus_message* call, sd_bus_message* reply, std::string& error)
+{
+  int base;
+  int result;
+  bool done;
+
+  if (!IsPluginIdle())
+  {
+    // The bus waits for it, this is not reached
+    error = "Lua is busy";
+    return PLUGIN_METHOD_FAILED;
+  }
+
+  base = lua_gettop(state);
+
+  lua_pushcfunction(state, Trace);
+  lua_getfield(state, LUA_REGISTRYINDEX, METHODS);
+
+  if ((lua_getfield(state, -1, name.c_str()) != LUA_TTABLE) ||
+      (lua_getfield(state, -1, method.c_str()) != LUA_TFUNCTION))
+  {
+    lua_settop(state, base);
+    return PLUGIN_METHOD_NONE;
+  }
+
+  // Trace, the function, the values of the caller as a table
+  lua_replace(state, base + 2);
+  lua_settop(state, base + 2);
+
+  if ((result = PushDBusValue(state, call)) <= 0)
+  {
+    error = std::string("the values cannot be read: ") + strerror((result < 0) ? -result : EBADMSG);
+    lua_settop(state, base);
+    return PLUGIN_METHOD_FAILED;
+  }
+
+  phase  = PHASE_EVENT;
+  plugin = name;
+  done   = (lua_pcall(state, 1, 1, base + 1) == LUA_OK);
+  phase  = PHASE_IDLE;
+
+  if (!done)
+  {
+    error = GetError(state);
+    lua_settop(state, base);
+    return PLUGIN_METHOD_FAILED;
+  }
+
+  if (lua_isnil(state, -1))
+  {
+    // No answer is an empty one
+    lua_pop(state, 1);
+    lua_newtable(state);
+  }
+
+  if (!AppendValue(state, lua_gettop(state), "a{sv}", reply, error))
+  {
+    error = "the answer is not a{sv}: " + error;
+    lua_settop(state, base);
+    return PLUGIN_METHOD_FAILED;
+  }
+
+  lua_settop(state, base);
+  return PLUGIN_METHOD_DONE;
 }
 
 bool ListPluginActions(JournalView* view, const std::string& cursor, std::vector<std::pair<std::string, std::string>>& actions)

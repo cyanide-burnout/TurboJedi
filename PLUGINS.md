@@ -152,7 +152,8 @@ argument whatever it holds, no shell sees it.
 |---|---|---|
 | `registerHandler(func)` | loading | a handler, `func(entry, menu, context)` |
 | `registerRestore(func)` | loading | gets back the watches of the plugin a layout has kept, `func(context, position)` for each |
-| `message(text)` | action, callback | a text with OK |
+| `registerMethod(name, func)` | loading | a method for `Invoke()` of D-Bus: `func(values)` with the values of the caller as a table, the table it returns is the answer; see below |
+| `message(text, title)` | action, callback | a text with OK, a long one in a window to scroll; the title is "Message" without one |
 | `confirm(text)` | action, callback | Yes or No: `true` or `false`. No is the default one, Esc is No |
 | `input(prompt, value)` | action, callback | a line to edit, starting with the value: the line, or `nil` when cancelled |
 | `choose(title, items, initial)` | action, callback | one of a list of strings: the item and its index, or `nil` when cancelled. `initial` is an item or an index to start on |
@@ -691,6 +692,32 @@ a failure is `nil, name, text` as above.
   user: TurboJedi run by a user calls as that user, run by root as root.
 - Signals are not listened to: a plugin asks, a service does not tell it by itself.
 - Calls that are still going when TurboJedi exits are dropped.
+
+## Methods for the bus
+
+A program of the user may call a plugin over D-Bus, `Invoke(plugin, method, values)` of DBUS.md: a service that tells
+what it has found, a script of cron, an agent. The plugin offers what it wants to by name while it is loaded:
+
+```lua
+-- ~/.config/turbojedi/plugins/200-alerts.lua: the plugin is called alerts
+turbojedi.registerMethod('notify', function(values)
+  -- A timer answers the caller at once, the user reads it when the event comes
+  turbojedi.timeout(0, function(text) turbojedi.message(text, 'Alert') end, false, values.text or '')
+  return { shown = true }
+end)
+```
+
+```
+busctl --system call me.burnaway.TurboJedi.U1000.P4242 /me/burnaway/TurboJedi me.burnaway.TurboJedi \
+  Invoke 'ssa{sv}' alerts notify 1 text s 'disk is almost full'
+```
+
+- `values` is the `a{sv}` of the caller as a table, the values of their types; nested ones as `dbus()` gives them.
+- The function runs as a callback: dialogs, commands, watches, timers, `dbus()`; not `mark()` and not `query()`.
+- The table it returns is the answer, `a{sv}`: strings, numbers, `true`/`false` as they are, anything else as
+  `{ type = 'as', value = { ... } }`. Nothing returned is an empty answer.
+- An error of the function goes to the caller as `Failed` with its message; the user is not told.
+- Only the methods a plugin has registered are there; a plugin that has failed to load has none.
 
 ## Watches of the journal
 

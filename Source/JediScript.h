@@ -8,6 +8,8 @@
 #define Uses_TPoint
 #include <tvision/tv.h>
 
+#include <systemd/sd-bus.h>
+
 #include <vector>
 #include <string>
 
@@ -39,6 +41,13 @@ void DispatchPluginEvents();
 
 // Lua runs nothing now: the bus may make a menu
 bool IsPluginIdle();
+
+// Invoke() of the bus: the method a plugin has registered by registerMethod(), with the a{sv} at the place of the call
+// as its values, its answer appended to the reply as a{sv}; the error tells why it has failed. Only while Lua is idle
+#define PLUGIN_METHOD_DONE    0
+#define PLUGIN_METHOD_NONE    1  // No such plugin or method
+#define PLUGIN_METHOD_FAILED  2
+int InvokePluginMethod(const std::string& name, const std::string& method, sd_bus_message* call, sd_bus_message* reply, std::string& error);
 
 // The items of the Actions menu of the entry of a cursor in a window, title and plugin in the order of the menu, nothing
 // run; false when Lua is busy or the entry is gone

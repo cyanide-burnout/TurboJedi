@@ -61,7 +61,8 @@ enum
   DO_GOTO,
   DO_SEEK,
   DO_OPEN,
-  DO_ACTIONS
+  DO_ACTIONS,
+  DO_INVOKE
 };
 
 // A call answered later: a query read by steps, or a change of the screen that waits for a dialog to close and may read
@@ -77,6 +78,8 @@ struct Operation
   std::string cursor;
   uint64_t time;     // Microseconds: the oldest entry to bring in, the entry to go to, the moment
   bool clear;
+  std::string plugin;  // Of Invoke(), its values stay in the message until the plugin is called
+  std::string method;
   JournalFilter filter;
   std::shared_ptr<JournalQuery> query;
 };
@@ -959,6 +962,26 @@ static int ListActions(sd_bus_message* message, void*, sd_bus_error* error)
   return Defer(message, operation);
 }
 
+static int Invoke(sd_bus_message* message, void*, sd_bus_error* error)
+{
+  int result;
+  const char* name;
+  const char* method;
+  Operation operation;
+
+  if (((result = Allow(message, error)) < 0) ||
+      ((result = sd_bus_message_read(message, "ss", &name, &method)) < 0))
+  {
+    return result;
+  }
+
+  // Lua runs it once no dialog is open and nothing else runs there, as the menu of ListActions()
+  operation.kind   = DO_INVOKE;
+  operation.plugin = name;
+  operation.method = method;
+  return Defer(message, operation);
+}
+
 static int Mark(sd_bus_message* message, void*, sd_bus_error* error)
 {
   int result;
@@ -1166,6 +1189,7 @@ static const sd_bus_vtable Table[] =
   SD_BUS_METHOD_WITH_NAMES("GoTo",          "us",    SD_BUS_PARAM(id) SD_BUS_PARAM(cursor),             "bs",     SD_BUS_PARAM(found) SD_BUS_PARAM(stopped), GoTo,    SD_BUS_VTABLE_UNPRIVILEGED),
   SD_BUS_METHOD_WITH_NAMES("Seek",          "ut",    SD_BUS_PARAM(id) SD_BUS_PARAM(time),               "bs",     SD_BUS_PARAM(reached) SD_BUS_PARAM(stopped), Seek,  SD_BUS_VTABLE_UNPRIVILEGED),
   SD_BUS_METHOD_WITH_NAMES("OpenWindow",    "a{sv}", SD_BUS_PARAM(options),                             "u",      SD_BUS_PARAM(id),                    OpenWindow,    SD_BUS_VTABLE_UNPRIVILEGED),
+  SD_BUS_METHOD_WITH_NAMES("Invoke",        "ssa{sv}", SD_BUS_PARAM(plugin) SD_BUS_PARAM(method) SD_BUS_PARAM(values), "a{sv}", SD_BUS_PARAM(answer), Invoke,   SD_BUS_VTABLE_UNPRIVILEGED),
   SD_BUS_VTABLE_END
 };
 
@@ -1196,6 +1220,8 @@ static bool Step(Operation& operation, bool paused, int64_t now)
   char moment[32];
   time_t seconds;
   struct tm parts;
+  std::string reason;
+  sd_bus_message* reply;
   JournalWindow* window;
   JournalWindowRequest request;
   std::vector<std::pair<std::string, std::string>> actions;
@@ -1243,6 +1269,35 @@ static bool Step(Operation& operation, bool paused, int64_t now)
   }
 
   operation.begun = true;
+
+  if (operation.kind == DO_INVOKE)
+  {
+    if (sd_bus_message_new_method_return(operation.message, &reply) < 0)
+    {
+      ReplyError(operation, SD_BUS_ERROR_NO_MEMORY, "the answer cannot be made");
+      return true;
+    }
+
+    switch (InvokePluginMethod(operation.plugin, operation.method, operation.message, reply, reason))
+    {
+      case PLUGIN_METHOD_NONE:
+        ReplyError(operation, BUS_ERROR "NoMethod", "plugin " + operation.plugin + " has no method " + operation.method);
+        break;
+
+      case PLUGIN_METHOD_FAILED:
+        ReplyError(operation, BUS_ERROR "Failed", reason);
+        break;
+
+      default:
+        // A plugin may do anything with it, the status line tells who has been called
+        Notify("called " + operation.method + " of plugin " + operation.plugin);
+        sd_bus_send(nullptr, reply, nullptr);
+        break;
+    }
+
+    sd_bus_message_unref(reply);
+    return true;
+  }
 
   if (operation.kind == DO_OPEN)
   {

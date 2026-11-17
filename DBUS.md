@@ -209,6 +209,24 @@ Whatever the bus has done on the screen shows in the status line: `API: marked 1
 until the user presses a key or a mouse button, so someone who has been away sees what has happened. Reading leaves no
 trace. It says API, not agent: any allowed script may call.
 
+### Plugins
+
+A plugin offers methods of its own by `registerMethod()` (PLUGINS.md), for programs that tell it something or ask it
+what only it knows: a service that has analyzed entries, a script of cron, an agent.
+
+| Method | Signature | |
+|---|---|---|
+| `Invoke(plugin, method, values)` | `ssa{sv} → a{sv}` | calls the method of the plugin with the values as a table, the table it returns is the answer, empty without one. `plugin` is the name of its file without the number and `.lua`, `fail2ban` of `040-fail2ban.lua`, as `ListActions()` and `ListWatches()` tell it |
+
+The method runs as a callback of the plugin does: it waits while a dialog is open or Lua runs something else, as the
+calls of the screen do, and may open a dialog itself, a question to the user. Then the answer comes once the user has
+answered, and the caller waits that long; a call that has to come back at once is better answered by the plugin
+first and asked later, by a timer of its own. The status line tells `API: called notify of plugin arrakis`.
+
+Values of the answer are of the types of Lua: a string `s`, `true`/`false` `b`, an integer `i` while it fits, `t`
+above, `x` below, a float `d`; any other type is given as `{ type = 'as', value = { ... } }`, as `dbus()` takes a
+variant. No plugin or no method of that name gives `NoMethod`, an error of the method `Failed` with its message.
+
 ### Time of a call
 
 A call has 30 seconds from the moment it comes, the wait for a dialog to close and the work together:
@@ -228,6 +246,8 @@ The default timeout of a D-Bus call is 25 seconds, so a caller sets a longer one
 | `me.burnaway.TurboJedi.Error.NoWatch` | no watch of that `id` |
 | `me.burnaway.TurboJedi.Error.NoEntry` | `ListActions()`: the entry is not in the journal of the window |
 | `me.burnaway.TurboJedi.Error.Busy` | 4 queries go on already; a dialog has been open for the whole time of the call; TurboJedi exits |
+| `me.burnaway.TurboJedi.Error.NoMethod` | `Invoke()`: no plugin of that name, or it has no such method |
+| `me.burnaway.TurboJedi.Error.Failed` | `Invoke()`: the method has failed, the message tells its error |
 | `me.burnaway.TurboJedi.Error.Invalid` | an option is wrong: a match, a regular expression, a time, a priority, a cursor without its time |
 
 The message of an error tells the reason in words.
