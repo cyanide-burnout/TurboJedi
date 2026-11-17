@@ -331,7 +331,7 @@ void JediApplication::handleEvent(TEvent& event)
           }
 
           problems.clear();
-          ShowActionText("Plugins", text);
+          ShowActionText("Problems", text);
         }
         break;
 

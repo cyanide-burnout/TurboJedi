@@ -46,6 +46,22 @@ On every call TurboJedi asks the bus for the UID of the caller, the real one, no
   know it;
 - an instance of root started without sudo answers root only.
 
+Other users are answered when a file says so, a service of its own user for one:
+
+- `/etc/turbojedi/allow.d/*.conf`, of root and of the packages, read in the order of their names;
+- `$XDG_CONFIG_HOME/turbojedi/allow.conf` (`~/.config/turbojedi/allow.conf`) of the user of the instance, after them.
+
+```
+# A service that analyzes entries: reads and marks, does not move the windows
+user=arrakis
+methods=Describe,ListWindows,GetMarked,GetEntry,Query,Mark,Invoke
+```
+
+`user` is a name or a UID, `methods` the ones it may call, comma separated; without `methods` all of them. A user
+named in several files gets what all of them give. The files only add: the own user and root are answered whatever they
+say, and an instance of root reads `allow.conf` of root. They are read at start; a mistake in them, a user the system
+does not know or a method there is not, is told in the window of problems and that line is left out.
+
 Anyone else gets `me.burnaway.TurboJedi.Error.Denied`.
 
 ## Object and interface
@@ -241,7 +257,7 @@ The default timeout of a D-Bus call is 25 seconds, so a caller sets a longer one
 
 | Error | |
 |---|---|
-| `me.burnaway.TurboJedi.Error.Denied` | the caller is not the user of the instance, nor root |
+| `me.burnaway.TurboJedi.Error.Denied` | the caller is not the user of the instance, nor root, nor a user the files of allow let call this method |
 | `me.burnaway.TurboJedi.Error.NoWindow` | no window of that `id`, or it has been closed while the call waited |
 | `me.burnaway.TurboJedi.Error.NoWatch` | no watch of that `id` |
 | `me.burnaway.TurboJedi.Error.NoEntry` | `ListActions()`: the entry is not in the journal of the window |

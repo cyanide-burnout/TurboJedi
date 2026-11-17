@@ -31,6 +31,7 @@
 #define LAST_LAYOUT      "last.jedi"
 #define UPDATE_SETTINGS  "update.ini"
 #define SCREEN_SETTINGS  "screen.ini"
+#define ALLOW_SETTINGS   "allow.conf"
 #define PLUGIN_DIRECTORY "plugins"
 #define FILE_LIMIT        65536  // Open files the soft limit is raised to at most
 
@@ -370,10 +371,10 @@ int main(int count, char* const* arguments)
   LoadJediShadow(GetConfigPath(SCREEN_SETTINGS));
 
   application = new JediApplication(filter, history, layout, GetConfigPath(UPDATE_SETTINGS));
-  application->tell(problems);
 
   // The programming interface on the system bus, for agents through turbojedi-mcp.py; without the bus or its policy none
-  OpenService();
+  OpenService(GetConfigPath(ALLOW_SETTINGS), problems);
+  application->tell(problems);
 
   // Journals of sshfs and NFS may lose their files under the mapping, the windows open them again instead of a crash;
   // after Turbo Vision has set its handlers, other faults go on to them

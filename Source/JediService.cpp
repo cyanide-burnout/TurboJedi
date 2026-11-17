@@ -53,6 +53,7 @@
 #define BUS_LIMIT      100     // Entries a query gives by default, as query() of a plugin
 #define BUS_SCAN       100000  // Entries it looks at by default
 #define BUS_MARKED     1000    // Entries GetMarked() gives by default
+#define ALLOW_SYSTEM   "/etc/turbojedi/allow.d"  // *.conf of the packages and of root, before the file of the user
 
 enum
 {
@@ -96,6 +97,16 @@ static bool noticed;        // The notice has changed
 static bool delegated;      // A root instance started by sudo answers the user of sudo as well
 static uid_t delegate;
 static uint64_t started;    // Microseconds of CLOCK_REALTIME
+
+// A user answered besides the own one and root, by the files of allow: every method, or the ones named
+struct Permission
+{
+  uid_t uid;
+  bool limited;                   // methods= has been given: the ones it names only, a mistyped one is not all of them
+  std::set<std::string> methods;
+};
+
+static std::vector<Permission> permissions;
 
 // Helpers
 
@@ -449,6 +460,17 @@ static int Allow(sd_bus_message* message, sd_bus_error* error)
       ((delegated) && (uid == delegate)))
   {
     return 0;
+  }
+
+  for (const Permission& permission : permissions)
+  {
+    if ((permission.uid == uid) &&
+        ((!permission.limited) ||
+         (permission.methods.count(sd_bus_message_get_member(message)) != 0)))
+    {
+      // A service or another user the files let in, for the methods they name
+      return 0;
+    }
   }
 
   return sd_bus_error_setf(error, BUS_ERROR "Denied", "TurboJedi %d answers its own user and root only", (int)getpid());
@@ -1401,8 +1423,126 @@ static bool Step(Operation& operation, bool paused, int64_t now)
 
 // Interface
 
-bool OpenService()
+static std::string TrimText(const std::string& text)
 {
+  size_t first;
+  size_t last;
+
+  first = text.find_first_not_of(" \t");
+  last  = text.find_last_not_of(" \t\r\n");
+  return (first == std::string::npos) ? std::string() : text.substr(first, last - first + 1);
+}
+
+// Lines user=NAME or UID, then methods=Describe,Query,... for it; a problem tells the file and the line
+static void ReadPermissions(const std::string& path, std::vector<std::string>& problems)
+{
+  int number;
+  bool known;
+  char* end;
+  char line[1024];
+  FILE* file;
+  size_t equal;
+  size_t start;
+  size_t comma;
+  unsigned long id;
+  std::string key;
+  std::string text;
+  std::string value;
+  std::string method;
+  std::set<std::string> names;
+  struct passwd* user;
+
+  if ((path.empty()) ||
+      ((file = fopen(path.c_str(), "r")) == nullptr))
+  {
+    // None is the default: the own user and root
+    return;
+  }
+
+  for (const sd_bus_vtable* item = Table; item->type != _SD_BUS_VTABLE_END; item ++)
+  {
+    // Methods there are to name
+    if (item->type == _SD_BUS_VTABLE_METHOD) names.insert(item->x.method.member);
+  }
+
+  known = false;
+
+  for (number = 1; fgets(line, sizeof(line), file) != nullptr; number ++)
+  {
+    text = TrimText(line);
+
+    if (text.empty() || (text[0] == '#') || (text[0] == ';'))
+    {
+      // Blank line or comment
+      continue;
+    }
+
+    if ((equal = text.find('=')) == std::string::npos)
+    {
+      problems.push_back(path + ", line " + std::to_string(number) + ": key=value is expected");
+      continue;
+    }
+
+    key   = TrimText(text.substr(0, equal));
+    value = TrimText(text.substr(equal + 1));
+
+    if (key == "user")
+    {
+      // A number is a UID, anything else a name the system has
+      id    = strtoul(value.c_str(), &end, 10);
+      user  = ((!value.empty()) && (*end == '\0')) ? nullptr : getpwnam(value.c_str());
+      known = ((!value.empty()) && (*end == '\0')) || (user != nullptr);
+
+      if (!known)
+      {
+        problems.push_back(path + ", line " + std::to_string(number) + ": no user " + value + ", its lines are left out");
+        continue;
+      }
+
+      permissions.push_back({ (user != nullptr) ? user->pw_uid : (uid_t)id, false, { } });
+      continue;
+    }
+
+    if (key == "methods")
+    {
+      if (!known)
+      {
+        // Of no user, or of one left out
+        problems.push_back(path + ", line " + std::to_string(number) + ": methods go after user");
+        continue;
+      }
+
+      permissions.back().limited = true;
+
+      for (start = 0; start <= value.size(); start = comma + 1)
+      {
+        comma  = std::min(value.find(',', start), value.size());
+        method = TrimText(value.substr(start, comma - start));
+
+        if (names.count(method) == 0)
+        {
+          problems.push_back(path + ", line " + std::to_string(number) + ": no method " + method);
+          continue;
+        }
+
+        permissions.back().methods.insert(method);
+      }
+
+      continue;
+    }
+
+    problems.push_back(path + ", line " + std::to_string(number) + ": unknown key " + key);
+  }
+
+  fclose(file);
+}
+
+bool OpenService(const std::string& allow, std::vector<std::string>& problems)
+{
+  DIR* directory;
+  struct dirent* item;
+  std::string found;
+  std::vector<std::string> files;
   int result;
   char name[128];
   const char* sudo;
@@ -1413,6 +1553,27 @@ bool OpenService()
   sudo      = getenv("SUDO_UID");
   delegated = (getuid() == 0) && (sudo != nullptr) && (*sudo != '\0') && (strtoul(sudo, nullptr, 10) != 0);
   delegate  = delegated ? strtoul(sudo, nullptr, 10) : 0;
+
+  if ((directory = opendir(ALLOW_SYSTEM)) != nullptr)
+  {
+    while ((item = readdir(directory)) != nullptr)
+    {
+      // Files of packages, *.conf in the order of their names
+      found = item->d_name;
+      if ((found.size() > 5) && (found[0] != '.') && (found.compare(found.size() - 5, 5, ".conf") == 0)) files.push_back(found);
+    }
+
+    closedir(directory);
+    std::sort(files.begin(), files.end());
+  }
+
+  for (const std::string& file : files)
+  {
+    ReadPermissions(std::string(ALLOW_SYSTEM "/") + file, problems);
+  }
+
+  // Of the user last, it adds to the ones of the system
+  ReadPermissions(allow, problems);
 
   if (sd_bus_open_system(&bus) < 0)
   {

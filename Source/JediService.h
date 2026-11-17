@@ -6,6 +6,7 @@
 // Artem Prilutskiy, 2026
 
 #include <string>
+#include <vector>
 
 // The programming interface of TurboJedi on the system bus, see DBUS.md: every instance owns the name
 // me.burnaway.TurboJedi.U<uid>.P<pid> and answers its own user, root, and the user of sudo of a root instance. It reads
@@ -13,8 +14,10 @@
 // that change the screen wait while a dialog is open; queries and the history of a window are read by steps between the
 // events, the answer goes when they are over
 
-// Connects and takes the name; false without a bus or without the policy that lets it, TurboJedi goes on without
-bool OpenService();
+// Connects and takes the name; false without a bus or without the policy that lets it, TurboJedi goes on without. Users
+// answered besides the own one and root come from /etc/turbojedi/allow.d/*.conf and the file of the user, allow;
+// mistakes there go to the problems
+bool OpenService(const std::string& allow, std::vector<std::string>& problems);
 
 // Calls and the steps of the ones going on, paused while a dialog is open: milliseconds until the next look, 0 while work
 // goes on, the time to the deadline of a call that waits for a dialog to close, -1 for none: a call wakes the application
