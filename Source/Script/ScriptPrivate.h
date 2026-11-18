@@ -72,6 +72,7 @@ extern "C"
 #define PHASE_WATCH   (PHASE_LOAD | PHASE_ACTION | PHASE_EVENT | PHASE_ENTRY | PHASE_RESTORE)  // Watches and timers are set
 #define PHASE_READ    (PHASE_MENU | PHASE_ACTION)                                               // The journal is read for the plugin
 #define PHASE_MARK    (PHASE_ACTION | PHASE_ENTRY)                                              // Lines are marked in a window
+#define PHASE_FIELD   (PHASE_LOAD | PHASE_ACTION)                                               // The values of a field are read, not while the menu waits
 
 #define FETCH_STEP         20      // Milliseconds it is waited for between the events of its dialog
 
@@ -217,6 +218,7 @@ template <Body body, int needed> static int Call(lua_State* state)
       case PHASE_WATCH:  return luaL_error(state, "watches and timers are set by a plugin loaded, an action or a callback");
       case PHASE_READ:   return luaL_error(state, "the journal is read for a handler or an action");
       case PHASE_MARK:   return luaL_error(state, "lines are marked by an action or a callback of a watch");
+      case PHASE_FIELD:  return luaL_error(state, "the values of a field are read while the plugin is loaded or by an action, the menu does not wait for them");
       default:           return luaL_error(state, "dialogs and commands are used only by an action or a callback");
     }
   }

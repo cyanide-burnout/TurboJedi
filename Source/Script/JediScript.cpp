@@ -506,7 +506,7 @@ static const luaL_Reg functions[] =
   { "find",            Call<Find,            PHASE_ACTION> },
   { "seek",            Call<Seek,            PHASE_ACTION> },
   { "query",           Call<Query,           PHASE_READ>   },
-  { "unique",          Call<Unique,          PHASE_READ | PHASE_LOAD> },
+  { "unique",          Call<Unique,          PHASE_FIELD>  },
   { "mark",            Call<Mark,            PHASE_MARK>   },
   { "quote",           Call<Quote,           PHASE_ANY>    },
   { "regex",           Call<Match,           PHASE_ANY>    },

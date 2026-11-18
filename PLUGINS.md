@@ -188,7 +188,7 @@ argument whatever it holds, no shell sees it.
 | `find(text, options)` | action | the previous match in the window of the menu, as Find: `true` when found |
 | `seek(time)` | action | the window of the menu goes to a time, as Go to time |
 | `query(options)` | handler, action | entries of a filter for the plugin to look into: a list, and why the reading has stopped |
-| `unique(field)` | loading, handler, action | the values a field has in the journal of the window, as `journalctl -F` tells them, sorted; loading, of the journal of this machine |
+| `unique(field)` | loading, action | the values a field has in the journal of the window, as `journalctl -F` tells them, sorted; loading, of the journal of this machine. Not in a handler: it reads every value at once, the menu does not wait for it |
 | `mark(entries, options)` | action, callback of a watch | marks the lines of entries in the window of the menu or of the watch, as M does: the count marked |
 | `watch(options)` | loading, action, callback | a watch: a status and lines in the list of watches, fed by the plugin and, after `watch:follow()`, by the journal |
 | `poll(descriptor, events, func, ...)` | loading, action, callback | calls `func(flags, ...)` when the descriptor is ready, between the events: a poller |
