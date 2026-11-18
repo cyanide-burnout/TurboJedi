@@ -31,8 +31,8 @@ local ACTIONS =
   { 'Copy',       nil,         turbojedi.copy }
 }
 
-local titles  = { }
-local actions = { }
+local titles    = { }
+local functions = { }
 
 local function present(programs)
   for _, program in ipairs((type(programs) == 'table') and programs or { programs }) do
@@ -43,8 +43,8 @@ end
 
 for _, action in ipairs(ACTIONS) do
   if present(action[2]) then
-    titles[#titles + 1]   = action[1]
-    actions[#actions + 1] = action[3]
+    titles[#titles + 1]       = action[1]
+    functions[#functions + 1] = action[3]
   end
 end
 
@@ -52,10 +52,11 @@ turbojedi.log('for an address: ' .. table.concat(titles, ', ') .. ', the ones wh
 
 local function choose(address)
   local _, index = turbojedi.choose('Address ' .. address, titles)
-  if index then actions[index](address) end
+  if index then functions[index](address) end
 end
 
-turbojedi.on('actions', function(entry, menu)
+-- The items of the entry in Actions
+local function actions(entry, menu)
   local seen = { }
   for found in turbojedi.matches(entry.MESSAGE, ADDRESS) do
     local address = found.address
@@ -64,4 +65,6 @@ turbojedi.on('actions', function(entry, menu)
       menu:add('Address ' .. address, choose, address)
     end
   end
-end)
+end
+
+turbojedi.on('actions', actions)

@@ -8,8 +8,6 @@
 -- more than FLOOD times in a minute, once. It only looks: banning is the business of fail2ban. An example to link into a
 -- directory of plugins on purpose: it watches and rings on every machine with sshd while TurboJedi is open
 
-if not turbojedi.watch then return end
-
 -- Only where an SSH server is installed, running or not: one started later is watched as well. sshd is in sbin, out of
 -- the PATH of a user
 if not (turbojedi.which('sshd') or io.open('/usr/sbin/sshd')) then

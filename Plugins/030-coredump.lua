@@ -37,11 +37,14 @@ local function debug(entry, context)
   turbojedi.execute(command('debug', entry, context), { mode = 'terminal' })
 end
 
-turbojedi.on('actions', function(entry, menu, context)
+-- The items of the entry in Actions
+local function actions(entry, menu, context)
   if (entry.MESSAGE_ID ~= DUMPED) or (type(entry.COREDUMP_PID) ~= 'string') then return end
   local name = tostring(entry.COREDUMP_COMM or entry.COREDUMP_EXE or 'process') .. ' ' .. entry.COREDUMP_PID
   menu:add('Core dump of ' .. name, info, entry, context)
   menu:add('Copy core dump of ' .. name, copy, entry, context)
   -- The core file is on the machine where it has been dumped
   if (context.source == 'local') and turbojedi.which('gdb') then menu:add('Debug core dump of ' .. name, debug, entry, context) end
-end)
+end
+
+turbojedi.on('actions', actions)

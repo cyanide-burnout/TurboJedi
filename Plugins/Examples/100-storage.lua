@@ -23,13 +23,13 @@ local ACTIONS =
   { 'Copy',   nil,        turbojedi.copy }
 }
 
-local titles  = { }
-local actions = { }
+local titles    = { }
+local functions = { }
 
 for _, action in ipairs(ACTIONS) do
   if (action[2] == nil) or turbojedi.which(action[2]) then
-    titles[#titles + 1]   = action[1]
-    actions[#actions + 1] = action[3]
+    titles[#titles + 1]       = action[1]
+    functions[#functions + 1] = action[3]
   end
 end
 
@@ -37,10 +37,11 @@ turbojedi.log('for a block device: ' .. table.concat(titles, ', ') .. ', the one
 
 local function choose(name)
   local _, index = turbojedi.choose('Device ' .. name, titles)
-  if index then actions[index](name) end
+  if index then functions[index](name) end
 end
 
-turbojedi.on('actions', function(entry, menu, context)
+-- The items of the entry in Actions
+local function actions(entry, menu, context)
   -- Devices are of this machine, and of the kernel or smartd that tell about them
   if (context.source ~= 'local') or not ((entry._TRANSPORT == 'kernel') or (entry.SYSLOG_IDENTIFIER == 'smartd')) then return end
   local seen = { }
@@ -54,4 +55,6 @@ turbojedi.on('actions', function(entry, menu, context)
       menu:add('Device ' .. name, choose, name)
     end
   end
-end)
+end
+
+turbojedi.on('actions', actions)

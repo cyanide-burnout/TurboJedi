@@ -70,7 +70,8 @@ local function state(unit)
   return ' (' .. text .. ')'
 end
 
-turbojedi.on('actions', function(entry, menu, context)
+-- The items of the entry in Actions
+local function actions(entry, menu, context)
   -- Units and processes belong to this machine, a journal of other ones tells about theirs
   if context.source ~= 'local' then
     return
@@ -100,4 +101,6 @@ turbojedi.on('actions', function(entry, menu, context)
       end
     end
   end
-end)
+end
+
+turbojedi.on('actions', actions)

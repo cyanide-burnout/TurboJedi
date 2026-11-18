@@ -70,7 +70,8 @@ local function add(list, more)
   return list
 end
 
-turbojedi.on('actions', function(entry, menu, context)
+-- The items of the entry in Actions
+local function actions(entry, menu, context)
   local text = entry.MESSAGE
   if (type(text) ~= 'string') or not ((entry.SYSLOG_IDENTIFIER == 'asterisk') or tostring(entry._SYSTEMD_UNIT):match('^asterisk')) then return end
   local here = cli and (context.source == 'local')  -- The CLI is of the PBX of this machine
@@ -150,4 +151,6 @@ turbojedi.on('actions', function(entry, menu, context)
       menu:add('Dialplan ' .. step, offer, 'Dialplan ' .. step, { { 'Show', function() run('dialplan show ' .. step) end } })
     end
   end
-end)
+end
+
+turbojedi.on('actions', actions)

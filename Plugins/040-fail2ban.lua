@@ -141,7 +141,8 @@ local function unban(address)
   end
 end
 
-turbojedi.on('actions', function(entry, menu, context)
+-- The items of the entry in Actions
+local function actions(entry, menu, context)
   -- OpenSSH of 9.8 and later logs as sshd-session and sshd-auth
   local identifier = entry.SYSLOG_IDENTIFIER
   local jail       = (type(identifier) == 'string') and identifier:match('^sshd') and 'sshd' or nil
@@ -157,4 +158,6 @@ turbojedi.on('actions', function(entry, menu, context)
       menu:add('Unban ' .. address, unban, address)
     end
   end
-end)
+end
+
+turbojedi.on('actions', actions)
