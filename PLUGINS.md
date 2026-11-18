@@ -170,7 +170,7 @@ argument whatever it holds, no shell sees it.
 | `mark(entries, options)` | action, callback of a watch | marks the lines of entries in the window of the menu or of the watch, as M does: the count marked |
 | `watch(options)` | loading, action, callback | a watch: a status and lines in the list of watches, fed by the plugin and, after `watch:follow()`, by the journal |
 | `poll(descriptor, events, func, ...)` | loading, action, callback | calls `func(flags, ...)` when the descriptor is ready, between the events: a poller |
-| `timeout(milliseconds, func, periodic, ...)` | loading, action, callback | calls `func(...)` after the time, again and again when periodic: a timer |
+| `timeout(milliseconds, [periodic,] func, ...)` | loading, action, callback | calls `func(...)` after the time, again and again when periodic: a timer |
 | `fetch(request, func, ...)` | loading, action, callback | a request over HTTP or HTTPS: with `func` its answer goes to `func(code, body, headers, ...)` later, without it the action waits for `code, body, headers` |
 | `dbus(request, func, ...)` | loading, handler, action, callback | a method of a service on D-Bus: with `func` its answer goes to `func(reply, name, text, ...)` later, without it a handler, an action or a callback waits for `reply, name, text` |
 | `services(options)` | loading, handler, action, callback | the names on a bus that have an owner, with their process and unit |
@@ -460,16 +460,16 @@ local poller = turbojedi.poll(udp:getfd(), 'r', function(flags)
   if data then turbojedi.copy(data) end
 end)
 
-local timer = turbojedi.timeout(5000, function() ... end, true)
+local timer = turbojedi.timeout(5000, true, function() ... end)
 ```
 
 - `poll(descriptor, events, func, ...)` watches a descriptor, `'r'`, `'w'` or `'rw'`; `func` gets what is ready, `'r'`,
   `'w'` or `'rw'`, with `'e'` for an error or a hang-up. `poller:update(events)` changes the events, `poller:remove()`
   stops it. A descriptor closed without `remove()` is told about and its poller goes.
-- `timeout(milliseconds, func, periodic, ...)` calls `func()` once after the time, or every that time when `periodic` is
-  true; `timer:cancel()` stops it.
+- `timeout(milliseconds, [periodic,] func, ...)` calls `func()` once after the time, or every that time when `periodic`
+  is true; without `periodic`, the function second, once. `timer:cancel()` stops it.
 - The values after the function go to it after the ones of the event, as the ones of `menu:add` go to an action:
-  `poll(fd, 'r', read, client)` calls `read(flags, client)`, `timeout(1000, retry, false, url)` calls `retry(url)`.
+  `poll(fd, 'r', read, client)` calls `read(flags, client)`, `timeout(1000, retry, url)` calls `retry(url)`.
 - The descriptors are looked at every 50 ms while there are pollers, so a callback comes within that much.
 - A callback runs only when no dialog is open and Lua runs nothing else: it waits while an action asks something. It
   may use the dialogs and the commands as an action does, but not `open`, `find`, `seek`, `mark` and `query`, which are
@@ -708,7 +708,7 @@ what it has found, a script of cron, an agent. The plugin offers what it wants t
 -- ~/.config/turbojedi/plugins/200-alerts.lua: the plugin is called alerts
 turbojedi.registerMethod('notify', function(values)
   -- A timer answers the caller at once, the user reads it when the event comes
-  turbojedi.timeout(0, function(text) turbojedi.message(text, 'Alert') end, false, values.text or '')
+  turbojedi.timeout(0, function(text) turbojedi.message(text, 'Alert') end, values.text or '')
   return { shown = true }
 end)
 ```

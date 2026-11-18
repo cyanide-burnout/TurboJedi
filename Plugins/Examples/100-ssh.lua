@@ -168,7 +168,7 @@ if not followed then
 end
 
 -- Addresses silent for long go, now and then; the rates of the lines follow the time, as the status does
-turbojedi.timeout(30000, function()
+turbojedi.timeout(30000, true, function()
   local now = os.time()
   local stale = false
   for address, item in pairs(sources) do
@@ -181,4 +181,4 @@ turbojedi.timeout(30000, function()
   end
   if (not fit(now)) and stale then redraw(now) end
   tell(now)
-end, true)
+end)

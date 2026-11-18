@@ -1675,10 +1675,12 @@ static int RemoveWatch(lua_State* state)
   return 0;
 }
 
-// timeout(milliseconds, callback, periodic, ...)
+// timeout(milliseconds, [periodic,] callback, ...), as poll() has the function after what it waits for: a function second
+// is a timer of once
 static int AddTimer(lua_State* state)
 {
   int whole;
+  int function;
   lua_Integer interval;
   Timer timer;
 
@@ -1690,13 +1692,15 @@ static int AddTimer(lua_State* state)
     return Fail(state, "timeout() takes whole milliseconds");
   }
 
-  if (lua_type(state, 2) != LUA_TFUNCTION)
+  function = (lua_type(state, 2) == LUA_TFUNCTION) ? 2 : 3;
+
+  if (lua_type(state, function) != LUA_TFUNCTION)
   {
-    return Fail(state, "timeout() takes a function after the milliseconds");
+    return Fail(state, "timeout() takes a function after the milliseconds, or after whether it is periodic");
   }
 
-  timer.callback = KeepCallback(state, 2, 4);
-  timer.period   = lua_toboolean(state, 3) ? std::max<int64_t>(1, interval) : 0;
+  timer.callback = KeepCallback(state, function, function + 1);
+  timer.period   = ((function == 3) && lua_toboolean(state, 2)) ? std::max<int64_t>(1, interval) : 0;
   timer.due      = GetQueryMilliseconds() + interval;
   timer.plugin   = plugin;
   timer.pending  = false;
