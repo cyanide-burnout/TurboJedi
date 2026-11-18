@@ -61,14 +61,14 @@ extern "C"
 #define PHASE_ACTION  4  // The chosen item runs
 #define PHASE_EVENT   8   // A callback of poll(), timeout() or fetch() runs
 #define PHASE_ENTRY   16  // A callback of watch() runs, with an entry or a gap
-#define PHASE_RESTORE 32  // A function of registerRestore() runs for a watch of a layout
+#define PHASE_RESTORE 32  // A function of on('restore') runs for a watch of a layout
 #define PHASE_DO      (PHASE_ACTION | PHASE_EVENT | PHASE_ENTRY)                                // Dialogs and commands
 #define PHASE_WATCH   (PHASE_LOAD | PHASE_ACTION | PHASE_EVENT | PHASE_ENTRY | PHASE_RESTORE)  // Watches and timers are set
 #define PHASE_READ    (PHASE_MENU | PHASE_ACTION)                                               // The journal is read for the plugin
 #define PHASE_MARK    (PHASE_ACTION | PHASE_ENTRY)                                              // Lines are marked in a window
 
 #define ACTION_LIMIT       100  // Items of a menu
-#define CAPTURE_TIMEOUT    30   // Seconds capture() waits by default
+#define CAPTURE_TIMEOUT    30   // Seconds execute() of mode capture waits by default
 #define EXPRESSION_LIMIT   64   // Compiled patterns kept for the next calls
 
 #define cmJournalAction    1200  // The first item of the menu, one per item
@@ -100,8 +100,8 @@ extern "C"
 #define FETCH     "TurboJedi.fetch"
 #define DBUS      "TurboJedi.dbus"
 #define NAMES     "TurboJedi.names"     // Of the plugin of every handler, by the same index
-#define RESTORERS "TurboJedi.restorers" // Functions of registerRestore() by the names of their plugins
-#define METHODS   "TurboJedi.methods"   // Tables of the functions of registerMethod() by the names of their plugins
+#define RESTORERS "TurboJedi.restorers" // Functions of on('restore') by the names of their plugins
+#define METHODS   "TurboJedi.methods"   // Tables of the functions of on('invoke') by the names of their plugins
 #define ACTIONS   "TurboJedi.actions"   // Tables of the actions of the lines of a watch by its number, by the numbers of the lines
 #define MENU      "TurboJedi.menu"
 
@@ -411,11 +411,12 @@ static bool CheckTrust(const std::string& path, std::string& reason)
 
 // Interface of Lua
 
-static int RegisterHandler(lua_State* state)
+// on('actions', func): func(entry, menu, context) when the Actions menu is made
+static int OnActions(lua_State* state)
 {
   if (lua_type(state, 1) != LUA_TFUNCTION)
   {
-    return Fail(state, "registerHandler() takes a function");
+    return Fail(state, "on('actions') takes a function");
   }
 
   lua_getfield(state, LUA_REGISTRYINDEX, HANDLERS);
@@ -429,12 +430,12 @@ static int RegisterHandler(lua_State* state)
   return 0;
 }
 
-// registerRestore(func): func(context, position) for every watch of the plugin a layout keeps
-static int RegisterRestore(lua_State* state)
+// on('restore', func): func(context, position) for every watch of the plugin a layout keeps
+static int OnRestore(lua_State* state)
 {
   if (lua_type(state, 1) != LUA_TFUNCTION)
   {
-    return Fail(state, "registerRestore() takes a function");
+    return Fail(state, "on('restore') takes a function");
   }
 
   lua_getfield(state, LUA_REGISTRYINDEX, RESTORERS);
@@ -558,13 +559,13 @@ static int AppendText(lua_State* state)
   return 1;
 }
 
-// registerMethod(name, func): func(values) for Invoke() of the bus, the table it returns is the answer
-static int RegisterMethod(lua_State* state)
+// on('invoke', name, func): func(values) for Invoke() of the bus, the table it returns is the answer
+static int OnInvoke(lua_State* state)
 {
   if ((lua_type(state, 1) != LUA_TSTRING) ||
       (lua_type(state, 2) != LUA_TFUNCTION))
   {
-    return Fail(state, "registerMethod() takes a name and a function");
+    return Fail(state, "on('invoke') takes a name and a function");
   }
 
   lua_getfield(state, LUA_REGISTRYINDEX, METHODS);
@@ -583,6 +584,23 @@ static int RegisterMethod(lua_State* state)
   lua_pop(state, 2);
 
   return 0;
+}
+
+// on(event, ...): what the plugin is called for, an event of the Actions menu, of a layout or of the bus
+static int On(lua_State* state)
+{
+  std::string event;
+
+  if (GetString(state, 1, event))
+  {
+    lua_remove(state, 1);
+
+    if (event == "actions") return OnActions(state);
+    if (event == "restore") return OnRestore(state);
+    if (event == "invoke")  return OnInvoke(state);
+  }
+
+  return Fail(state, "on() takes an event: actions, restore or invoke");
 }
 
 static int AddItem(lua_State* state)
@@ -765,48 +783,6 @@ static int Copy(lua_State* state)
   return 0;
 }
 
-static int Execute(lua_State* state)
-{
-  std::string failure;
-  std::vector<std::string> arguments;
-
-  if (!GetArguments(state, 1, arguments))
-  {
-    return Fail(state, "execute() takes a list of the command and its arguments");
-  }
-
-  if (!RunBackground(arguments, failure))
-  {
-    lua_pushnil(state);
-    lua_pushlstring(state, failure.data(), failure.size());
-    return 2;
-  }
-
-  lua_pushboolean(state, true);
-  return 1;
-}
-
-static int Output(lua_State* state)
-{
-  std::string failure;
-  std::vector<std::string> arguments;
-
-  if (!GetArguments(state, 1, arguments))
-  {
-    return Fail(state, "output() takes a list of the command and its arguments");
-  }
-
-  if (!OpenOutput(arguments, failure))
-  {
-    lua_pushnil(state);
-    lua_pushlstring(state, failure.data(), failure.size());
-    return 2;
-  }
-
-  lua_pushboolean(state, true);
-  return 1;
-}
-
 static void PushOutcome(lua_State* state, const JediOutcome& outcome)
 {
   lua_pushstring(state, outcome.how.c_str());
@@ -816,30 +792,60 @@ static void PushOutcome(lua_State* state, const JediOutcome& outcome)
   else lua_pushinteger(state, outcome.code);
 }
 
-static int Terminal(lua_State* state)
-{
-  std::vector<std::string> arguments;
-
-  if (!GetArguments(state, 1, arguments))
-  {
-    return Fail(state, "terminal() takes a list of the command and its arguments");
-  }
-
-  PushOutcome(state, RunTerminal(arguments));
-  return 2;
-}
-
-static int Capture(lua_State* state)
+// execute(argv, options): mode tells where the output goes and whether the plugin waits, how and code come first in
+// every one, 'error' and the reason when the command has not started
+static int Execute(lua_State* state)
 {
   int timeout;
+  std::string mode;
   std::string output;
   std::string errors;
+  std::string failure;
   JediOutcome outcome;
   std::vector<std::string> arguments;
 
   if (!GetArguments(state, 1, arguments))
   {
-    return Fail(state, "capture() takes a list of the command and its arguments");
+    return Fail(state, "execute() takes a list of the command and its arguments");
+  }
+
+  if ((lua_gettop(state) >= 2) &&
+      (!lua_isnil(state, 2)) &&
+      (lua_type(state, 2) != LUA_TTABLE))
+  {
+    return Fail(state, "execute() takes a table of options after the command");
+  }
+
+  if (!GetOption(state, 2, "mode", mode))
+  {
+    // Nothing shown, nothing waited for
+    mode = "background";
+  }
+
+  if ((mode == "background") ||
+      (mode == "window"))
+  {
+    // Started and left: background tells only an end other than exit 0, window shows the output as it comes
+    if (!((mode == "background") ? RunBackground(arguments, failure) : OpenOutput(arguments, failure)))
+    {
+      lua_pushliteral(state, "error");
+      lua_pushlstring(state, failure.data(), failure.size());
+      return 2;
+    }
+
+    lua_pushliteral(state, "started");
+    return 1;
+  }
+
+  if (mode == "terminal")
+  {
+    PushOutcome(state, RunTerminal(arguments));
+    return 2;
+  }
+
+  if (mode != "capture")
+  {
+    return Fail(state, "mode of execute() is background, window, terminal or capture");
   }
 
   timeout = CAPTURE_TIMEOUT;
@@ -859,10 +865,10 @@ static int Capture(lua_State* state)
 
   outcome = CaptureCommand(arguments, timeout, output, errors);
 
+  PushOutcome(state, outcome);
+
   if (outcome.how == "error") lua_pushnil(state);
   else                        lua_pushlstring(state, output.data(), output.size());
-
-  PushOutcome(state, outcome);
 
   if (errors.empty()) lua_pushnil(state);
   else                lua_pushlstring(state, errors.data(), errors.size());
@@ -1905,7 +1911,7 @@ static int Fetch(lua_State* state)
     return 1;
   }
 
-  // As capture() waits: the dialog with Cancel comes up when the answer is late
+  // As execute() of mode capture waits: the dialog with Cancel comes up when the answer is late
   start = request.url.find("://");
   host  = request.url.substr((start != std::string::npos) ? (start + 3) : 0);
   host  = host.substr(0, host.find_first_of("/?#"));
@@ -2957,7 +2963,7 @@ static int ReadFollow(lua_State* state, int options, const char* name, JournalFi
     return Fail(state, "%s starts at the end of the journal, it takes neither since nor until", name);
   }
 
-  // The place a layout has kept, given by registerRestore()
+  // The place a layout has kept, given by on('restore')
   from = { std::string(), 0 };
   lua_pushliteral(state, "from");
 
@@ -2974,7 +2980,7 @@ static int ReadFollow(lua_State* state, int options, const char* name, JournalFi
   else if (!lua_isnil(state, -1))
   {
     lua_pop(state, 1);
-    return Fail(state, "from of %s is the position registerRestore() gives", name);
+    return Fail(state, "from of %s is the position on('restore') gives", name);
   }
 
   lua_pop(state, 1);
@@ -3437,9 +3443,7 @@ static void CollectJournalWatches()
 
 static const luaL_Reg functions[] =
 {
-  { "registerHandler", Call<RegisterHandler, PHASE_LOAD>   },
-  { "registerRestore", Call<RegisterRestore, PHASE_LOAD>   },
-  { "registerMethod",  Call<RegisterMethod,  PHASE_LOAD>   },
+  { "on",              Call<On,              PHASE_LOAD>   },
   { "log",             Call<LogText,         PHASE_ANY>    },
   { "append",          Call<AppendText,      PHASE_ANY>    },
   { "message",         Call<ShowMessage,     PHASE_DO>     },
@@ -3448,9 +3452,6 @@ static const luaL_Reg functions[] =
   { "choose",          Call<AskChoice,       PHASE_DO>     },
   { "copy",            Call<Copy,            PHASE_DO>     },
   { "execute",         Call<Execute,         PHASE_DO>     },
-  { "output",          Call<Output,          PHASE_DO>     },
-  { "terminal",        Call<Terminal,        PHASE_DO>     },
-  { "capture",         Call<Capture,         PHASE_DO>     },
   { "open",            Call<Open,            PHASE_ACTION> },
   { "find",            Call<Find,            PHASE_ACTION> },
   { "seek",            Call<Seek,            PHASE_ACTION> },

@@ -126,7 +126,7 @@ local function marked(items)
   if turbojedi.confirm(('Send %d entries to the chat?'):format(#items)) then send(text, #items .. ' entries') end
 end
 
-turbojedi.registerHandler(function(item, menu, context)
+turbojedi.on('actions', function(item, menu, context)
   if context.marked then
     menu:add(('Send %d marked to chat'):format(#context.marked), marked, context.marked)
   else

@@ -94,7 +94,7 @@ end
 
 -- Jails fail2ban has, nil when it does not answer: it needs root
 local function jails()
-  local text, how, code, errors = turbojedi.capture { 'fail2ban-client', 'status' }
+  local how, code, text, errors = turbojedi.execute({ 'fail2ban-client', 'status' }, { mode = 'capture' })
 
   if (how ~= 'exit') or (code ~= 0) then
     turbojedi.message('fail2ban does not answer: ' .. (errors or (how .. ' ' .. tostring(code))))
@@ -141,7 +141,7 @@ local function unban(address)
   end
 end
 
-turbojedi.registerHandler(function(entry, menu, context)
+turbojedi.on('actions', function(entry, menu, context)
   -- OpenSSH of 9.8 and later logs as sshd-session and sshd-auth
   local identifier = entry.SYSLOG_IDENTIFIER
   local jail       = (type(identifier) == 'string') and identifier:match('^sshd') and 'sshd' or nil

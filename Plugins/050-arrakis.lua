@@ -460,7 +460,7 @@ local function single(item)
   end
 end
 
-turbojedi.registerHandler(function(item, menu, context)
+turbojedi.on('actions', function(item, menu, context)
   if context.marked then
     menu:add(('Arrakis: explain %d marked entries'):format(#context.marked), analyze, context.marked)
   else

@@ -24,20 +24,20 @@ local function command(verb, entry, context)
 end
 
 local function info(entry, context)
-  turbojedi.output(command('info', entry, context))
+  turbojedi.execute(command('info', entry, context), { mode = 'window' })
 end
 
 local function copy(entry, context)
-  local text, how, code, errors = turbojedi.capture(command('info', entry, context))
+  local how, code, text, errors = turbojedi.execute(command('info', entry, context), { mode = 'capture' })
   if (how == 'exit') and (code == 0) then return turbojedi.copy(text) end
   turbojedi.message('coredumpctl: ' .. (errors or how .. ' ' .. tostring(code)))
 end
 
 local function debug(entry, context)
-  turbojedi.terminal(command('debug', entry, context))
+  turbojedi.execute(command('debug', entry, context), { mode = 'terminal' })
 end
 
-turbojedi.registerHandler(function(entry, menu, context)
+turbojedi.on('actions', function(entry, menu, context)
   if (entry.MESSAGE_ID ~= DUMPED) or (type(entry.COREDUMP_PID) ~= 'string') then return end
   local name = tostring(entry.COREDUMP_COMM or entry.COREDUMP_EXE or 'process') .. ' ' .. entry.COREDUMP_PID
   menu:add('Core dump of ' .. name, info, entry, context)

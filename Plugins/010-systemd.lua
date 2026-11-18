@@ -12,12 +12,12 @@ end
 
 local function status(unit)
   -- systemctl paints its status only for a terminal unless asked
-  turbojedi.output { 'env', 'SYSTEMD_COLORS=1', 'systemctl', 'status', '--no-pager', '--full', unit }
+  turbojedi.execute({ 'env', 'SYSTEMD_COLORS=1', 'systemctl', 'status', '--no-pager', '--full', unit }, { mode = 'window' })
 end
 
 local function copy(unit)
   -- systemctl status ends with 3 for a unit that is not running, its text is the status all the same
-  local text, how, code, errors = turbojedi.capture { 'systemctl', 'status', '--no-pager', '--full', unit }
+  local how, code, text, errors = turbojedi.execute({ 'systemctl', 'status', '--no-pager', '--full', unit }, { mode = 'capture' })
 
   if (how == 'exit') and (text ~= '') then
     turbojedi.copy(text)
@@ -27,7 +27,7 @@ local function copy(unit)
 end
 
 local function file(unit)
-  turbojedi.output { 'systemctl', 'cat', '--no-pager', unit }
+  turbojedi.execute({ 'systemctl', 'cat', '--no-pager', unit }, { mode = 'window' })
 end
 
 -- htop where it is installed, top otherwise: both show the one process alone
@@ -36,7 +36,7 @@ local viewer = turbojedi.which('htop') and 'htop' or 'top'
 turbojedi.log('units by systemctl, processes in ' .. viewer)
 
 local function top(pid)
-  turbojedi.terminal { viewer, '-p', pid }
+  turbojedi.execute({ viewer, '-p', pid }, { mode = 'terminal' })
 end
 
 -- Times in the zone the user has chosen for the watches, UTC or local; os.date() before TurboJedi had date()
@@ -70,7 +70,7 @@ local function state(unit)
   return ' (' .. text .. ')'
 end
 
-turbojedi.registerHandler(function(entry, menu, context)
+turbojedi.on('actions', function(entry, menu, context)
   -- Units and processes belong to this machine, a journal of other ones tells about theirs
   if context.source ~= 'local' then
     return

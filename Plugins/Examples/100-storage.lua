@@ -16,10 +16,10 @@ end
 -- Title, the program it needs, the action; only the ones whose program is there are offered
 local ACTIONS =
 {
-  { 'Device', 'lsblk',    function(name) turbojedi.output { 'lsblk', '-o', 'NAME,SIZE,TYPE,FSTYPE,LABEL,MOUNTPOINTS,MODEL,SERIAL,STATE', '/dev/' .. name } end },
-  { 'Mounts', 'findmnt',  function(name) turbojedi.output { 'findmnt', '--source', '/dev/' .. name } end },
-  { 'udev',   'udevadm',  function(name) turbojedi.output { 'udevadm', 'info', '--query=all', '--name=' .. name } end },
-  { 'SMART',  'smartctl', function(name) turbojedi.output { 'smartctl', '-a', '/dev/' .. disk(name) } end },
+  { 'Device', 'lsblk',    function(name) turbojedi.execute({ 'lsblk', '-o', 'NAME,SIZE,TYPE,FSTYPE,LABEL,MOUNTPOINTS,MODEL,SERIAL,STATE', '/dev/' .. name }, { mode = 'window' }) end },
+  { 'Mounts', 'findmnt',  function(name) turbojedi.execute({ 'findmnt', '--source', '/dev/' .. name }, { mode = 'window' }) end },
+  { 'udev',   'udevadm',  function(name) turbojedi.execute({ 'udevadm', 'info', '--query=all', '--name=' .. name }, { mode = 'window' }) end },
+  { 'SMART',  'smartctl', function(name) turbojedi.execute({ 'smartctl', '-a', '/dev/' .. disk(name) }, { mode = 'window' }) end },
   { 'Copy',   nil,        turbojedi.copy }
 }
 
@@ -40,7 +40,7 @@ local function choose(name)
   if index then actions[index](name) end
 end
 
-turbojedi.registerHandler(function(entry, menu, context)
+turbojedi.on('actions', function(entry, menu, context)
   -- Devices are of this machine, and of the kernel or smartd that tell about them
   if (context.source ~= 'local') or not ((entry._TRANSPORT == 'kernel') or (entry.SYSLOG_IDENTIFIER == 'smartd')) then return end
   local seen = { }

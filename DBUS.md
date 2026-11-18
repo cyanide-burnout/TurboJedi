@@ -236,7 +236,7 @@ trace. It says API, not agent: any allowed script may call.
 
 ### Plugins
 
-A plugin offers methods of its own by `registerMethod()` (PLUGINS.md), for programs that tell it something or ask it
+A plugin offers methods of its own by `on('invoke')` (PLUGINS.md), for programs that tell it something or ask it
 what only it knows: a service that has analyzed entries, a script of cron, an agent.
 
 | Method | Signature | |

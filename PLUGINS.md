@@ -50,32 +50,32 @@ put to `/usr/local/bin` anyway. A plugin that is left out is told about with the
 
 ## How a plugin works
 
-A plugin registers handlers when it is loaded. When the menu is opened, every handler is called with the entry and adds
-the items it has for it, or none. When an item is chosen, its function is called.
+A plugin gives its handlers to `on('actions', ...)` when it is loaded. When the menu is opened, every handler is called
+with the entry and adds the items it has for it, or none. When an item is chosen, its function is called.
 
 A handler only makes the menu and changes nothing: it is also called without the menu being shown, when a caller of
 the D-Bus interface asks which actions an entry has, see [DBUS.md](DBUS.md). Whatever changes something belongs to the
 function of an item, which only the user runs.
 
 ```lua
-turbojedi.registerHandler(function(entry, menu, context)
+turbojedi.on('actions', function(entry, menu, context)
   local unit = entry._SYSTEMD_UNIT
 
   if type(unit) == 'string' then
     menu:add('Status of ' .. unit, function()
-      turbojedi.output { 'systemctl', 'status', '--no-pager', unit }
+      turbojedi.execute({ 'systemctl', 'status', '--no-pager', unit }, { mode = 'window' })
     end)
   end
 end)
 ```
 
-A file may register several handlers, a handler may add several items, and two items of one plugin may share a
+A file may give several handlers, a handler may add several items, and two items of one plugin may share a
 function with arguments of their own:
 
 ```lua
 local function ban(address, jail) ... end
 
-turbojedi.registerHandler(function(entry, menu)
+turbojedi.on('actions', function(entry, menu)
   for found in turbojedi.matches(entry.MESSAGE, ADDRESS) do
     menu:add('Ban ' .. found.address, ban, found.address, 'sshd')
   end
@@ -122,7 +122,7 @@ directory mounted over SSH or NFS, is not here: `_HOSTNAME` tells where it is, a
 An action on the marked entries takes `context.marked` along, the way the other values of the handler go to it:
 
 ```lua
-turbojedi.registerHandler(function(entry, menu, context)
+turbojedi.on('actions', function(entry, menu, context)
   if context.marked then
     menu:add(('Copy %d marked messages'):format(#context.marked), function(marked)
       local lines = { }
@@ -152,9 +152,7 @@ argument whatever it holds, no shell sees it.
 
 | Function | When | |
 |---|---|---|
-| `registerHandler(func)` | loading | a handler, `func(entry, menu, context)` |
-| `registerRestore(func)` | loading | gets back the watches of the plugin a layout has kept, `func(context, position)` for each |
-| `registerMethod(name, func)` | loading | a method for `Invoke()` of D-Bus: `func(values)` with the values of the caller as a table, the table it returns is the answer; see below |
+| `on(event, ...)` | loading | what the plugin is called for: `on('actions', func)` a handler of the Actions menu, `func(entry, menu, context)`; `on('restore', func)` gets back the watches of the plugin a layout has kept, `func(context, position)` for each; `on('invoke', name, func)` a method for `Invoke()` of D-Bus, `func(values)` with the values of the caller as a table, the table it returns is the answer; see below |
 | `settings(name, text)` | any time | a file of the plugin of its own among the settings TurboJedi writes, `~/.config/turbojedi/name`, under `sudo` the one of the user of sudo, read and written as that user. Without the text, its text or `nil`; with it, the file replaced whole: `true`, or `nil` and why. A name of letters, digits, dots, dashes and underscores; `update.conf`, `screen.conf`, `clipboard.conf`, `allow.conf` and `last.jedi` are the ones of TurboJedi itself, so a plugin names its file after itself, and a file several plugins share after what they share. For what a plugin remembers of the user, the addresses Arrakis may send to for one |
 | `append(path, text)` | any time | the text at the end of a file of the process alone: made with 0600, never through a link, refused when it is another's or open to others; `true`, or `nil` and why. For what a plugin keeps of the journal |
 | `log(text, options)` | any time | a line of the console, Window → Console, with the name of the plugin; `{ problem = true }` leaves it unread, the status line tells it. `print()` writes there too, as a quiet line |
@@ -174,10 +172,7 @@ argument whatever it holds, no shell sees it.
 | `fetch(request, func, ...)` | loading, action, callback | a request over HTTP or HTTPS: with `func` its answer goes to `func(code, body, headers, ...)` later, without it the action waits for `code, body, headers` |
 | `dbus(request, func, ...)` | loading, handler, action, callback | a method of a service on D-Bus: with `func` its answer goes to `func(reply, name, text, ...)` later, without it a handler, an action or a callback waits for `reply, name, text` |
 | `services(options)` | loading, handler, action, callback | the names on a bus that have an owner, with their process and unit |
-| `execute(argv)` | action, callback | runs a command in the background: `true`, or `nil` and the reason when it has not started |
-| `output(argv)` | action, callback | runs a command in a window of its own: `true`, or `nil` and the reason |
-| `terminal(argv)` | action, callback | runs a command on the terminal: `how, code` |
-| `capture(argv, options)` | action, callback | runs a command and waits for it: `output, how, code, errors` |
+| `execute(argv, options)` | action, callback | runs a command, `mode` of the options tells where its output goes and whether to wait for it: `how, code`, and the output and the errors after them for `capture` |
 | `quote(argv)` | any time | the arguments as one line of `sh`, every one quoted when it has to be |
 | `regex(text, pattern, flags)` | any time | the first match, or `nil` |
 | `matches(text, pattern, flags)` | any time | an iterator over every match |
@@ -201,8 +196,7 @@ The functions tell two kinds of trouble apart, the way `io.open` of Lua does:
 
 | Function | When it has not worked |
 |---|---|
-| `execute`, `output` | `nil` and the reason the command has not started |
-| `capture`, `terminal` | `how` is `'error'`, `'timeout'` or `'cancel'` instead of `'exit'` or `'signal'` |
+| `execute` | `how` is `'error'` and `code` the reason when the command has not started; `'timeout'` or `'cancel'` when it has been stopped |
 | `fetch` | `nil, how, text`; an answer of 404 or 500 is an answer, its code tells it |
 | `dbus`, `services` | `nil, name, text`: the name of the error of D-Bus, `'cancel'` for Cancel |
 | `find` | `false` when nothing more is found |
@@ -253,7 +247,7 @@ end
 SSH among its ways, when there is no command or it fails. A result goes there without a window:
 
 ```lua
-local text, how, code = turbojedi.capture { 'systemctl', 'show', unit }
+local how, code, text = turbojedi.execute({ 'systemctl', 'show', unit }, { mode = 'capture' })
 
 if (how == 'exit') and (code == 0) then
   turbojedi.copy(text)
@@ -334,28 +328,31 @@ local count = turbojedi.mark(entries, { clear = true })
 
 ### Commands
 
-Every command runs in a process group of its own with `/dev/null` for its input, so that whatever it starts stops
-along with it.
+`execute(argv, options)` runs a command in a process group of its own with `/dev/null` for its input, so that whatever
+it starts stops along with it. `options.mode` tells where its output goes and whether the plugin waits for it:
 
-- **`execute`** runs in the background, with no window. Its end is told only when it is not `exit 0`: a dialog with
-  the command, how it has ended and its standard error.
-- **`output`** opens a window of the output, standard output and error together in the order they come, with the
-  colors of their escape sequences, line by line as the command writes them: it runs through `stdbuf -oL -eL` when
-  coreutils has it, so that `tracepath` or `whois` do not hold their output until they end. Left of the buttons a
-  turning sign and the time tell that it runs, then how it has ended and after how long; the outcome also comes at the
-  end of the output, `[exit 0]`. The window is not modal; closing it stops the command. Copy puts its text to the
-  clipboard.
-- **`terminal`** gives the screen back to the terminal while the command runs on it, as Ctrl-O of Norton Commander:
+- **`'background'`**, the one without options, runs with no window and does not wait: `'started'`. Its end is told only
+  when it is not `exit 0`: a dialog with the command, how it has ended and its standard error.
+- **`'window'`** opens a window of the output and does not wait either, `'started'` too: standard output and error
+  together in the order they come, with the colors of their escape sequences, line by line as the command writes them:
+  it runs through `stdbuf -oL -eL` when coreutils has it, so that `tracepath` or `whois` do not hold their output until
+  they end. Left of the buttons a turning sign and the time tell that it runs, then how it has ended and after how long;
+  the outcome also comes at the end of the output, `[exit 0]`. The window is not modal; closing it stops the command.
+  Copy puts its text to the clipboard.
+- **`'terminal'`** gives the screen back to the terminal while the command runs on it, as Ctrl-O of Norton Commander:
   `ssh`, `less`, `top`, `vim` work as they do in a shell. Ctrl-C and Ctrl-\ go to the command. After it, Enter brings
-  TurboJedi back.
-- **`capture`** waits for the command and gives its standard output and error apart. A short command ends before
-  anything is shown, a longer one gets a dialog with Cancel; the windows go on meanwhile. `options.timeout` is the
-  seconds it may take, 30 by default, 0 for as long as it takes. Up to 16 MiB of each stream is kept.
+  TurboJedi back: `how, code`.
+- **`'capture'`** waits for the command and gives its standard output and error apart: `how, code, output, errors`. A
+  short command ends before anything is shown, a longer one gets a dialog with Cancel; the windows go on meanwhile.
+  `options.timeout` is the seconds it may take, 30 by default, 0 for as long as it takes. Up to 16 MiB of each stream is
+  kept.
 
-How a command has ended is told the way `os.execute` of Lua tells it:
+`how` and `code` come first in every mode. A command that has not started is `'error'` in every one of them; how one
+that has been waited for has ended is told the way `os.execute` of Lua tells it:
 
 | `how` | `code` | `output` of `capture` |
 |---|---|---|
+| `'started'` | none: `background` and `window` do not wait | none |
 | `'exit'` | the exit code, success is `0` only | all of it |
 | `'signal'` | the number of the signal | what has come |
 | `'timeout'` | the seconds it has had | what has come |
@@ -365,7 +362,7 @@ How a command has ended is told the way `os.execute` of Lua tells it:
 `errors` of `capture` is the standard error, `nil` when there is none.
 
 ```lua
-local text, how, code, errors = turbojedi.capture { 'fail2ban-client', 'status' }
+local how, code, text, errors = turbojedi.execute({ 'fail2ban-client', 'status' }, { mode = 'capture' })
 
 if (how ~= 'exit') or (code ~= 0) then
   turbojedi.message('fail2ban does not answer: ' .. (errors or (how .. ' ' .. tostring(code))))
@@ -382,7 +379,7 @@ A shell is fine for a line the user has seen and accepted. `quote` makes the lin
 local line = turbojedi.input('Command', turbojedi.quote { 'ssh', '-v', user .. '@' .. address })
 
 if line then
-  turbojedi.terminal { 'sh', '-c', line }
+  turbojedi.execute({ 'sh', '-c', line }, { mode = 'terminal' })
 end
 ```
 
@@ -425,7 +422,7 @@ are taken out, and `lib/` of the plugin directories is looked into first. Under 
 the way the plugins are; the ones of the system directories belong to its packages.
 
 An action runs on the thread of the screen. While a call of a module waits, nothing is drawn and no key is taken; only
-the dialogs and `capture` of TurboJedi keep the windows going. Give a call to the network a short timeout:
+the dialogs and `execute` of mode `capture` keep the windows going. Give a call to the network a short timeout:
 
 ```lua
 local socket = require('socket')
@@ -437,7 +434,7 @@ local done, failure = client:connect(host, 80)
 ```
 
 A request to a web service goes better through `fetch`, below, which waits in a dialog with Cancel or not at all; any
-other one that may take long, through a program and `capture`, which does the same for it.
+other one that may take long, through a program and `execute` of mode `capture`, which does the same for it.
 
 A handler making the menu should not wait on the network at all: the budget of the menu bounds `query`, not a module.
 A socket that is to be read when something comes is better watched by `poll`, below.
@@ -648,7 +645,7 @@ the title of an item is quick enough for it:
 ```lua
 local function status(unit) ... end  -- the action, as in 010-systemd.lua
 
-turbojedi.registerHandler(function(entry, menu, context)
+turbojedi.on('actions', function(entry, menu, context)
   local unit = entry._SYSTEMD_UNIT
   if (type(unit) ~= 'string') or (context.source ~= 'local') then return end
 
@@ -706,7 +703,7 @@ what it has found, a script of cron, an agent. The plugin offers what it wants t
 
 ```lua
 -- ~/.config/turbojedi/plugins/200-alerts.lua: the plugin is called alerts
-turbojedi.registerMethod('notify', function(values)
+turbojedi.on('invoke', 'notify', function(values)
   -- A timer answers the caller at once, the user reads it when the event comes
   turbojedi.timeout(0, function(text) turbojedi.message(text, 'Alert') end, values.text or '')
   return { shown = true }
@@ -793,7 +790,7 @@ monitoring of the server: closed TurboJedi or a broken SSH connection watch noth
 | Option | |
 |---|---|
 | `skipped` | `skipped(gap, watch, ...)`, when the watch has not seen a part of the journal |
-| `from` | the place a layout has kept, given by `registerRestore()` |
+| `from` | the place a layout has kept, given by `on('restore')` |
 
 - The watch starts at the end of the journal: what has been there before it is not its business, so it takes neither
   `since` nor `until`. Called while loading, it follows the journal of this machine; in an action, the journal of the
@@ -858,7 +855,7 @@ local function keep(context, position)
 end
 
 -- A layout opened: the plugin decides whether the watch comes back and from where
-turbojedi.registerRestore(function(context, position)
+turbojedi.on('restore', function(context, position)
   keep(context, position)
 end)
 ```
@@ -892,10 +889,10 @@ end)
 local viewer = turbojedi.which('htop') and 'htop' or 'top'
 
 local function top(pid)
-  turbojedi.terminal { viewer, '-p', pid }
+  turbojedi.execute({ viewer, '-p', pid }, { mode = 'terminal' })
 end
 
-turbojedi.registerHandler(function(entry, menu, context)
+turbojedi.on('actions', function(entry, menu, context)
   if context.source ~= 'local' then
     return
   end
@@ -1064,7 +1061,7 @@ the one of SSH attacks above.
 local hosts = { }
 
 function hosts.name(address)
-  local text, how, code = turbojedi.capture({ 'getent', 'hosts', address }, { timeout = 3 })
+  local how, code, text = turbojedi.execute({ 'getent', 'hosts', address }, { mode = 'capture', timeout = 3 })
   return (how == 'exit') and (code == 0) and text:match('^%S+%s+(%S+)') or nil
 end
 
@@ -1076,7 +1073,7 @@ return hosts
 ```lua
 local hosts = require('hosts')
 
-turbojedi.registerHandler(function(entry, menu)
+turbojedi.on('actions', function(entry, menu)
   for found in turbojedi.matches(entry.MESSAGE, [[\b(?:\d{1,3}\.){3}\d{1,3}\b]]) do
     menu:add('Name of ' .. found[0], function(address)
       turbojedi.message(address .. ' is ' .. (hosts.name(address) or 'unknown'))

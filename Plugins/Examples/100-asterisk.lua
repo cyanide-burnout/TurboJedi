@@ -31,7 +31,7 @@ turbojedi.log(cli and ('calls, channels and the rest by ' .. cli .. ' -rx, the j
                    or 'asterisk is not in the PATH, nor in ' .. table.concat(PLACES, ', ') .. ': only the history of an entry in the journal')
 
 local function run(command)
-  turbojedi.output { cli, '-rx', command }
+  turbojedi.execute({ cli, '-rx', command }, { mode = 'window' })
 end
 
 local function sure(question, command)
@@ -70,7 +70,7 @@ local function add(list, more)
   return list
 end
 
-turbojedi.registerHandler(function(entry, menu, context)
+turbojedi.on('actions', function(entry, menu, context)
   local text = entry.MESSAGE
   if (type(text) ~= 'string') or not ((entry.SYSLOG_IDENTIFIER == 'asterisk') or tostring(entry._SYSTEMD_UNIT):match('^asterisk')) then return end
   local here = cli and (context.source == 'local')  -- The CLI is of the PBX of this machine

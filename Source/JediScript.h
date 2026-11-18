@@ -48,7 +48,7 @@ bool IsPluginIdle();
 void LogConsole(const std::string& source, const std::string& text, bool problem);
 int GetConsoleWatch();
 
-// Invoke() of the bus: the method a plugin has registered by registerMethod(), with the a{sv} at the place of the call
+// Invoke() of the bus: the method a plugin has registered by on('invoke'), with the a{sv} at the place of the call
 // as its values, its answer appended to the reply as a{sv}; the error tells why it has failed. Only while Lua is idle
 #define PLUGIN_METHOD_DONE    0
 #define PLUGIN_METHOD_NONE    1  // No such plugin or method
@@ -89,7 +89,7 @@ bool GetPluginUniversal();
 void SetPluginUniversal(bool value);
 
 // Watches of a layout: the ones of the layout that goes are removed when another one opens, the global ones of the plugins
-// stay. Lines of a [watches] section are given to the functions of registerRestore() of their plugins, a window of the
+// stay. Lines of a [watches] section are given to the functions of on('restore') of their plugins, a window of the
 // layout by its number among the journals; the lines of the plugins not there are kept as they are
 void DropWorkspaceWatches();
 std::vector<std::string> SavePluginWatches(const std::vector<JournalView*>& windows);

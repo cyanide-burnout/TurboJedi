@@ -15,19 +15,19 @@ end
 
 -- The names of an address: host asks the DNS and tells all of them, getent goes the way the system resolves
 local function lookup(address)
-  if turbojedi.which('host') then return turbojedi.output { 'host', address } end
-  local text, how, code = turbojedi.capture { 'getent', 'hosts', address }
+  if turbojedi.which('host') then return turbojedi.execute({ 'host', address }, { mode = 'window' }) end
+  local how, code, text = turbojedi.execute({ 'getent', 'hosts', address }, { mode = 'capture' })
   turbojedi.message(((how == 'exit') and (code == 0)) and text:gsub('%s+$', '') or (address .. ' has no name'))
 end
 
 -- Title, the programs it can do with, any of them, the action; only the ones whose program is there are offered
 local ACTIONS =
 {
-  { 'Route',      'ip',        function(address) turbojedi.output { 'ip', 'route', 'get', address } end },
+  { 'Route',      'ip',        function(address) turbojedi.execute({ 'ip', 'route', 'get', address }, { mode = 'window' }) end },
   { 'Lookup',     { 'host', 'getent' }, lookup },
-  { 'Whois',      'whois',     function(address) turbojedi.output { 'whois', address } end },
-  { 'Ping',       'ping',      function(address) turbojedi.output { 'ping', '-c', '4', '-W', '2', address } end },
-  { 'Trace path', 'tracepath', function(address) turbojedi.output { 'tracepath', '-n', address } end },
+  { 'Whois',      'whois',     function(address) turbojedi.execute({ 'whois', address }, { mode = 'window' }) end },
+  { 'Ping',       'ping',      function(address) turbojedi.execute({ 'ping', '-c', '4', '-W', '2', address }, { mode = 'window' }) end },
+  { 'Trace path', 'tracepath', function(address) turbojedi.execute({ 'tracepath', '-n', address }, { mode = 'window' }) end },
   { 'Copy',       nil,         turbojedi.copy }
 }
 
@@ -55,7 +55,7 @@ local function choose(address)
   if index then actions[index](address) end
 end
 
-turbojedi.registerHandler(function(entry, menu)
+turbojedi.on('actions', function(entry, menu)
   local seen = { }
   for found in turbojedi.matches(entry.MESSAGE, ADDRESS) do
     local address = found.address
