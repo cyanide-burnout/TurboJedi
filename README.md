@@ -384,7 +384,7 @@ brings these:
 - `040-fail2ban.lua`, for root where fail2ban is installed: Ban and Unban of an address of the entry, after asking for
   the jail and a confirmation, never for an address of this machine
 - `050-arrakis.lua`, where `arrakis.conf` tells a language model: the marked entries, or the entry and what has come
-  before it, explained by the model; see [Arrakis](#arrakis) below
+  before it, explained by the model, and in the Plugins menu the errors of the window; see [Arrakis](#arrakis) below
 
 Plugins that change things, or that would come up by chance, are examples in `/usr/share/turbojedi/examples` and are not
 run by themselves: `100-ssh.lua`, a watch of the attacks on the SSH server of this machine while TurboJedi is open, an
@@ -438,6 +438,10 @@ explain N marked entries, or Arrakis: explain this entry, which takes along the 
 language model behind an HTTP API tells what has happened, the likely cause and what to check; the answer comes up
 in a window, stays in a watch "Arrakis N" of F12, and the entries it names are lines there that go to them by Enter.
 The request waits for the answer in a window with the seconds so far and Cancel, the journal windows go on behind it.
+
+Without marking anything, Plugins → Arrakis: explain the errors of the window sends the errors among what the window
+shows, its filter and its time, the newest when there are too many. Plugins → Arrakis: settings tells the settings in
+effect and the files they come from, or why Arrakis is off, and sends a short request to see that the service answers.
 
 Under the answer is a line for a question about it, what a number of an error means for one: Ask sends it with the
 entries, the answer and the questions before it, as a conversation of that job alone, waits for the answer in a

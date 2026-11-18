@@ -293,9 +293,11 @@ of the menu, its filter is of the options.
 | `text` | the text filter, plain by default; with `regex = true` an expression of PCRE2, `exclude = true` leaves the matching entries out, `case = true` minds the case. It is matched against `identifier[pid]: message`, as the text filter of a window is: `^Failed` never matches, `: Failed` does |
 | `since`, `until` | times as `-S` takes them: `2026-10-23 19:00`, `-10m`, `today` |
 | `priority` | up to the level, as `-p`: `err`, `warning` or `0` to `7` |
+| `window` | `true`: the whole filter of the window of the menu, which the other options narrow. Matches of other fields go along with its own, a match of a field it has adds a value to it, as the journal ORs one field; `priority` keeps the levels both let through, `since` and `until` take the place of its times, `text` goes where it has none. An item of the Plugins menu with no window open starts from the filter TurboJedi has been started with. `watch:follow()` takes no `window` |
 
 ```lua
 turbojedi.open { matches = { _SYSTEMD_UNIT = entry._SYSTEMD_UNIT }, text = identifier, since = '-1h' }
+local errors = turbojedi.query { window = true, priority = 'err', limit = 200 }  -- the errors of what the window shows
 ```
 
 `find` looks for the text the way Find does, from the entry of the menu on into the older entries, `newer = true` the
@@ -964,8 +966,9 @@ answers nobody but root, so a TurboJedi of another user has no items of it.
 ### Arrakis
 
 `050-arrakis.lua` of the package explains the marked entries, or the entry and what has come before it, by a language
-model behind the HTTP API of OpenAI or Anthropic that `arrakis.conf` tells; see README. Without the file it does
-nothing. A plugin of `fetch()`, `query()`, a watch whose lines are the job and `message(text, title)`, the way a plugin
+model behind the HTTP API of OpenAI or Anthropic that `arrakis.conf` tells; see README. In the Plugins menu it explains
+the errors of the window by `query { window = true, priority = 'err' }`, and tells its settings, or why it is off.
+Without the file it sends nothing. A plugin of `fetch()`, `query()`, a watch whose lines are the job and `message(text, title)`, the way a plugin
 of your own may ask a service.
 
 ### SSH attacks

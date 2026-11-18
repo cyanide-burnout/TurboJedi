@@ -3,7 +3,9 @@
 -- Artem Prilutskiy, 2026
 
 -- Arrakis: entries explained by a language model behind an HTTP API of the format of OpenAI (llama-server, Ollama,
--- vLLM, colibri, OpenAI) or of Anthropic. On Arrakis they mine the spice, here the sense of the journal.
+-- vLLM, colibri, OpenAI) or of Anthropic. On Arrakis they mine the spice, here the sense of the journal. Actions explains
+-- the entry under the cursor or the marked ones; the Plugins menu explains the errors among what the window shows
+-- without marking them, and tells the settings in effect, or why Arrakis is off, and asks the service whether it answers.
 --
 -- Nothing happens without a file of settings: /etc/turbojedi/arrakis.conf of root for every user, then
 -- ~/.config/turbojedi/arrakis.conf of the user over it; run by sudo, the one of the user of sudo over both, settings and
@@ -99,7 +101,7 @@ local function load()
   if #used == 0 then
     -- Not set up: nothing is offered, nothing is sent anywhere
     turbojedi.log('no ' .. table.concat(paths, ', ') .. ': nothing to offer, nothing sent anywhere')
-    return nil
+    return nil, paths
   end
 
   settings.files = table.concat(used, ', ')
@@ -130,7 +132,26 @@ local function load()
   return settings
 end
 
-local settings = load()
+local loaded, settings, paths = pcall(load)
+local failure = (not loaded) and settings or nil
+
+-- The items of the Plugins menu are there whether Arrakis works or not: off, they tell why, and settings tells it always
+local show, errors
+
+turbojedi.on('menu', 'Arrakis: explain the errors of the window', function(context) errors(context) end)
+turbojedi.on('menu', 'Arrakis: settings', function(context) show(context) end)
+
+show = function()
+  turbojedi.message(failure and ('Arrakis is off: %s'):format(failure) or
+    ('Arrakis is off: there is no %s. It offers nothing and sends nothing anywhere; a file with url of a service and model, ' ..
+     'see the head of 050-arrakis.lua, turns it on once TurboJedi is started again.'):format(table.concat(paths or { SYSTEM }, ' or ')), 'Arrakis')
+end
+
+errors = show
+
+if failure then
+  error(failure, 0)
+end
 
 if not settings then
   return
@@ -139,8 +160,9 @@ end
 local found, cjson = pcall(require, 'cjson')
 
 if not found then
-  error('lua-cjson for Lua 5.4 is needed: lua-cjson of Debian and Ubuntu, lua54-cjson of openSUSE; ' ..
-        'elsewhere luarocks --lua-version 5.4 install lua-cjson')
+  failure = 'lua-cjson for Lua 5.4 is needed: lua-cjson of Debian and Ubuntu, lua54-cjson of openSUSE; ' ..
+            'elsewhere luarocks --lua-version 5.4 install lua-cjson'
+  error(failure)
 end
 
 -- The host of the address, and whether it is this machine: another one is asked about once, and an address the user
@@ -458,6 +480,50 @@ local function single(item)
   else
     analyze(items, 'an entry')
   end
+end
+
+-- The errors among what the window shows, its filter and its time, without marking them: the newest go when there are
+-- too many
+local ERRORS = 200  -- Entries read at most, the budget takes the newest of them
+
+errors = function()
+  local found, stopped = turbojedi.query({ window = true, priority = 'err', limit = ERRORS })
+  if #found == 0 then
+    return turbojedi.message('No errors in the window' .. ((stopped and stopped ~= 'limit') and (', the reading has stopped by ' .. stopped) or ''), 'Arrakis')
+  end
+
+  -- The query gives the newest first, the model reads them as they have come
+  local items = { }
+  for position = #found, 1, -1 do items[#items + 1] = found[position] end
+  analyze(items, ('%d errors of the window'):format(#items))
+end
+
+-- What Arrakis has read and from where, and a short request to the service to see that it answers; no entry goes along
+show = function()
+  local card = table.concat({
+    ('Files     %s'):format(settings.files),
+    ('Service   %s at %s'):format(settings.format, settings.url),
+    ('Model     %s'):format(settings.model or 'of the server'),
+    ('Key       %s'):format(settings.key and 'set' or 'none'),
+    ('Language  %s'):format(language()),
+    ('Budget    %d characters of entries'):format(settings.budget),
+    ('Timeout   %s'):format((settings.timeout > 0) and (settings.timeout .. ' seconds') or 'none'),
+    ('Tokens    %s'):format(settings.tokens or ((settings.format == 'anthropic') and TOKENS) or 'of the server'),
+    ('Prompt    %s'):format(settings.prompt or 'built in'),
+    ('Record    %s'):format(settings.record or 'none'),
+    ('Machine   %s'):format((host == 'localhost' or host == '::1' or host:match('^127%.')) and 'this one' or
+      (trusted and ('%s, the entries go there'):format(host) or ('%s, asked before the first request'):format(host))),
+  }, '\n')
+
+  if not turbojedi.confirm(card .. '\n\nSend a short request to see that the service answers?') then return end
+
+  local started = os.time()
+  local code, body, more = turbojedi.fetch(send('Answer with the single word OK.', { { role = 'user', content = 'Are you there?' } }))
+  if (not code) and (body == 'cancel') then return end
+  if not code then return turbojedi.message(('No answer from %s: %s, %s'):format(host, tostring(body), tostring(more)), 'Arrakis') end
+
+  local text, failure = answer(code, body)
+  turbojedi.message(text and ('%s has answered in %d s: %s'):format(host, os.time() - started, text) or ('%s has answered %s'):format(host, failure), 'Arrakis')
 end
 
 turbojedi.on('actions', function(item, menu, context)
