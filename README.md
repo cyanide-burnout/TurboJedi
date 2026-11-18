@@ -439,9 +439,10 @@ language model behind an HTTP API tells what has happened, the likely cause and 
 in a window, stays in a watch "Arrakis N" of F12, and the entries it names are lines there that go to them by Enter.
 The request waits for the answer in a window with the seconds so far and Cancel, the journal windows go on behind it.
 
-Without marking anything, Plugins → Arrakis: explain the errors of the window sends the errors among what the window
-shows, its filter and its time, the newest when there are too many. Plugins → Arrakis: settings tells the settings in
-effect and the files they come from, or why Arrakis is off, and sends a short request to see that the service answers.
+Without marking anything, Explain the errors of the window of arrakis in the Plugins menu sends the errors among what
+the window shows, its filter and its time, the newest when there are too many. Settings of arrakis there tells the
+settings in effect and the files they come from, or why Arrakis is off, and sends a short request to see that the
+service answers.
 
 Under the answer is a line for a question about it, what a number of an error means for one: Ask sends it with the
 entries, the answer and the questions before it, as a conversation of that job alone, waits for the answer in a

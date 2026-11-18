@@ -138,8 +138,8 @@ local failure = (not loaded) and settings or nil
 -- The items of the Plugins menu are there whether Arrakis works or not: off, they tell why, and settings tells it always
 local show, errors
 
-turbojedi.on('menu', 'Arrakis: explain the errors of the window', function(context) errors(context) end)
-turbojedi.on('menu', 'Arrakis: settings', function(context) show(context) end)
+turbojedi.on('menu', 'Explain the errors of the window', function(context) errors(context) end)
+turbojedi.on('menu', 'Settings', function(context) show(context) end)
 
 show = function()
   turbojedi.message(failure and ('Arrakis is off: %s'):format(failure) or
