@@ -182,15 +182,15 @@ bool SaveSettings(const std::string& path, const std::string& text)
   // Of this process: two TurboJedi saving at once replace the file one after the other, each with a whole one
   temporary = target + "." + std::to_string(getpid()) + ".new";
 
+  for (position = path.find('/', 1); position != std::string::npos; position = path.find('/', position + 1))
+  {
+    // The directories may not be there yet, removed while TurboJedi runs or of the user of sudo, named before fork()
+    folders.push_back(path.substr(0, position));
+  }
+
   if (!drop)
   {
     return WriteFile(target, temporary, text, folders);
-  }
-
-  for (position = path.find('/', 1); position != std::string::npos; position = path.find('/', position + 1))
-  {
-    // The directories of the user may not be there yet, named before fork()
-    folders.push_back(path.substr(0, position));
   }
 
   if ((process = fork()) == 0)
