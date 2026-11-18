@@ -294,7 +294,7 @@ window to the time of the selected line, and a layout keeps their directories fo
 | Up, Down, PgUp, PgDn, Home, End | move the cursor, it starts on the newest line of the screen; on the newest line the window follows, anywhere else it pauses |
 | Enter, double click | details of the entry under the cursor, Enter on a field there opens a window with it added to the filter |
 | Alt-F10, A, F11, Shift-F10, right click | actions of the plugins for the entry under the cursor, see [PLUGINS.md](PLUGINS.md); A is for Terminal of macOS, which keeps F10 and F11 for itself |
-| Alt-P | the Plugins menu: the watches, the console, and what the plugins do without an entry, such as a search by an identifier |
+| Alt-P | the Plugins menu: what the plugins do without an entry, such as a search by an identifier, then the watches and the console |
 | Space | pause or follow, also a click on ► or ‖ in the title |
 | Shift+arrows, mouse | select lines from the cursor, Esc drops the selection and the marks, the cursor stays |
 | M, Insert | begin marking from the cursor, the keys mark the lines they pass; M again ends it and they stay marked, so lines apart are marked one stroke after another. Begun on a marked line it takes the marks off instead. No Shift is needed, which Terminal of macOS and some others keep for themselves |

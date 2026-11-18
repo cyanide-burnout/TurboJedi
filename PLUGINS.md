@@ -151,8 +151,8 @@ Adds an item: the title, the function to call when it is chosen and the argument
 
 `on('menu', title, func, ...)` adds an item to the Plugins menu of the menu bar, Alt-P, when the plugin is loaded: what
 it does without an entry, a search by an identifier the user types, a list of what a service has now. The items go
-under Watches and Console in the order of the plugins, each with its plugin on its right, a line before the items of
-every plugin, up to 100 of them; a title is cut to fit the screen, `~` marks a hot key as in `menu:add`.
+in the order of the plugins above Watches and Console, each with its plugin on its right, a line between the items of
+two plugins, up to 100 of them; a title is cut to fit the screen, `~` marks a hot key as in `menu:add`.
 
 The chosen item calls `func(context, ...)` with the values given after the function, and runs as an action of the
 Actions menu does: dialogs, commands, `query`, `open`, `watch`. Its window is the window of the journal on top, windows of

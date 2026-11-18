@@ -201,18 +201,16 @@ TMenuBar* JediApplication::initMenuBar(TRect bounds)
       *new TMenuItem("C~o~py",          cmJournalCopy,         kbCtrlIns, hcNoContext, "Ctrl-Ins") +
       *new TMenuItem("~C~lear",         cmJournalClear,        kbF8,      hcNoContext, "F8");
 
-  // What the plugins have made, then their items not bound to an entry: the plugins are loaded before the application,
-  // a line goes before every plugin, its name stands where a menu has the key of an item
+  // The items of the plugins not bound to an entry, then what the plugins have made: the plugins are loaded before the
+  // application, a line goes between two plugins and before the watches, the name of a plugin stands where a menu has
+  // the key of an item
   items = ListPluginMenu(bounds.b.x - bounds.a.x - 8);
 
-  menu +
-    *new TSubMenu("~P~lugins", kbAltP) +
-      *new TMenuItem("Wa~t~ches", cmJournalWatches, kbF12, hcNoContext, "F12") +
-      *new TMenuItem("C~o~nsole", cmJournalConsole, kbNoKey);
+  menu + *new TSubMenu("~P~lugins", kbAltP);
 
   for (size_t index = 0; index < items.size(); index ++)
   {
-    if ((index == 0) ||
+    if ((index > 0) &&
         (items[index].second != items[index - 1].second))
     {
       menu + newLine();
@@ -221,7 +219,14 @@ TMenuBar* JediApplication::initMenuBar(TRect bounds)
     menu + *new TMenuItem(items[index].first.c_str(), cmJournalMenu + index, kbNoKey, hcNoContext, items[index].second.c_str());
   }
 
+  if (!items.empty())
+  {
+    menu + newLine();
+  }
+
   menu +
+      *new TMenuItem("Wa~t~ches", cmJournalWatches, kbF12, hcNoContext, "F12") +
+      *new TMenuItem("C~o~nsole", cmJournalConsole, kbNoKey) +
     *new TSubMenu("~W~indow", kbAltW) +
       *new TMenuItem("~T~ile",        cmTile,           kbF9,      hcNoContext, "F9") +
       *new TMenuItem("C~a~scade",     cmCascade,        kbNoKey) +
@@ -952,9 +957,9 @@ void JediApplication::showHelp()
     "  F12             Watches of plugins: Enter shows the lines of one, Delete or",
     "                  Backspace removes it, U turns their times to UTC and back;",
     "                  Watch 1/3 * in the status line tells about new lines",
-    "  Alt-P           Plugins menu: Watches; Console, print() and log() of plugins, their",
-    "                  errors, the problems of the start and calls of D-Bus, a watch of F12",
-    "                  that stays; then what the plugins do without an entry, such as a search",
+    "  Alt-P           Plugins menu: what the plugins do without an entry, such as a search;",
+    "                  then Watches, and Console: print() and log() of plugins, their errors,",
+    "                  the problems of the start and calls of D-Bus, a watch of F12 that stays",
     "  F5, Ctrl-F5     Zoom, size or move the window",
     "  F9              Tile the windows",
     "  Alt-F3          Close the window",
