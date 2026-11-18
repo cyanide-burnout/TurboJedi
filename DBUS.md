@@ -33,6 +33,11 @@ The bus lets a name be taken and called only when a policy allows it. The packag
 `/etc/dbus-1/system.d/`, as dbus does not read `/usr/local/share`. The policy lets anyone own a name of the prefix and
 call the interface. What a caller may do is decided by TurboJedi itself.
 
+dbus-daemon before 1.13.12, of Ubuntu 22.04 for one, knows no `send_destination_prefix` and refuses a file that has it.
+Where the dbus-daemon of the build is older, `make install` puts `me.burnaway.TurboJedi.compat.conf` in its place under
+the same name: the calls go by the interface of TurboJedi alone, and introspection and ping of its names are left out,
+as they could not be told from the ones of other services there. `POLICY_FILE=` names one of the two by hand.
+
 Without the policy TurboJedi works as before, without the interface, and says nothing about it. After the file is put
 in place, `systemctl reload dbus` makes the bus read it. Instances started before that have no name and need a restart.
 

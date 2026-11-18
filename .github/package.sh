@@ -15,7 +15,8 @@ if command -v apt-get > /dev/null
 then
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -q
-  apt-get install -y -q --no-install-recommends build-essential debhelper cmake pkgconf git ca-certificates libsystemd-dev libncurses-dev libpcre2-dev libgpm-dev libcurl4-openssl-dev liblua5.4-dev
+  # dbus tells the Makefile which policy of the bus its dbus-daemon takes
+  apt-get install -y -q --no-install-recommends build-essential debhelper cmake pkgconf git ca-certificates dbus libsystemd-dev libncurses-dev libpcre2-dev libgpm-dev libcurl4-openssl-dev liblua5.4-dev
 elif command -v pacman > /dev/null
 then
   pacman -Syu --noconfirm --needed base-devel cmake git pkgconf systemd-libs ncurses pcre2 gpm curl lua54

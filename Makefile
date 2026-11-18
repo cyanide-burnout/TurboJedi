@@ -163,12 +163,18 @@ build: $(OBJECTS)
 # puts it to /etc. POLICY= names another directory
 POLICY ?= $(if $(filter %/usr,$(PREFIX)),$(PREFIX)/share/dbus-1/system.d,$(DESTDIR)/etc/dbus-1/system.d)
 
+# dbus-daemon before 1.13.12 knows no send_destination_prefix and refuses the whole file: the one of compat goes in its
+# place where the dbus-daemon of the build is older. dbus-broker knows it, a machine without dbus-daemon takes the full
+# one. POLICY_FILE= names one
+DBUS_VERSION := $(shell dbus-daemon --version 2> /dev/null | sed -n '1s/.* \([0-9][0-9.]*\)$$/\1/p')
+POLICY_FILE  ?= $(if $(and $(DBUS_VERSION),$(shell printf '%s\n1.13.11\n' '$(DBUS_VERSION)' | sort -V -C && echo old)),me.burnaway.TurboJedi.compat.conf,me.burnaway.TurboJedi.conf)
+
 install:
 	install -D -m 755 $(EXECUTABLE) $(PREFIX)/bin/$(EXECUTABLE)
 	install -D -m 644 $(EXECUTABLE).1 $(PREFIX)/share/man/man1/$(EXECUTABLE).1
 	install -D -m 644 -t $(PREFIX)/share/$(EXECUTABLE)/plugins Plugins/*.lua
 	install -D -m 644 -t $(PREFIX)/share/$(EXECUTABLE)/examples Plugins/Examples/*.lua
-	install -D -m 644 -t $(POLICY) me.burnaway.TurboJedi.conf
+	install -D -m 644 $(POLICY_FILE) $(POLICY)/me.burnaway.TurboJedi.conf
 	sed "s|^VERSION = 'unknown'|VERSION = '$(VERSION)'|" $(EXECUTABLE)-mcp.py > $(EXECUTABLE)-mcp.py.installed
 	install -D -m 755 $(EXECUTABLE)-mcp.py.installed $(PREFIX)/bin/$(EXECUTABLE)-mcp.py
 	rm -f $(EXECUTABLE)-mcp.py.installed
