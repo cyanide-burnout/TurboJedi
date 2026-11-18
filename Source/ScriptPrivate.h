@@ -75,8 +75,10 @@ extern "C"
 
 #define FETCH_STEP         20      // Milliseconds it is waited for between the events of its dialog
 
+#define POLLER    "TurboJedi.poller"   // Of poll()
 #define WATCHER   "TurboJedi.watch"    // Of watch()
-
+#define TIMER     "TurboJedi.timer"
+#define FETCH     "TurboJedi.fetch"
 #define DBUS      "TurboJedi.dbus"
 
 #define RESTORERS "TurboJedi.restorers" // Functions of on('restore') by the names of their plugins
@@ -122,6 +124,9 @@ extern int phase;
 extern std::string plugin;  // Name of the plugin being loaded
 extern JournalView* origin; // Window the menu has been opened in, for open(), find(), seek() and query(); of the watch in its callbacks
 extern int64_t deadline;    // Of the queries of the handlers making the menu, shared by all of them
+extern std::map<int, Watch> watches;
+extern std::map<int, Timer> timers;
+extern std::map<int, Request> requests;
 extern std::map<int, Request> invocations;  // Calls of dbus() with a callback, their calls go by the same number
 extern std::map<int, std::unique_ptr<JournalWatch>> journals;  // Of watch(), by the same numbers
 extern int watching;      // The watch whose callback runs, zero outside
@@ -142,6 +147,13 @@ JournalView* OpenWatchWindow(JournalWatch* watch);
 int KeepCallback(lua_State* state, int function, int first);
 void PushHandle(lua_State* state, int number, const char* kind);
 int GetHandle(lua_State* state);
+int AddWatch(lua_State* state);
+int UpdateWatch(lua_State* state);
+int RemoveWatch(lua_State* state);
+int AddTimer(lua_State* state);
+int CancelTimer(lua_State* state);
+int Fetch(lua_State* state);
+int CancelRequest(lua_State* state);
 bool AppendValue(lua_State* state, int index, const std::string& type, sd_bus_message* message, std::string& error);
 int PushDBusValue(lua_State* state, sd_bus_message* message);
 int PushDBusAnswer(lua_State* state, sd_bus_message* reply, const JediDBusError& error);
