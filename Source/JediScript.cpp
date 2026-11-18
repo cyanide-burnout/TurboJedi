@@ -104,6 +104,7 @@ extern "C"
 #define METHODS   "TurboJedi.methods"   // Tables of the functions of on('invoke') by the names of their plugins
 #define ACTIONS   "TurboJedi.actions"   // Tables of the actions of the lines of a watch by its number, by the numbers of the lines
 #define MENU      "TurboJedi.menu"
+#define MENUS     "TurboJedi.menus"     // Items of the Plugins menu by on('menu'): the title, the plugin, the function and its values
 
 static const char* const SystemDirectories[] = { "/usr/share/turbojedi/plugins", "/usr/local/share/turbojedi/plugins" };
 
@@ -111,6 +112,7 @@ static lua_State* state;
 static int phase;
 static std::string plugin;  // Name of the plugin being loaded
 static JournalView* origin; // Window the menu has been opened in, for open(), find(), seek() and query(); of the watch in its callbacks
+static const JournalFilter* basis;  // What open() and query() of an item of the Plugins menu start from when no window is open
 static int64_t deadline;    // Of the queries of the handlers making the menu, shared by all of them
 static size_t budget;       // Entries they may look at yet
 
@@ -430,6 +432,49 @@ static int OnActions(lua_State* state)
   return 0;
 }
 
+// on('menu', title, func, ...): an item of the Plugins menu of the menu bar, func(context, ...) when it is chosen
+static int OnMenu(lua_State* state)
+{
+  int top;
+
+  top = lua_gettop(state);
+
+  if ((lua_type(state, 1) != LUA_TSTRING) ||
+      (lua_type(state, 2) != LUA_TFUNCTION))
+  {
+    return Fail(state, "on('menu') takes a title and a function");
+  }
+
+  lua_getfield(state, LUA_REGISTRYINDEX, MENUS);
+
+  if (lua_rawlen(state, -1) >= PLUGIN_MENU_LIMIT)
+  {
+    return Fail(state, "the Plugins menu holds up to %d items", PLUGIN_MENU_LIMIT);
+  }
+
+  // The item keeps its values the way menu:add() does, nil in the middle included
+  lua_createtable(state, top - 2, 4);
+  lua_pushvalue(state, 1);
+  lua_setfield(state, -2, "title");
+  lua_pushvalue(state, 2);
+  lua_setfield(state, -2, "action");
+  lua_pushinteger(state, top - 2);
+  lua_setfield(state, -2, "n");
+  lua_pushlstring(state, plugin.data(), plugin.size());
+  lua_setfield(state, -2, "plugin");
+
+  for (int index = 3; index <= top; index ++)
+  {
+    lua_pushvalue(state, index);
+    lua_rawseti(state, -2, index - 2);
+  }
+
+  lua_rawseti(state, -2, lua_rawlen(state, -2) + 1);
+  lua_pop(state, 1);
+
+  return 0;
+}
+
 // on('restore', func): func(context, position) for every watch of the plugin a layout keeps
 static int OnRestore(lua_State* state)
 {
@@ -586,7 +631,8 @@ static int OnInvoke(lua_State* state)
   return 0;
 }
 
-// on(event, ...): what the plugin is called for, an event of the Actions menu, of a layout or of the bus
+// on(event, ...): what the plugin is called for, an event of the Actions menu, of the Plugins menu, of a layout or of the
+// bus
 static int On(lua_State* state)
 {
   std::string event;
@@ -596,11 +642,12 @@ static int On(lua_State* state)
     lua_remove(state, 1);
 
     if (event == "actions") return OnActions(state);
+    if (event == "menu")    return OnMenu(state);
     if (event == "restore") return OnRestore(state);
     if (event == "invoke")  return OnInvoke(state);
   }
 
-  return Fail(state, "on() takes an event: actions, restore or invoke");
+  return Fail(state, "on() takes an event: actions, menu, restore or invoke");
 }
 
 static int AddItem(lua_State* state)
@@ -1056,6 +1103,13 @@ static bool MakeFilter(lua_State* state, int index, const JournalFilter& base, J
   return true;
 }
 
+// What open() and query() start from: the window of the menu, or what TurboJedi has started with for an item of the
+// Plugins menu when no window is open
+static const JournalFilter& GetOriginFilter()
+{
+  return (origin != nullptr) ? origin->getFilter() : *basis;
+}
+
 // A new window like the one of the menu with the filter of the options
 static int Open(lua_State* state)
 {
@@ -1067,7 +1121,7 @@ static int Open(lua_State* state)
     return Fail(state, "open() takes a table of options");
   }
 
-  if (!MakeFilter(state, 1, origin->getFilter(), filter, error))
+  if (!MakeFilter(state, 1, GetOriginFilter(), filter, error))
   {
     return Fail(state, "open(): %s", error.c_str());
   }
@@ -1122,7 +1176,7 @@ static int Query(lua_State* state)
     return Fail(state, "query() takes a table of options");
   }
 
-  if (!MakeFilter(state, 1, origin->getFilter(), filter, error))
+  if (!MakeFilter(state, 1, GetOriginFilter(), filter, error))
   {
     return Fail(state, "query(): %s", error.c_str());
   }
@@ -1186,7 +1240,8 @@ static int Query(lua_State* state)
   return 2;
 }
 
-// Find in the window of the menu: highlighted, on into the older entries, a step of its history
+// Find in the window of the menu: highlighted, on into the older entries, a step of its history; nil and why when there
+// is no window
 static int Find(lua_State* state)
 {
   std::string text;
@@ -1207,12 +1262,21 @@ static int Find(lua_State* state)
     return Fail(state, "find(): %s", error.c_str());
   }
 
+  if (origin == nullptr)
+  {
+    // An item of the Plugins menu with no window open
+    lua_pushnil(state);
+    lua_pushliteral(state, "no window of the journal is open");
+    return 2;
+  }
+
   // Older by default, the way the first Find goes
   lua_pushboolean(state, origin->search(text, mode & ~JOURNAL_TEXT_EXCLUDE, !GetFlag(state, 2, "newer")));
   return 1;
 }
 
-// Go to a time in the window of the menu: microseconds such as __REALTIME_TIMESTAMP, or a time as Go to time takes it
+// Go to a time in the window of the menu: microseconds such as __REALTIME_TIMESTAMP, or a time as Go to time takes it;
+// true, or nil and why when there is no window
 static int Seek(lua_State* state)
 {
   uint64_t stamp;
@@ -1228,8 +1292,16 @@ static int Seek(lua_State* state)
     return Fail(state, "seek() takes microseconds or a time such as 2026-10-23 19:00, -10m");
   }
 
+  if (origin == nullptr)
+  {
+    lua_pushnil(state);
+    lua_pushliteral(state, "no window of the journal is open");
+    return 2;
+  }
+
   origin->jump(stamp);
-  return 0;
+  lua_pushboolean(state, true);
+  return 1;
 }
 
 // A watch of watch() by its number, nullptr when there is none or it has been removed
@@ -1345,6 +1417,15 @@ static int Mark(lua_State* state)
   else if (!AddCursor(state, 1, cursors, oldest))
   {
     return Fail(state, "mark() takes an entry, a list of entries or cursors, or a cursor");
+  }
+
+  if ((origin == nullptr) &&
+      (phase == PHASE_ACTION))
+  {
+    // An item of the Plugins menu with no window open
+    lua_pushnil(state);
+    lua_pushliteral(state, "no window of the journal is open");
+    return 2;
   }
 
   if ((origin == nullptr) &&
@@ -3552,6 +3633,35 @@ static void PushContext(lua_State* state, const JournalFilter& filter)
   lua_setfield(state, -2, "source");
 }
 
+// The context of a window: where its journal comes from, and the selection and the marks beside the entry of the cursor,
+// the entries in context.marked, how many there are in context.selected, as the list may be cut
+static void PushWindowContext(lua_State* state, JournalView* view)
+{
+  const JournalFilter& filter = view->getFilter();
+  size_t total;
+  std::vector<std::string> cursors;
+  std::vector<std::vector<std::pair<std::string, std::string>>> records;
+
+  PushContext(state, filter);
+  cursors = view->pickedCursors(MARKED_LIMIT, total);
+
+  if (!cursors.empty())
+  {
+    records = ReadJournalRecords(filter, cursors);
+    lua_createtable(state, records.size(), 0);
+
+    for (size_t number = 0; number < records.size(); number ++)
+    {
+      PushEntry(state, records[number]);
+      lua_rawseti(state, -2, number + 1);
+    }
+
+    lua_setfield(state, -2, "marked");
+    lua_pushinteger(state, total);
+    lua_setfield(state, -2, "selected");
+  }
+}
+
 // Name of a plugin by its file: 100-fail2ban.lua is fail2ban
 static std::string GetPluginName(const std::string& file)
 {
@@ -3717,6 +3827,8 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
   lua_setfield(state, LUA_REGISTRYINDEX, METHODS);
   lua_newtable(state);
   lua_setfield(state, LUA_REGISTRYINDEX, ACTIONS);
+  lua_newtable(state);
+  lua_setfield(state, LUA_REGISTRYINDEX, MENUS);
 
   // The menu a handler gets: menu:add(title, func, ...)
   luaL_newmetatable(state, MENU);
@@ -3870,41 +3982,16 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
 // items of all handlers, the handlers and their names; the errors of the handlers that fail go to the errors
 static void CollectActions(JournalView* view, const std::vector<std::pair<std::string, std::string>>& fields, std::vector<std::string>& errors)
 {
-  const JournalFilter& filter = view->getFilter();
   int base;
   int count;
   int index;
-  size_t total;
   std::string title;
-  std::vector<std::string> cursors;
-  std::vector<std::vector<std::pair<std::string, std::string>>> records;
 
   base = lua_gettop(state);
 
   lua_pushcfunction(state, Trace);                   // base + 1
   PushEntry(state, fields);                          // base + 2
-  PushContext(state, filter);                        // base + 3
-
-  // The selection and the marks of the window, beside the entry of the cursor: the entries in context.marked, how many
-  // there are in context.selected, as the list may be cut
-  cursors = view->pickedCursors(MARKED_LIMIT, total);
-
-  if (!cursors.empty())
-  {
-    records = ReadJournalRecords(filter, cursors);
-    lua_createtable(state, records.size(), 0);
-
-    for (size_t number = 0; number < records.size(); number ++)
-    {
-      PushEntry(state, records[number]);
-      lua_rawseti(state, -2, number + 1);
-    }
-
-    lua_setfield(state, base + 3, "marked");
-    lua_pushinteger(state, total);
-    lua_setfield(state, base + 3, "selected");
-  }
-
+  PushWindowContext(state, view);                    // base + 3
   lua_newtable(state);                               // base + 4, items of every handler
   lua_getfield(state, LUA_REGISTRYINDEX, HANDLERS);  // base + 5
   lua_getfield(state, LUA_REGISTRYINDEX, NAMES);     // base + 6
@@ -4093,6 +4180,90 @@ void ShowActions(JournalView* view, const std::string& cursor, TPoint where, boo
     origin = nullptr;
   }
 
+  lua_settop(state, base);
+}
+
+std::vector<std::pair<std::string, std::string>> ListPluginMenu(int width)
+{
+  std::vector<std::pair<std::string, std::string>> items;
+
+  if (state == nullptr)
+  {
+    return items;
+  }
+
+  lua_getfield(state, LUA_REGISTRYINDEX, MENUS);
+
+  for (lua_Integer index = 1; index <= (lua_Integer)lua_rawlen(state, -1); index ++)
+  {
+    lua_rawgeti(state, -1, index);
+    lua_getfield(state, -1, "title");
+    lua_getfield(state, -2, "plugin");
+    // A title is cut to fit the width beside its plugin
+    items.emplace_back(Fit(lua_tostring(state, -2), width - strwidth(lua_tostring(state, -1)) - 2), lua_tostring(state, -1));
+    lua_pop(state, 3);
+  }
+
+  lua_pop(state, 1);
+  return items;
+}
+
+void RunPluginMenu(int index, JournalView* view, const JournalFilter& filter)
+{
+  int base;
+  int arguments;
+  std::string name;
+
+  if ((state == nullptr) ||
+      (phase != PHASE_IDLE))
+  {
+    // Lua is not entered twice: an action runs, its dialog keeps the windows going
+    return;
+  }
+
+  base = lua_gettop(state);
+
+  lua_pushcfunction(state, Trace);                // base + 1
+  lua_getfield(state, LUA_REGISTRYINDEX, MENUS);  // base + 2
+
+  if (lua_rawgeti(state, base + 2, index + 1) != LUA_TTABLE)
+  {
+    lua_settop(state, base);
+    return;
+  }
+
+  // func(context, ...) with the values given to on('menu') after it
+  lua_getfield(state, base + 3, "plugin");
+  name = lua_tostring(state, -1);
+  lua_pop(state, 1);
+  lua_getfield(state, base + 3, "action");
+
+  if (view != nullptr) PushWindowContext(state, view);
+  else                 PushContext(state, filter);
+
+  lua_getfield(state, base + 3, "n");
+  arguments = lua_tointeger(state, -1);
+  lua_pop(state, 1);
+
+  for (int number = 1; number <= arguments; number ++)
+  {
+    lua_rawgeti(state, base + 3, number);
+  }
+
+  phase  = PHASE_ACTION;
+  origin = view;
+  basis  = &filter;
+  plugin = name;  // Watches and timers the action sets are of its plugin
+
+  if (lua_pcall(state, arguments + 1, 0, base + 1) != LUA_OK)
+  {
+    phase  = PHASE_IDLE;
+    origin = nullptr;
+    ShowErrors({ name + ": " + GetError(state) });
+  }
+
+  phase  = PHASE_IDLE;
+  origin = nullptr;
   lua_settop(state, base);
 }
 

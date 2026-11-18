@@ -32,6 +32,13 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
 // keys it starts on its first item, by the mouse on none
 void ShowActions(JournalView* view, const std::string& cursor, TPoint where, bool keyboard);
 
+// The Plugins menu of the menu bar, items of on('menu'): title and plugin in the order the plugins have given them, a
+// title cut to the width with its plugin, made once the plugins are loaded. An item runs by its index as an action does, in the window of the journal on top, nullptr
+// when none is open: open() and query() start from the filter then, find(), seek() and mark() tell there is no window
+#define PLUGIN_MENU_LIMIT  100
+std::vector<std::pair<std::string, std::string>> ListPluginMenu(int width);
+void RunPluginMenu(int index, JournalView* view, const JournalFilter& filter);
+
 // Descriptors, timers, requests of fetch() and watches of journals of plugins, looked at between the events: milliseconds
 // until the next look, -1 when there is nothing to look at; the ones that are due wait for HasPluginEvents() and
 // DispatchPluginEvents() when no dialog is open. Paused while one is: the watches do not read then

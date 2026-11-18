@@ -159,10 +159,12 @@ TStatusLine* JediApplication::initStatusLine(TRect bounds)
 
 TMenuBar* JediApplication::initMenuBar(TRect bounds)
 {
+  std::vector<std::pair<std::string, std::string>> items;
+
   bounds.b.y = bounds.a.y + 1;
 
   // Window shortcuts live here, the menu bar handles them without a status line item
-  return new TMenuBar(bounds,
+  TSubMenu& menu =
     *new TSubMenu("~F~ile", kbAltF) +
       *new TMenuItem("~N~ew window",     cmJournalNew,    kbF2,      hcNoContext, "F2") +
       *new TMenuItem("~C~lone window",   cmJournalClone,  kbShiftF2, hcNoContext, "Shift-F2") +
@@ -197,7 +199,29 @@ TMenuBar* JediApplication::initMenuBar(TRect bounds)
       newLine() +
       *new TMenuItem("~P~ause",         cmJournalPause,        kbNoKey,   hcNoContext, "Space") +
       *new TMenuItem("C~o~py",          cmJournalCopy,         kbCtrlIns, hcNoContext, "Ctrl-Ins") +
-      *new TMenuItem("~C~lear",         cmJournalClear,        kbF8,      hcNoContext, "F8") +
+      *new TMenuItem("~C~lear",         cmJournalClear,        kbF8,      hcNoContext, "F8");
+
+  // What the plugins have made, then their items not bound to an entry: the plugins are loaded before the application,
+  // a line goes before every plugin, its name stands where a menu has the key of an item
+  items = ListPluginMenu(bounds.b.x - bounds.a.x - 8);
+
+  menu +
+    *new TSubMenu("~P~lugins", kbAltP) +
+      *new TMenuItem("Wa~t~ches", cmJournalWatches, kbF12, hcNoContext, "F12") +
+      *new TMenuItem("C~o~nsole", cmJournalConsole, kbNoKey);
+
+  for (size_t index = 0; index < items.size(); index ++)
+  {
+    if ((index == 0) ||
+        (items[index].second != items[index - 1].second))
+    {
+      menu + newLine();
+    }
+
+    menu + *new TMenuItem(items[index].first.c_str(), cmJournalMenu + index, kbNoKey, hcNoContext, items[index].second.c_str());
+  }
+
+  menu +
     *new TSubMenu("~W~indow", kbAltW) +
       *new TMenuItem("~T~ile",        cmTile,           kbF9,      hcNoContext, "F9") +
       *new TMenuItem("C~a~scade",     cmCascade,        kbNoKey) +
@@ -206,8 +230,6 @@ TMenuBar* JediApplication::initMenuBar(TRect bounds)
       *new TMenuItem("~N~ext",        cmNext,           kbF6,      hcNoContext, "F6") +
       *new TMenuItem("~P~revious",    cmPrev,           kbShiftF6, hcNoContext, "Shift-F6") +
       *new TMenuItem("~L~ist...",     cmJournalWindows, kbAlt0,    hcNoContext, "Alt-0") +
-      *new TMenuItem("Wa~t~ches",     cmJournalWatches, kbF12,     hcNoContext, "F12") +
-      *new TMenuItem("C~o~nsole",     cmJournalConsole, kbNoKey) +
       *new TMenuItem("Shado~w~s...",  cmJournalShadows, kbNoKey) +
       *new TMenuItem("~C~lose",       cmClose,          kbAltF3,   hcNoContext, "Alt-F3") +
     *new TSubMenu("~H~elp", kbAltH) +
@@ -215,7 +237,9 @@ TMenuBar* JediApplication::initMenuBar(TRect bounds)
 #ifdef USE_UPDATE
       *new TMenuItem("Check for ~u~pdates", cmJournalUpdate, kbNoKey) +
 #endif
-      *new TMenuItem("~A~bout",             cmJournalAbout,  kbNoKey));
+      *new TMenuItem("~A~bout",             cmJournalAbout,  kbNoKey);
+
+  return new TMenuBar(bounds, menu);
 }
 
 void JediApplication::getEvent(TEvent& event)
@@ -299,6 +323,18 @@ void JediApplication::handleEvent(TEvent& event)
     JournalWindowRequest* request = static_cast<JournalWindowRequest*>(event.message.infoPtr);
 
     request->view = open(*request->filter)->view;
+    clearEvent(event);
+    return;
+  }
+
+  if ((event.what            == evCommand) &&
+      (event.message.command >= cmJournalMenu) &&
+      (event.message.command <  cmJournalMenu + PLUGIN_MENU_LIMIT))
+  {
+    // An item of the Plugins menu runs in the window of the journal on top, the windows of watches and timelines left
+    // aside, or with the filter of the start when there is none
+    current = static_cast<JournalWindow*>(deskTop->firstThat([] (TView* view, void*) -> Boolean { return dynamic_cast<JournalWindow*>(view) != nullptr; }, nullptr));
+    RunPluginMenu(event.message.command - cmJournalMenu, (current != nullptr) ? current->view : nullptr, filter);
     clearEvent(event);
     return;
   }
@@ -916,12 +952,13 @@ void JediApplication::showHelp()
     "  F12             Watches of plugins: Enter shows the lines of one, Delete or",
     "                  Backspace removes it, U turns their times to UTC and back;",
     "                  Watch 1/3 * in the status line tells about new lines",
+    "  Alt-P           Plugins menu: Watches; Console, print() and log() of plugins, their",
+    "                  errors, the problems of the start and calls of D-Bus, a watch of F12",
+    "                  that stays; then what the plugins do without an entry, such as a search",
     "  F5, Ctrl-F5     Zoom, size or move the window",
     "  F9              Tile the windows",
     "  Alt-F3          Close the window",
-    "  Window menu     Shadows of every window and dialog: off, light, medium or dark;",
-    "                  Console: print() and log() of plugins, their errors, the problems",
-    "                  of the start and calls of D-Bus, a watch of F12 that stays",
+    "  Window menu     Shadows of every window and dialog: off, light, medium or dark",
     "  Ctrl-O, Ctrl-S  Open, save the layout of all windows",
     "",
     "Filter of the window, the journal applies it when asked",

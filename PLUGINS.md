@@ -10,6 +10,9 @@ line; Journal → Actions... is in the menu bar. A plain A opens it as well, as 
 F11 for itself and has no Alt unless Option is set to be Meta. Every item shows the plugin it comes from on its right, the items of two
 plugins are parted by a line.
 
+What a plugin does without an entry, a search by an identifier the user types for one, goes to the Plugins menu of the
+menu bar, Alt-P, see [The Plugins menu](#the-plugins-menu).
+
 ## Where plugins are
 
 | Directory | |
@@ -144,6 +147,26 @@ Adds an item: the title, the function to call when it is chosen and the argument
 - A title is cut to fit the screen. A menu holds up to 100 items.
 - Called anywhere but in a handler, it is an error.
 
+### The Plugins menu
+
+`on('menu', title, func, ...)` adds an item to the Plugins menu of the menu bar, Alt-P, when the plugin is loaded: what
+it does without an entry, a search by an identifier the user types, a list of what a service has now. The items go
+under Watches and Console in the order of the plugins, each with its plugin on its right, a line before the items of
+every plugin, up to 100 of them; a title is cut to fit the screen, `~` marks a hot key as in `menu:add`.
+
+The chosen item calls `func(context, ...)` with the values given after the function, and runs as an action of the
+Actions menu does: dialogs, commands, `query`, `open`, `watch`. Its window is the window of the journal on top, windows of
+watches and timelines left aside, and `context` is of that window as in a handler, `marked` and `selected` included. With
+no window of the journal open, `context` is of the filter TurboJedi has been started with and `open` and `query` start
+from it; `find`, `seek` and `mark` give `nil` and the reason then.
+
+```lua
+turbojedi.on('menu', 'Journal of a ~u~nit...', function(context)
+  local unit = turbojedi.input('Unit', '')
+  if unit then turbojedi.open { matches = { _SYSTEMD_UNIT = unit } } end
+end)
+```
+
 ## Functions
 
 All of them are in the table `turbojedi`. Arguments of a command are a list, `{ 'systemctl', 'status', unit }`: the
@@ -152,10 +175,10 @@ argument whatever it holds, no shell sees it.
 
 | Function | When | |
 |---|---|---|
-| `on(event, ...)` | loading | what the plugin is called for: `on('actions', func)` a handler of the Actions menu, `func(entry, menu, context)`; `on('restore', func)` gets back the watches of the plugin a layout has kept, `func(context, position)` for each; `on('invoke', name, func)` a method for `Invoke()` of D-Bus, `func(values)` with the values of the caller as a table, the table it returns is the answer; see below |
+| `on(event, ...)` | loading | what the plugin is called for: `on('actions', func)` a handler of the Actions menu, `func(entry, menu, context)`; `on('menu', title, func, ...)` an item of the Plugins menu, `func(context, ...)`; `on('restore', func)` gets back the watches of the plugin a layout has kept, `func(context, position)` for each; `on('invoke', name, func)` a method for `Invoke()` of D-Bus, `func(values)` with the values of the caller as a table, the table it returns is the answer; see below |
 | `settings(name, text)` | any time | a file of the plugin of its own among the settings TurboJedi writes, `~/.config/turbojedi/name`, under `sudo` the one of the user of sudo, read and written as that user. Without the text, its text or `nil`; with it, the file replaced whole: `true`, or `nil` and why. A name of letters, digits, dots, dashes and underscores; `update.conf`, `screen.conf`, `clipboard.conf`, `allow.conf` and `last.jedi` are the ones of TurboJedi itself, so a plugin names its file after itself, and a file several plugins share after what they share. For what a plugin remembers of the user, the addresses Arrakis may send to for one |
 | `append(path, text)` | any time | the text at the end of a file of the process alone: made with 0600, never through a link, refused when it is another's or open to others; `true`, or `nil` and why. For what a plugin keeps of the journal |
-| `log(text, options)` | any time | a line of the console, Window → Console, with the name of the plugin; `{ problem = true }` leaves it unread, the status line tells it. `print()` writes there too, as a quiet line |
+| `log(text, options)` | any time | a line of the console, Plugins → Console, with the name of the plugin; `{ problem = true }` leaves it unread, the status line tells it. `print()` writes there too, as a quiet line |
 | `message(text, title, options)` | action, callback | a text with OK, a long one in a window to scroll; the title is "Message" without one. `{ input = prompt }` puts a line to type into under the text, with Ask, Copy and Close: the line typed, or `nil` by Close, Esc or an empty line. Up, Down, PgUp and PgDn scroll the text while the line has the cursor, Copy puts the whole text to the clipboard as it has been given |
 | `confirm(text)` | action, callback | Yes or No: `true` or `false`. No is the default one, Esc is No |
 | `input(prompt, value)` | action, callback | a line to edit, starting with the value: the line, or `nil` when cancelled |
@@ -199,9 +222,10 @@ The functions tell two kinds of trouble apart, the way `io.open` of Lua does:
 | `execute` | `how` is `'error'` and `code` the reason when the command has not started; `'timeout'` or `'cancel'` when it has been stopped |
 | `fetch` | `nil, how, text`; an answer of 404 or 500 is an answer, its code tells it |
 | `dbus`, `services` | `nil, name, text`: the name of the error of D-Bus, `'cancel'` for Cancel |
-| `find` | `false` when nothing more is found |
+| `find` | `false` when nothing more is found; `nil` and the reason in an item of the Plugins menu with no window of the journal |
+| `seek` | `nil` and the reason in an item of the Plugins menu with no window of the journal, `true` otherwise |
 | `query` | the entries read, and why the reading has stopped: `'limit'`, `'scan'`, `'time'` or `'cancel'` |
-| `mark` | the count marked, fewer than given when some are not in the window; in a callback of a watch without a window, `nil` and the reason |
+| `mark` | the count marked, fewer than given when some are not in the window; in a callback of a watch without a window, or in an item of the Plugins menu with no window of the journal, `nil` and the reason |
 | `watch:follow` | `nil` and the reason when its journal cannot be opened |
 
 An error raised goes to the window of the plugins with the name of the plugin and the place in it:
@@ -735,13 +759,13 @@ name, and why one has failed. The plugins of the package tell their own reason a
 installed`, `no arrakis.conf`, the file and the service Arrakis talks to; a plugin of your own does well to tell its
 own too, by `log()`.
 
-It is a watch of TurboJedi itself, `turbojedi` with the key `console`: Window → Console or F12 shows it, `ListWatches()`
+It is a watch of TurboJedi itself, `turbojedi` with the key `console`: Plugins → Console or F12 shows it, `ListWatches()`
 and `GetWatchLines()` of D-Bus read it, a layout keeps the window of its lines. Nobody removes it, F8 in its lines
 clears them. `turbojedi` is no name for a plugin: a file of that name is left out.
 
 ## Watches
 
-A watch is a line in the list of watches, F12 or Window → Watches, with a status the plugin tells and lines it adds:
+A watch is a line in the list of watches, F12 or Plugins → Watches, with a status the plugin tells and lines it adds:
 the console above is one. The status line says `Watch 2/5 *` while there are any: two of five watches have lines not
 read yet, the star stays until the list has been looked at. A click on it opens the list.
 

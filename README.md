@@ -294,6 +294,7 @@ window to the time of the selected line, and a layout keeps their directories fo
 | Up, Down, PgUp, PgDn, Home, End | move the cursor, it starts on the newest line of the screen; on the newest line the window follows, anywhere else it pauses |
 | Enter, double click | details of the entry under the cursor, Enter on a field there opens a window with it added to the filter |
 | Alt-F10, A, F11, Shift-F10, right click | actions of the plugins for the entry under the cursor, see [PLUGINS.md](PLUGINS.md); A is for Terminal of macOS, which keeps F10 and F11 for itself |
+| Alt-P | the Plugins menu: the watches, the console, and what the plugins do without an entry, such as a search by an identifier |
 | Space | pause or follow, also a click on ► or ‖ in the title |
 | Shift+arrows, mouse | select lines from the cursor, Esc drops the selection and the marks, the cursor stays |
 | M, Insert | begin marking from the cursor, the keys mark the lines they pass; M again ends it and they stay marked, so lines apart are marked one stroke after another. Begun on a marked line it takes the marks off instead. No Shift is needed, which Terminal of macOS and some others keep for themselves |
@@ -303,7 +304,7 @@ window to the time of the selected line, and a layout keeps their directories fo
 | F8 | clear the window |
 | Ctrl-O, Ctrl-S | open, save a layout; both start at the layout opened or saved last, Save offers its file again |
 | F5, Ctrl-F5, F6, F9, Alt-F3 | zoom, size, next, tile, close |
-| Window → Console | the console of TurboJedi: `print()` and `log()` of the plugins, their errors, the problems of the start and what callers of D-Bus have done, a problem left unread; a watch of its own in F12 that stays, F8 in its lines clears them |
+| Plugins → Console | the console of TurboJedi: `print()` and `log()` of the plugins, their errors, the problems of the start and what callers of D-Bus have done, a problem left unread; a watch of its own in F12 that stays, F8 in its lines clears them |
 | Window → Shadows | of every window and dialog: off, light, medium as Turbo Vision has them, or dark; kept in `$XDG_CONFIG_HOME/turbojedi/screen.conf` whatever layout comes, under `sudo` the one of your home, written as you |
 | Alt-0 | list of the windows to go to, the one used before is under the cursor |
 | F12 | watches of plugins with their status, Enter shows the lines of one, Delete or Backspace removes it, U turns their times to UTC and back |
