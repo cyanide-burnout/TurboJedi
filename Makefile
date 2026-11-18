@@ -7,11 +7,16 @@ PREFIX      := $(DESTDIR)/usr/local
 # Components of the sources, each in a folder of its own: a header is included by its name alone from any of them
 DIRECTORIES := Main Journal Timeline Dialog Script Service
 
-# A clone made without --recursive, or pulled since a submodule has come, takes the submodules at the first make; an
-# archive without git has to bring them
-ifneq ($(wildcard .git),)
+# A clone made without --recursive, or pulled since a submodule has come, takes the submodules at the first make that
+# builds, clean takes none; an archive without git has to bring them
 ifeq ($(and $(wildcard $(TURBOVISION)/CMakeLists.txt),$(wildcard $(LUACJSON)/lua_cjson.c)),)
-$(shell git submodule update --init >&2)
+ifneq ($(filter-out clean,$(or $(MAKECMDGOALS),all)),)
+ifeq ($(wildcard .git),)
+$(error $(TURBOVISION) and $(LUACJSON) are needed: a clone made with --recursive has them, an archive of GitHub has not)
+endif
+ifneq ($(shell git submodule update --init >&2 && echo done),done)
+$(error git submodule update --init has failed: $(TURBOVISION) and $(LUACJSON) are needed to build)
+endif
 endif
 endif
 
