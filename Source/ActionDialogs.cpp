@@ -442,7 +442,9 @@ int AskActionChoice(const std::string& title, const std::vector<std::string>& it
   ChoiceDialog* dialog;
 
   desktop = TProgram::deskTop->getExtent();
-  width   = std::max(40, strwidth(title) + 8);
+  // The frame shows a title of up to its width less 10 in the middle, clear of the close box on the left: a session or a
+  // context with its UUID is named whole
+  width   = std::max(40, strwidth(title) + 14);
 
   for (const std::string& item : items)
   {
