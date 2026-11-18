@@ -61,7 +61,7 @@ extern "C"
 #include <algorithm>
 
 #define PHASE_ANY     -1
-
+#define PHASE_IDLE    0
 #define PHASE_LOAD    1  // The files run, handlers are registered
 #define PHASE_MENU    2  // Handlers add items to the menu
 #define PHASE_ACTION  4  // The chosen item runs
@@ -75,7 +75,13 @@ extern "C"
 
 #define FETCH_STEP         20      // Milliseconds it is waited for between the events of its dialog
 
+#define WATCHER   "TurboJedi.watch"    // Of watch()
+
 #define DBUS      "TurboJedi.dbus"
+
+#define RESTORERS "TurboJedi.restorers" // Functions of on('restore') by the names of their plugins
+
+#define ACTIONS   "TurboJedi.actions"   // Tables of the actions of the lines of a watch by its number, by the numbers of the lines
 
 // A descriptor a plugin watches, a timer it has set: the callback in the registry of Lua, the plugin for its errors; pending
 // when it is due and waits for no dialog being open
@@ -114,12 +120,25 @@ typedef int (*Body)(lua_State* state);
 extern lua_State* state;
 extern int phase;
 extern std::string plugin;  // Name of the plugin being loaded
+extern JournalView* origin; // Window the menu has been opened in, for open(), find(), seek() and query(); of the watch in its callbacks
 extern int64_t deadline;    // Of the queries of the handlers making the menu, shared by all of them
 extern std::map<int, Request> invocations;  // Calls of dbus() with a callback, their calls go by the same number
+extern std::map<int, std::unique_ptr<JournalWatch>> journals;  // Of watch(), by the same numbers
+extern int watching;      // The watch whose callback runs, zero outside
+extern int dispatching;   // Rounds of events going on, nested by the dialogs of callbacks
+extern bool changed;      // Watches have changed, their windows and the status line are told
+extern bool universal;      // Times of the watches and of date() are of UTC, not of the local zone
 extern int serial;
 
 int Fail(lua_State* state, const char* format, ...);
+int Trace(lua_State* state);
+std::string GetError(lua_State* state);
+bool GetString(lua_State* state, int index, std::string& value);
 bool GetOption(lua_State* state, int index, const char* name, std::string& value);
+bool GetFlag(lua_State* state, int index, const char* name);
+bool MakeFilter(lua_State* state, int index, const JournalFilter& base, JournalFilter& filter, std::string& error);
+JournalWatch* FindJournalWatch(int number);
+JournalView* OpenWatchWindow(JournalWatch* watch);
 int KeepCallback(lua_State* state, int function, int first);
 void PushHandle(lua_State* state, int number, const char* kind);
 int GetHandle(lua_State* state);
@@ -129,7 +148,21 @@ int PushDBusAnswer(lua_State* state, sd_bus_message* reply, const JediDBusError&
 int CallDBus(lua_State* state);
 int CancelInvocation(lua_State* state);
 int ListServices(lua_State* state);
+int AddJournalWatch(lua_State* state);
+int FollowWatch(lua_State* state);
+int SetWatchStatus(lua_State* state);
+int AddWatchLine(lua_State* state);
+int DeleteWatchLine(lua_State* state);
+int SetWatchContext(lua_State* state);
+int ClearWatchLines(lua_State* state);
+int RemoveJournalWatch(lua_State* state);
+void CollectJournalWatches();
+void PushEntry(lua_State* state, const std::vector<std::pair<std::string, std::string>>& fields);
 std::string Fit(std::string title, int width);
+void ShowErrors(const std::vector<std::string>& errors);
+void OpenConsole();
+std::vector<int> RoundJournalWatches();
+void DispatchJournalWatches(std::vector<std::string>& errors);
 
 template <Body body, int needed> static int Call(lua_State* state)
 {

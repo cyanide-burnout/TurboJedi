@@ -90,6 +90,7 @@ OBJECTS := \
 	$(SOURCE)/DirectoryDialog.o \
 	$(SOURCE)/JediScript.o \
 	$(SOURCE)/ScriptDBus.o \
+	$(SOURCE)/ScriptWatch.o \
 	$(SOURCE)/JediProcess.o \
 	$(SOURCE)/JediFetch.o \
 	$(SOURCE)/JediDBus.o \
@@ -137,7 +138,7 @@ $(SOURCE)/Version.h: FORCE
 	@printf '#define VERSION "%s"\n#define BUILT_FOR "%s"\n#define REPOSITORY "%s"\n' '$(VERSION)' '$(TARGET)' '$(REPOSITORY)' | cmp -s - $@ || \
 	 printf '#define VERSION "%s"\n#define BUILT_FOR "%s"\n#define REPOSITORY "%s"\n' '$(VERSION)' '$(TARGET)' '$(REPOSITORY)' > $@
 
-$(SOURCE)/TurboJedi.o $(SOURCE)/JediApplication.o $(SOURCE)/JediUpdate.o $(SOURCE)/JediFetch.o $(SOURCE)/JediScript.o $(SOURCE)/ScriptDBus.o $(SOURCE)/JediService.o: $(SOURCE)/Version.h
+$(SOURCE)/TurboJedi.o $(SOURCE)/JediApplication.o $(SOURCE)/JediUpdate.o $(SOURCE)/JediFetch.o $(SOURCE)/JediScript.o $(SOURCE)/ScriptDBus.o $(SOURCE)/ScriptWatch.o $(SOURCE)/JediService.o: $(SOURCE)/Version.h
 
 # Internal headers of Turbo Vision include each other from there, only the event source needs them
 $(SOURCE)/JournalSource.o: CXXFLAGS += -I$(TURBOVISION)/include/tvision
