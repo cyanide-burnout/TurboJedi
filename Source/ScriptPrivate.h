@@ -123,7 +123,9 @@ extern lua_State* state;
 extern int phase;
 extern std::string plugin;  // Name of the plugin being loaded
 extern JournalView* origin; // Window the menu has been opened in, for open(), find(), seek() and query(); of the watch in its callbacks
+extern const JournalFilter* basis;  // What open() and query() of an item of the Plugins menu start from when no window is open
 extern int64_t deadline;    // Of the queries of the handlers making the menu, shared by all of them
+extern size_t budget;       // Entries they may look at yet
 extern std::map<int, Watch> watches;
 extern std::map<int, Timer> timers;
 extern std::map<int, Request> requests;
@@ -143,12 +145,22 @@ bool GetString(lua_State* state, int index, std::string& value);
 bool GetArguments(lua_State* state, int index, std::vector<std::string>& arguments);
 int LogText(lua_State* state);
 int AppendText(lua_State* state);
+int ShowMessage(lua_State* state);
+int AskConfirm(lua_State* state);
+int AskInput(lua_State* state);
+int AskChoice(lua_State* state);
+int Copy(lua_State* state);
 int Execute(lua_State* state);
 bool GetOption(lua_State* state, int index, const char* name, std::string& value);
 bool GetFlag(lua_State* state, int index, const char* name);
 bool MakeFilter(lua_State* state, int index, const JournalFilter& base, JournalFilter& filter, std::string& error);
+int Open(lua_State* state);
+int Query(lua_State* state);
+int Find(lua_State* state);
+int Seek(lua_State* state);
 JournalWatch* FindJournalWatch(int number);
 JournalView* OpenWatchWindow(JournalWatch* watch);
+int Mark(lua_State* state);
 int Quote(lua_State* state);
 int Match(lua_State* state);
 int Matches(lua_State* state);
