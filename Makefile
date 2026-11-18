@@ -7,6 +7,14 @@ PREFIX      := $(DESTDIR)/usr/local
 # Components of the sources, each in a folder of its own: a header is included by its name alone from any of them
 DIRECTORIES := Main Journal Timeline Dialog Script Service
 
+# A clone made without --recursive, or pulled since a submodule has come, takes the submodules at the first make; an
+# archive without git has to bring them
+ifneq ($(wildcard .git),)
+ifeq ($(and $(wildcard $(TURBOVISION)/CMakeLists.txt),$(wildcard $(LUACJSON)/lua_cjson.c)),)
+$(shell git submodule update --init >&2)
+endif
+endif
+
 # A clone tells by git, an archive of git has VERSION filled in, anything else is unknown
 VERSION := $(if $(wildcard .git),$(shell git describe --tags --always --dirty 2>/dev/null))
 VERSION := $(or $(VERSION),$(shell grep -v '^\$$Format' VERSION 2>/dev/null),unknown)
