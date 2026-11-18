@@ -565,24 +565,21 @@ local code = turbojedi.fetch {
 ```
 
 A header with an empty text takes out the one libcurl would send, such as `Accept`. A value of the entry put into JSON
-by hand has to have its quotes, backslashes and control characters escaped: `json()` of `100-chat.lua` does it.
+has to have its quotes, backslashes and control characters escaped: `cjson.encode` does it, see below.
 
-**Read JSON.** Lua has no JSON of its own; a module does it, such as `lua-cjson` where the distribution has it for
-Lua 5.4. `pcall(require, ...)` keeps the plugin working without it:
+**JSON.** TurboJedi has lua-cjson of OpenResty built in: `require('cjson')` gives it to every plugin whatever the
+distribution has, and `require('cjson.safe')` the same functions that give `nil` and the error instead of raising it,
+for an answer that may not be JSON:
 
 ```lua
-local found, cjson = pcall(require, 'cjson')
+local json = require('cjson.safe')
 
 menu:add('Who is ' .. address, function()
   local code, body = turbojedi.fetch('https://ipinfo.io/' .. address .. '/json')
   if code ~= 200 then return end
 
-  if found then
-    local info = cjson.decode(body)
-    turbojedi.message(('%s: %s, %s'):format(address, info.org or '?', info.country or '?'))
-  else
-    turbojedi.message(body)
-  end
+  local info = json.decode(body) or { }
+  turbojedi.message(('%s: %s, %s'):format(address, info.org or '?', info.country or '?'))
 end)
 ```
 

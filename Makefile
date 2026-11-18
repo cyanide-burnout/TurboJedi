@@ -1,6 +1,7 @@
 EXECUTABLE  := turbojedi
 SOURCE      := Source
 TURBOVISION := Import/tvision
+LUACJSON    := Import/lua-cjson
 PREFIX      := $(DESTDIR)/usr/local
 
 # Components of the sources, each in a folder of its own: a header is included by its name alone from any of them
@@ -113,6 +114,10 @@ ifneq ($(REPOSITORY), )
 	FLAGS   += -DUSE_UPDATE
 endif
 
+# JSON for the plugins, require('cjson') of every one of them whatever the distribution has: lua-cjson of OpenResty,
+# built with TurboJedi for its Lua
+OBJECTS += $(LUACJSON)/lua_cjson.o $(LUACJSON)/strbuf.o $(LUACJSON)/fpconv.o
+
 # The linker takes from an archive only what the objects in front of it need, it goes after all of them
 OBJECTS += $(TURBOVISION)/build/libtvision.a
 
@@ -127,6 +132,7 @@ LIBS := \
 	$(shell $(PKG_CONFIG) --libs $(DEPENDENCIES))
 
 CXXFLAGS += $(FLAGS) -std=gnu++17
+CFLAGS   += $(FLAGS)
 
 # Libraries tvision has found on its own, told once it is configured: libgpm for the mouse of the Linux console
 EXTRA = $(if $(shell grep -s '^GPM:FILEPATH=/' $(TURBOVISION)/build/CMakeCache.txt),-lgpm)

@@ -37,6 +37,10 @@ extern "C"
 #include <lualib.h>
 }
 
+// lua-cjson of Import, built with TurboJedi
+extern "C" int luaopen_cjson(lua_State* state);
+extern "C" int luaopen_cjson_safe(lua_State* state);
+
 #if LUA_VERSION_NUM != 504
 #error "Plugins are written for Lua 5.4"
 #endif

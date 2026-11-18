@@ -39,8 +39,7 @@
 --
 -- An address of another machine is asked about before the first request goes there, the entries leave the machine then;
 -- a yes is kept in ~/.config/turbojedi/arrakis-trusted.txt, under sudo of the user of sudo, and holds while the url stays.
--- JSON is lua-cjson for Lua 5.4: lua-cjson of Debian and Ubuntu, lua54-cjson of openSUSE; elsewhere
--- luarocks --lua-version 5.4 install lua-cjson
+-- JSON is lua-cjson of OpenResty, built into TurboJedi.
 
 local SYSTEM  = '/etc/turbojedi/arrakis.conf'
 local CONTEXT = 30      -- Entries before a single one, of its unit or identifier, to tell the model what has led to it
@@ -133,20 +132,13 @@ local function load()
 end
 
 -- Off without settings, or with settings or a module that cannot be taken
+local cjson = require('cjson')
+
 local loaded, settings = pcall(load)
 local failure = (not loaded) and settings or nil
-local cjson
 
 if failure then
   settings = nil
-elseif settings then
-  loaded, cjson = pcall(require, 'cjson')
-
-  if not loaded then
-    failure  = 'lua-cjson for Lua 5.4 is needed: lua-cjson of Debian and Ubuntu, lua54-cjson of openSUSE; ' ..
-               'elsewhere luarocks --lua-version 5.4 install lua-cjson'
-    settings = nil
-  end
 end
 
 -- The host of the address, and whether it is this machine: another one is asked about once, and an address the user

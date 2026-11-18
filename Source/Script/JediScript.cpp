@@ -740,6 +740,14 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
 
   luaL_openlibs(state);
 
+  // JSON of lua-cjson built in, the module a plugin requires is this one whether the distribution has one or not
+  luaL_getsubtable(state, LUA_REGISTRYINDEX, LUA_PRELOAD_TABLE);
+  lua_pushcfunction(state, luaopen_cjson);
+  lua_setfield(state, -2, "cjson");
+  lua_pushcfunction(state, luaopen_cjson_safe);
+  lua_setfield(state, -2, "cjson.safe");
+  lua_pop(state, 1);
+
   // print() of the plugins goes to the console, the screen belongs to Turbo Vision
   lua_pushcfunction(state, PrintConsole);
   lua_setglobal(state, "print");

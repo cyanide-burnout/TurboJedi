@@ -26,6 +26,7 @@ package() {
   make install PREFIX="${pkgdir}/usr"
   install -D -m 644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
   install -D -m 644 Import/tvision/COPYRIGHT "${pkgdir}/usr/share/licenses/${pkgname}/tvision-COPYRIGHT"
+  install -D -m 644 Import/lua-cjson/LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/lua-cjson-LICENSE"
   install -D -m 644 README.md "${pkgdir}/usr/share/doc/${pkgname}/README.md"
   install -D -m 644 CHANGELOG.md "${pkgdir}/usr/share/doc/${pkgname}/CHANGELOG.md"
   install -D -m 644 PLUGINS.md "${pkgdir}/usr/share/doc/${pkgname}/PLUGINS.md"

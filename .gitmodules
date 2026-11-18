@@ -1,3 +1,6 @@
 [submodule "Import/tvision"]
 	path = Import/tvision
 	url = https://github.com/magiblot/tvision.git
+[submodule "Import/lua-cjson"]
+	path = Import/lua-cjson
+	url = https://github.com/openresty/lua-cjson.git

@@ -516,9 +516,7 @@ model = system
 The forwarded port is open to every user of the server while you are logged in: they cannot read anything through it,
 but they could ask your Mac too.
 
-The plugin needs lua-cjson for Lua 5.4: `lua-cjson` of Debian and Ubuntu and `lua54-cjson` of openSUSE come with the
-package as recommended ones; Fedora, EL9, Amazon Linux and Arch have none, `luarocks --lua-version 5.4 install
-lua-cjson` builds it there. Without it a file of Arrakis is told about at start and the plugin offers nothing.
+JSON is lua-cjson of OpenResty, built into TurboJedi: the plugin needs nothing of the distribution.
 
 ## Last layout
 
