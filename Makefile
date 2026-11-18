@@ -3,6 +3,9 @@ SOURCE      := Source
 TURBOVISION := Import/tvision
 PREFIX      := $(DESTDIR)/usr/local
 
+# Components of the sources, each in a folder of its own: a header is included by its name alone from any of them
+DIRECTORIES := Main Journal Timeline Dialog Script Service
+
 # A clone tells by git, an archive of git has VERSION filled in, anything else is unknown
 VERSION := $(if $(wildcard .git),$(shell git describe --tags --always --dirty 2>/dev/null))
 VERSION := $(or $(VERSION),$(shell grep -v '^\$$Format' VERSION 2>/dev/null),unknown)
@@ -56,57 +59,57 @@ DEPENDENCIES := \
 	$(LUA)
 
 OBJECTS := \
-	$(SOURCE)/TurboJedi.o \
-	$(SOURCE)/JediApplication.o \
-	$(SOURCE)/JediStatusLine.o \
-	$(SOURCE)/JediClock.o \
-	$(SOURCE)/JediClipboard.o \
-	$(SOURCE)/JournalView.o \
-	$(SOURCE)/JournalSource.o \
-	$(SOURCE)/JournalWindow.o \
-	$(SOURCE)/JournalHeader.o \
-	$(SOURCE)/TimelineView.o \
-	$(SOURCE)/TimelineWindow.o \
-	$(SOURCE)/JournalTools.o \
-	$(SOURCE)/JournalLayout.o \
-	$(SOURCE)/JediSettings.o \
-	$(SOURCE)/JediShadow.o \
-	$(SOURCE)/SourceDialog.o \
-	$(SOURCE)/PickDialog.o \
-	$(SOURCE)/WindowsDialog.o \
-	$(SOURCE)/TimeDialog.o \
-	$(SOURCE)/TimePickDialog.o \
-	$(SOURCE)/CalendarView.o \
-	$(SOURCE)/PageView.o \
-	$(SOURCE)/PageDialog.o \
-	$(SOURCE)/JournalExpression.o \
-	$(SOURCE)/JournalHighlighter.o \
-	$(SOURCE)/JournalTinter.o \
-	$(SOURCE)/JournalMatcher.o \
-	$(SOURCE)/TextDialog.o \
-	$(SOURCE)/LevelsDialog.o \
-	$(SOURCE)/ColumnsDialog.o \
-	$(SOURCE)/JournalsDialog.o \
-	$(SOURCE)/DirectoryDialog.o \
-	$(SOURCE)/JediScript.o \
-	$(SOURCE)/ScriptDBus.o \
-	$(SOURCE)/ScriptWatch.o \
-	$(SOURCE)/ScriptEvent.o \
-	$(SOURCE)/ScriptCommand.o \
-	$(SOURCE)/ScriptWindow.o \
-	$(SOURCE)/JediProcess.o \
-	$(SOURCE)/JediFetch.o \
-	$(SOURCE)/JediDBus.o \
-	$(SOURCE)/JournalQuery.o \
-	$(SOURCE)/JournalWatch.o \
-	$(SOURCE)/WatchWindow.o \
-	$(SOURCE)/ScriptNotation.o \
-	$(SOURCE)/JediService.o \
-	$(SOURCE)/ActionDialogs.o
+	$(SOURCE)/Main/TurboJedi.o \
+	$(SOURCE)/Main/JediApplication.o \
+	$(SOURCE)/Main/JediStatusLine.o \
+	$(SOURCE)/Main/JediClock.o \
+	$(SOURCE)/Main/JediClipboard.o \
+	$(SOURCE)/Journal/JournalView.o \
+	$(SOURCE)/Journal/JournalSource.o \
+	$(SOURCE)/Journal/JournalWindow.o \
+	$(SOURCE)/Journal/JournalHeader.o \
+	$(SOURCE)/Timeline/TimelineView.o \
+	$(SOURCE)/Timeline/TimelineWindow.o \
+	$(SOURCE)/Journal/JournalTools.o \
+	$(SOURCE)/Journal/JournalLayout.o \
+	$(SOURCE)/Main/JediSettings.o \
+	$(SOURCE)/Main/JediShadow.o \
+	$(SOURCE)/Dialog/SourceDialog.o \
+	$(SOURCE)/Dialog/PickDialog.o \
+	$(SOURCE)/Dialog/WindowsDialog.o \
+	$(SOURCE)/Dialog/TimeDialog.o \
+	$(SOURCE)/Dialog/TimePickDialog.o \
+	$(SOURCE)/Dialog/CalendarView.o \
+	$(SOURCE)/Dialog/PageView.o \
+	$(SOURCE)/Dialog/PageDialog.o \
+	$(SOURCE)/Journal/JournalExpression.o \
+	$(SOURCE)/Journal/JournalHighlighter.o \
+	$(SOURCE)/Journal/JournalTinter.o \
+	$(SOURCE)/Journal/JournalMatcher.o \
+	$(SOURCE)/Dialog/TextDialog.o \
+	$(SOURCE)/Dialog/LevelsDialog.o \
+	$(SOURCE)/Dialog/ColumnsDialog.o \
+	$(SOURCE)/Dialog/JournalsDialog.o \
+	$(SOURCE)/Dialog/DirectoryDialog.o \
+	$(SOURCE)/Script/JediScript.o \
+	$(SOURCE)/Script/ScriptDBus.o \
+	$(SOURCE)/Script/ScriptWatch.o \
+	$(SOURCE)/Script/ScriptEvent.o \
+	$(SOURCE)/Script/ScriptCommand.o \
+	$(SOURCE)/Script/ScriptWindow.o \
+	$(SOURCE)/Script/JediProcess.o \
+	$(SOURCE)/Script/JediFetch.o \
+	$(SOURCE)/Script/JediDBus.o \
+	$(SOURCE)/Journal/JournalQuery.o \
+	$(SOURCE)/Journal/JournalWatch.o \
+	$(SOURCE)/Script/WatchWindow.o \
+	$(SOURCE)/Script/ScriptNotation.o \
+	$(SOURCE)/Service/JediService.o \
+	$(SOURCE)/Script/ActionDialogs.o
 
 # The repository lets the Help menu check for a newer release, without it the item is left out
 ifneq ($(REPOSITORY), )
-	OBJECTS += $(SOURCE)/JediUpdate.o $(SOURCE)/UpdateDialog.o
+	OBJECTS += $(SOURCE)/Main/JediUpdate.o $(SOURCE)/Main/UpdateDialog.o
 	FLAGS   += -DUSE_UPDATE
 endif
 
@@ -116,6 +119,7 @@ OBJECTS += $(TURBOVISION)/build/libtvision.a
 FLAGS += \
 	-Wno-unused-result -O2 -flto=auto -MMD -MP -gdwarf \
 	-I$(TURBOVISION)/include \
+	$(foreach directory, $(DIRECTORIES), -I$(SOURCE)/$(directory)) \
 	$(shell $(PKG_CONFIG) --cflags $(DEPENDENCIES))
 
 LIBS := \
@@ -137,14 +141,14 @@ $(TURBOVISION)/build/libtvision.a: FORCE
 	+make -C $(TURBOVISION)/build tvision
 
 # Rewritten only when the version changes, so that only its users are built again
-$(SOURCE)/Version.h: FORCE
+$(SOURCE)/Main/Version.h: FORCE
 	@printf '#define VERSION "%s"\n#define BUILT_FOR "%s"\n#define REPOSITORY "%s"\n' '$(VERSION)' '$(TARGET)' '$(REPOSITORY)' | cmp -s - $@ || \
 	 printf '#define VERSION "%s"\n#define BUILT_FOR "%s"\n#define REPOSITORY "%s"\n' '$(VERSION)' '$(TARGET)' '$(REPOSITORY)' > $@
 
-$(SOURCE)/TurboJedi.o $(SOURCE)/JediApplication.o $(SOURCE)/JediUpdate.o $(SOURCE)/JediFetch.o $(SOURCE)/JediScript.o $(SOURCE)/ScriptDBus.o $(SOURCE)/ScriptWatch.o $(SOURCE)/ScriptEvent.o $(SOURCE)/ScriptCommand.o $(SOURCE)/ScriptWindow.o $(SOURCE)/JediService.o: $(SOURCE)/Version.h
+$(SOURCE)/Main/TurboJedi.o $(SOURCE)/Main/JediApplication.o $(SOURCE)/Main/JediUpdate.o $(SOURCE)/Script/JediFetch.o $(SOURCE)/Script/JediScript.o $(SOURCE)/Script/ScriptDBus.o $(SOURCE)/Script/ScriptWatch.o $(SOURCE)/Script/ScriptEvent.o $(SOURCE)/Script/ScriptCommand.o $(SOURCE)/Script/ScriptWindow.o $(SOURCE)/Service/JediService.o: $(SOURCE)/Main/Version.h
 
 # Internal headers of Turbo Vision include each other from there, only the event source needs them
-$(SOURCE)/JournalSource.o: CXXFLAGS += -I$(TURBOVISION)/include/tvision
+$(SOURCE)/Journal/JournalSource.o: CXXFLAGS += -I$(TURBOVISION)/include/tvision
 
 build: $(OBJECTS)
 	$(CXX) $(OBJECTS) $(FLAGS) $(LDFLAGS) $(LIBS) $(EXTRA) -o $(EXECUTABLE)
@@ -183,7 +187,7 @@ arch:
 	cd arch && TURBOJEDI_VERSION='$(RELEASE)' makepkg -f
 
 clean:
-	rm -f $(wildcard $(filter %.o,$(OBJECTS))) $(wildcard $(filter %.d,$(OBJECTS:.o=.d))) $(EXECUTABLE) $(SOURCE)/Version.h
+	rm -f $(wildcard $(filter %.o,$(OBJECTS))) $(wildcard $(filter %.d,$(OBJECTS:.o=.d))) $(EXECUTABLE) $(SOURCE)/Main/Version.h
 	rm -rf $(TURBOVISION)/build
 
 # A header that has gone or has been renamed is no reason to stop: -MP gives the headers of the dependencies empty rules,
