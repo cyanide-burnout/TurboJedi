@@ -528,8 +528,8 @@ end
 
 turbojedi.on('actions', function(item, menu, context)
   if context.marked then
-    menu:add(('Arrakis: explain %d marked entries'):format(#context.marked), analyze, context.marked)
+    menu:add(('Explain %d marked entries'):format(#context.marked), analyze, context.marked)
   else
-    menu:add('Arrakis: explain this entry', single, item)
+    menu:add('Explain this entry', single, item)
   end
 end)

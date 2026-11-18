@@ -433,8 +433,8 @@ bus, for scripts of your own: [DBUS.md](DBUS.md).
 
 ### Arrakis
 
-On Arrakis they mine the spice; Arrakis of TurboJedi mines the sense of the journal. Mark entries, Actions → Arrakis:
-explain N marked entries, or Arrakis: explain this entry, which takes along the 30 entries of its unit before it. A
+On Arrakis they mine the spice; Arrakis of TurboJedi mines the sense of the journal. Mark entries, Actions →
+Explain N marked entries of arrakis, or Explain this entry, which takes along the 30 entries of its unit before it. A
 language model behind an HTTP API tells what has happened, the likely cause and what to check; the answer comes up
 in a window, stays in a watch "Arrakis N" of F12, and the entries it names are lines there that go to them by Enter.
 The request waits for the answer in a window with the seconds so far and Cancel, the journal windows go on behind it.
