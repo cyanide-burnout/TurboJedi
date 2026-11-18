@@ -199,23 +199,35 @@ static bool AddMatch(JournalFilter& filter, const std::string& field, const std:
 }
 
 // A filter of the options of open(), query() and watch(): the journals, columns and highlighting of a base, the window of the
-// menu for one, the matches, text, times and levels of the options; false and the reason when an option is wrong
+// menu for one, the matches, text, times and levels of the options; false and the reason when an option is wrong. With
+// window = true the whole filter of the base, which the options narrow: matches of other fields go along, the priority
+// keeps the levels both let through, since and until take the place of its times, a text goes where it has none
 bool MakeFilter(lua_State* state, int index, const JournalFilter& base, JournalFilter& filter, std::string& error)
 {
   int top;
   int level;
+  bool window;
   uint64_t stamp;
   size_t equal;
   std::string key;
   std::string value;
 
-  top              = lua_gettop(state);
-  filter           = JournalFilter { };
-  filter.directory = base.directory;
-  filter.merge     = base.merge;
-  filter.columns   = base.columns;
-  filter.highlight = base.highlight;
-  filter.levels    = 0xff;
+  top    = lua_gettop(state);
+  window = GetFlag(state, index, "window");
+
+  if (window)
+  {
+    filter = base;
+  }
+  else
+  {
+    filter           = JournalFilter { };
+    filter.directory = base.directory;
+    filter.merge     = base.merge;
+    filter.columns   = base.columns;
+    filter.highlight = base.highlight;
+    filter.levels    = 0xff;
+  }
 
   lua_pushliteral(state, "matches");
   lua_rawget(state, index);
@@ -272,8 +284,16 @@ bool MakeFilter(lua_State* state, int index, const JournalFilter& base, JournalF
 
   lua_settop(state, top);
 
-  if (GetOption(state, index, "text", filter.text))
+  if (GetOption(state, index, "text", value))
   {
+    if (window && !filter.text.empty())
+    {
+      // A window has one text filter
+      error = "the window has a text filter of its own, window = true takes no other";
+      return false;
+    }
+
+    filter.text = value;
     filter.mode = GetTextMode(state, index);
 
     if ((filter.mode & JOURNAL_TEXT_EXPRESSION) &&
@@ -299,7 +319,7 @@ bool MakeFilter(lua_State* state, int index, const JournalFilter& base, JournalF
       return false;
     }
 
-    filter.levels = (2 << level) - 1;
+    filter.levels = window ? (filter.levels & ((2 << level) - 1)) : ((2 << level) - 1);
   }
 
   return true;

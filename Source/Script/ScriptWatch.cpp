@@ -115,6 +115,12 @@ static int ReadFollow(lua_State* state, int options, const char* name, JournalFi
     return Fail(state, "%s starts at the end of the journal, it takes neither since nor until", name);
   }
 
+  if (GetFlag(state, options, "window"))
+  {
+    // A layout keeps the matches of the watch, not the window it has been made in
+    return Fail(state, "%s follows the matches of its options, it takes no window", name);
+  }
+
   // The place a layout has kept, given by on('restore')
   from = { std::string(), 0 };
   lua_pushliteral(state, "from");
