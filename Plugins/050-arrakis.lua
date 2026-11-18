@@ -5,7 +5,7 @@
 -- Arrakis: entries explained by a language model behind an HTTP API of the format of OpenAI (llama-server, Ollama,
 -- vLLM, colibri, OpenAI) or of Anthropic. On Arrakis they mine the spice, here the sense of the journal. Actions explains
 -- the entry under the cursor or the marked ones; the Plugins menu explains the errors among what the window shows
--- without marking them, and tells the settings in effect, or why Arrakis is off, and asks the service whether it answers.
+-- without marking them, and tells the settings in effect and asks the service whether it answers.
 --
 -- Nothing happens without a file of settings: /etc/turbojedi/arrakis.conf of root for every user, then
 -- ~/.config/turbojedi/arrakis.conf of the user over it; run by sudo, the one of the user of sudo over both, settings and
@@ -101,7 +101,7 @@ local function load()
   if #used == 0 then
     -- Not set up: nothing is offered, nothing is sent anywhere
     turbojedi.log('no ' .. table.concat(paths, ', ') .. ': nothing to offer, nothing sent anywhere')
-    return nil, paths
+    return nil
   end
 
   settings.files = table.concat(used, ', ')
@@ -132,55 +132,44 @@ local function load()
   return settings
 end
 
-local loaded, settings, paths = pcall(load)
+-- Off without settings, or with settings or a module that cannot be taken
+local loaded, settings = pcall(load)
 local failure = (not loaded) and settings or nil
-
--- The items of the Plugins menu are there whether Arrakis works or not: off, they tell why, and settings tells it always
-local show, errors
-
-turbojedi.on('menu', 'Explain the errors of the window', function(context) errors(context) end)
-turbojedi.on('menu', 'Settings', function(context) show(context) end)
-
-show = function()
-  turbojedi.message(failure and ('Arrakis is off: %s'):format(failure) or
-    ('Arrakis is off: there is no %s. It offers nothing and sends nothing anywhere; a file with url of a service and model, ' ..
-     'see the head of 050-arrakis.lua, turns it on once TurboJedi is started again.'):format(table.concat(paths or { SYSTEM }, ' or ')), 'Arrakis')
-end
-
-errors = show
+local cjson
 
 if failure then
-  error(failure, 0)
-end
+  settings = nil
+elseif settings then
+  loaded, cjson = pcall(require, 'cjson')
 
-if not settings then
-  return
-end
-
-local found, cjson = pcall(require, 'cjson')
-
-if not found then
-  failure = 'lua-cjson for Lua 5.4 is needed: lua-cjson of Debian and Ubuntu, lua54-cjson of openSUSE; ' ..
-            'elsewhere luarocks --lua-version 5.4 install lua-cjson'
-  error(failure)
+  if not loaded then
+    failure  = 'lua-cjson for Lua 5.4 is needed: lua-cjson of Debian and Ubuntu, lua54-cjson of openSUSE; ' ..
+               'elsewhere luarocks --lua-version 5.4 install lua-cjson'
+    settings = nil
+  end
 end
 
 -- The host of the address, and whether it is this machine: another one is asked about once, and an address the user
 -- has said yes to is kept in arrakis-trusted.txt among the settings of TurboJedi, a url a line, until it changes; under
 -- sudo the file of the user of sudo, whose arrakis.conf tells the url
-local host    = settings.url:match('^https?://%[([^%]]+)%]') or settings.url:match('^https?://([^/:]+)') or '?'
 local TRUSTED = 'arrakis-trusted.txt'
-local trusted = (host == 'localhost') or (host == '::1') or (host:match('^127%.%d+%.%d+%.%d+$') ~= nil)
+local host
+local trusted
 
-if not trusted then
-  for line in (turbojedi.settings(TRUSTED) or ''):gmatch('[^\n]+') do
-    if line:match('^%s*(.-)%s*$') == settings.url then trusted = true end
+if settings then
+  host    = settings.url:match('^https?://%[([^%]]+)%]') or settings.url:match('^https?://([^/:]+)') or '?'
+  trusted = (host == 'localhost') or (host == '::1') or (host:match('^127%.%d+%.%d+%.%d+$') ~= nil)
+
+  if not trusted then
+    for line in (turbojedi.settings(TRUSTED) or ''):gmatch('[^\n]+') do
+      if line:match('^%s*(.-)%s*$') == settings.url then trusted = true end
+    end
   end
-end
 
-turbojedi.log(('%s: %s at %s, model %s, answers in %s%s%s%s'):format(settings.files, settings.format, settings.url,
-  settings.model or 'of the server', settings.language, settings.prompt and (', instructions of ' .. settings.prompt) or '',
-  settings.record and (', answers recorded to ' .. settings.record) or '', trusted and '' or ', another machine: asked before the first request'))
+  turbojedi.log(('%s: %s at %s, model %s, answers in %s%s%s%s'):format(settings.files, settings.format, settings.url,
+    settings.model or 'of the server', settings.language, settings.prompt and (', instructions of ' .. settings.prompt) or '',
+    settings.record and (', answers recorded to ' .. settings.record) or '', trusted and '' or ', another machine: asked before the first request'))
+end
 
 local number = 0
 
@@ -486,7 +475,7 @@ end
 -- too many
 local ERRORS = 200  -- Entries read at most, the budget takes the newest of them
 
-errors = function()
+local function errors()
   local found, stopped = turbojedi.query({ window = true, priority = 'err', limit = ERRORS })
   if #found == 0 then
     return turbojedi.message('No errors in the window' .. ((stopped and stopped ~= 'limit') and (', the reading has stopped by ' .. stopped) or ''), 'Arrakis')
@@ -499,7 +488,7 @@ errors = function()
 end
 
 -- What Arrakis has read and from where, and a short request to the service to see that it answers; no entry goes along
-show = function()
+local function show()
   local card = table.concat({
     ('Files     %s'):format(settings.files),
     ('Service   %s at %s'):format(settings.format, settings.url),
@@ -526,10 +515,22 @@ show = function()
   turbojedi.message(text and ('%s has answered in %d s: %s'):format(host, os.time() - started, text) or ('%s has answered %s'):format(host, failure), 'Arrakis')
 end
 
-turbojedi.on('actions', function(item, menu, context)
+-- The items of Actions: the marked entries, or the entry under the cursor with what has come before it
+local function actions(item, menu, context)
   if context.marked then
     menu:add(('Explain %d marked entries'):format(#context.marked), analyze, context.marked)
   else
     menu:add('Explain this entry', single, item)
   end
-end)
+end
+
+-- Off, Arrakis offers nothing: a failure goes to the problems of the start, no file is told in the console
+if failure then
+  error(failure, 0)
+end
+
+if settings then
+  turbojedi.on('actions', actions)
+  turbojedi.on('menu', 'Explain the errors of the window', errors)
+  turbojedi.on('menu', 'Settings', show)
+end

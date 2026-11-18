@@ -984,7 +984,7 @@ answers nobody but root, so a TurboJedi of another user has no items of it.
 
 `050-arrakis.lua` of the package explains the marked entries, or the entry and what has come before it, by a language
 model behind the HTTP API of OpenAI or Anthropic that `arrakis.conf` tells; see README. In the Plugins menu it explains
-the errors of the window by `query { window = true, priority = 'err' }`, and tells its settings, or why it is off.
+the errors of the window by `query { window = true, priority = 'err' }`, and tells its settings.
 Without the file it sends nothing. A plugin of `fetch()`, `query()`, a watch whose lines are the job and `message(text, title)`, the way a plugin
 of your own may ask a service.
 

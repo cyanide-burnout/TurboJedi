@@ -441,8 +441,7 @@ The request waits for the answer in a window with the seconds so far and Cancel,
 
 Without marking anything, Explain the errors of the window of arrakis in the Plugins menu sends the errors among what
 the window shows, its filter and its time, the newest when there are too many. Settings of arrakis there tells the
-settings in effect and the files they come from, or why Arrakis is off, and sends a short request to see that the
-service answers.
+settings in effect and the files they come from, and sends a short request to see that the service answers.
 
 Under the answer is a line for a question about it, what a number of an error means for one: Ask sends it with the
 entries, the answer and the questions before it, as a conversation of that job alone, waits for the answer in a
