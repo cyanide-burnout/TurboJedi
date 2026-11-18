@@ -134,16 +134,25 @@ extern int dispatching;   // Rounds of events going on, nested by the dialogs of
 extern bool changed;      // Watches have changed, their windows and the status line are told
 extern bool universal;      // Times of the watches and of date() are of UTC, not of the local zone
 extern int serial;
+extern std::map<std::string, JournalExpression> expressions;
 
 int Fail(lua_State* state, const char* format, ...);
 int Trace(lua_State* state);
 std::string GetError(lua_State* state);
 bool GetString(lua_State* state, int index, std::string& value);
+bool GetArguments(lua_State* state, int index, std::vector<std::string>& arguments);
+int LogText(lua_State* state);
+int AppendText(lua_State* state);
+int Execute(lua_State* state);
 bool GetOption(lua_State* state, int index, const char* name, std::string& value);
 bool GetFlag(lua_State* state, int index, const char* name);
 bool MakeFilter(lua_State* state, int index, const JournalFilter& base, JournalFilter& filter, std::string& error);
 JournalWatch* FindJournalWatch(int number);
 JournalView* OpenWatchWindow(JournalWatch* watch);
+int Quote(lua_State* state);
+int Match(lua_State* state);
+int Matches(lua_State* state);
+int Which(lua_State* state);
 int KeepCallback(lua_State* state, int function, int first);
 void PushHandle(lua_State* state, int number, const char* kind);
 int GetHandle(lua_State* state);
@@ -160,6 +169,10 @@ int PushDBusAnswer(lua_State* state, sd_bus_message* reply, const JediDBusError&
 int CallDBus(lua_State* state);
 int CancelInvocation(lua_State* state);
 int ListServices(lua_State* state);
+int GetUniversal(lua_State* state);
+int Settings(lua_State* state);
+int GetSudoUser(lua_State* state);
+int FormatDate(lua_State* state);
 int AddJournalWatch(lua_State* state);
 int FollowWatch(lua_State* state);
 int SetWatchStatus(lua_State* state);
