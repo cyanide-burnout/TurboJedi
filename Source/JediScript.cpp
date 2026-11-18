@@ -3675,22 +3675,21 @@ static std::string GetPluginName(const std::string& file)
 // The title fits the screen, cut by whole characters
 static std::string Fit(std::string title, int width)
 {
+  size_t last;
+
   while ((strwidth(title) > width) &&
          (!title.empty()))
   {
-    do
-    {
-      title.pop_back();
-    }
-    while ((!title.empty()) &&
-           ((static_cast<unsigned char>(title.back()) & 0xc0) == 0x80));
+    // The last character goes whole, from its lead byte on: the bytes before it are of the one before
+    last = title.size() - 1;
 
-    if ((!title.empty()) &&
-        (static_cast<unsigned char>(title.back()) >= 0xc0))
+    while ((last > 0) &&
+           ((static_cast<unsigned char>(title[last]) & 0xc0) == 0x80))
     {
-      // The lead byte of the character cut
-      title.pop_back();
+      last --;
     }
+
+    title.erase(last);
   }
 
   return title;
