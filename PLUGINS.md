@@ -188,6 +188,7 @@ argument whatever it holds, no shell sees it.
 | `find(text, options)` | action | the previous match in the window of the menu, as Find: `true` when found |
 | `seek(time)` | action | the window of the menu goes to a time, as Go to time |
 | `query(options)` | handler, action | entries of a filter for the plugin to look into: a list, and why the reading has stopped |
+| `unique(field)` | loading, handler, action | the values a field has in the journal of the window, as `journalctl -F` tells them, sorted; loading, of the journal of this machine |
 | `mark(entries, options)` | action, callback of a watch | marks the lines of entries in the window of the menu or of the watch, as M does: the count marked |
 | `watch(options)` | loading, action, callback | a watch: a status and lines in the list of watches, fed by the plugin and, after `watch:follow()`, by the journal |
 | `poll(descriptor, events, func, ...)` | loading, action, callback | calls `func(flags, ...)` when the descriptor is ready, between the events: a poller |
@@ -225,6 +226,7 @@ The functions tell two kinds of trouble apart, the way `io.open` of Lua does:
 | `find` | `false` when nothing more is found; `nil` and the reason in an item of the Plugins menu with no window of the journal |
 | `seek` | `nil` and the reason in an item of the Plugins menu with no window of the journal, `true` otherwise |
 | `query` | the entries read, and why the reading has stopped: `'limit'`, `'scan'`, `'time'` or `'cancel'` |
+| `unique` | `nil` and the reason when the journal cannot be opened |
 | `mark` | the count marked, fewer than given when some are not in the window; in a callback of a watch without a window, or in an item of the Plugins menu with no window of the journal, `nil` and the reason |
 | `watch:follow` | `nil` and the reason when its journal cannot be opened |
 
@@ -326,6 +328,21 @@ takes the options of `open`, read the way a window reads: the journal applies th
 | `timeout` | seconds an action reads, 30 by default, 0 for as long as it takes |
 
 Without `before` and `after` it starts from the newest entry of the range. The entries are tables like `entry`.
+
+`unique` tells the values a field has in the journal of the window, as `journalctl -F` does, without reading the entries.
+A service whose instances name themselves after their numbers, `Master 2501` and `Master 3101`, is found that way by
+every identifier it has written under, and `query` reads them by the index of journald, as the values of one field are
+ORed. An empty list adds no match at all and the whole journal would be read, so a plugin looks for none then:
+
+```lua
+local masters = { }
+for _, name in ipairs(turbojedi.unique('SYSLOG_IDENTIFIER') or { }) do
+  if name:match('^Master %d+$') then masters[#masters + 1] = name end
+end
+if #masters > 0 then
+  local entries = turbojedi.query { matches = { SYSLOG_IDENTIFIER = masters }, text = 'marked as', limit = 20 }
+end
+```
 
 ```lua
 local closed, stopped = turbojedi.query { matches = { _SYSTEMD_UNIT = entry._SYSTEMD_UNIT }, text = id .. ' closed', before = entry, limit = 1 }

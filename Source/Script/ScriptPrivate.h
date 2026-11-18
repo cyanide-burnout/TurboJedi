@@ -156,6 +156,7 @@ bool GetFlag(lua_State* state, int index, const char* name);
 bool MakeFilter(lua_State* state, int index, const JournalFilter& base, JournalFilter& filter, std::string& error);
 int Open(lua_State* state);
 int Query(lua_State* state);
+int Unique(lua_State* state);
 int Find(lua_State* state);
 int Seek(lua_State* state);
 JournalWatch* FindJournalWatch(int number);

@@ -462,6 +462,66 @@ int Query(lua_State* state)
   return 2;
 }
 
+// The values a field has in the journal of the window, as journalctl -F tells them, sorted: the identifiers of every
+// instance of a service that names itself after its number, for one, to look for all of them by the index of the journal.
+// Loaded, without a window, of the journal of this machine; nil and why when the journal cannot be opened
+int Unique(lua_State* state)
+{
+  int result;
+  size_t length;
+  const void* data;
+  std::string field;
+  sd_journal* journal;
+  JournalFilter local;
+  std::vector<std::string> values;
+
+  if ((!GetString(state, 1, field)) ||
+      (field.empty()) ||
+      (field.find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_") != std::string::npos))
+  {
+    return Fail(state, "unique() takes the name of a field, such as SYSLOG_IDENTIFIER");
+  }
+
+  local = JournalFilter { };
+
+  if ((result = OpenJournal(&journal, ((origin != nullptr) || (basis != nullptr)) ? GetOriginFilter() : local)) < 0)
+  {
+    lua_pushnil(state);
+    lua_pushstring(state, strerror(-result));
+    return 2;
+  }
+
+  if ((result = sd_journal_query_unique(journal, field.c_str())) < 0)
+  {
+    sd_journal_close(journal);
+    lua_pushnil(state);
+    lua_pushstring(state, strerror(-result));
+    return 2;
+  }
+
+  SD_JOURNAL_FOREACH_UNIQUE(journal, data, length)
+  {
+    // FIELD=value
+    if (length > field.size())
+    {
+      values.emplace_back(static_cast<const char*>(data) + field.size() + 1, length - field.size() - 1);
+    }
+  }
+
+  sd_journal_close(journal);
+  std::sort(values.begin(), values.end());
+
+  lua_createtable(state, values.size(), 0);
+
+  for (size_t index = 0; index < values.size(); index ++)
+  {
+    lua_pushlstring(state, values[index].data(), values[index].size());
+    lua_rawseti(state, -2, index + 1);
+  }
+
+  return 1;
+}
+
 // Find in the window of the menu: highlighted, on into the older entries, a step of its history; nil and why when there
 // is no window
 int Find(lua_State* state)
