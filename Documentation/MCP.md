@@ -114,7 +114,7 @@ The instances of other users do not answer: the agent is told how many there are
 
 | Tool | |
 |---|---|
-| `list_instances` | the instances it sees, with their windows |
+| `list_instances` | the instances it sees, with their windows and the methods their plugins offer |
 | `describe` | an instance: PID, user, host, version, start time, and what you have in front: a window of the journal, a timeline with its filter, its range and the interval under the cursor or the selection, the watches or the lines of one, and whether a dialog is open |
 | `list_windows` | the windows of an instance, their filters, whether they follow the end, how many entries are marked, which one is in front |
 | `get_cursor` | the entry under the cursor of a window, of the one in front by default |
@@ -138,7 +138,8 @@ the windows go on meanwhile.
 ### Methods of the plugins
 
 A plugin may offer methods for an agent, see [LUA.md](LUA.md#methods-for-the-bus): it knows its service, so it finds
-what a query of the journal alone does not. `list_methods` gives the ones that tell what they do and whose effect is
+what a query of the journal alone does not. `list_instances` names them with each instance, so the agent sees them at
+its first step, and `list_methods` gives their schemas. Offered are the ones that tell what they do and whose effect is
 `none`, they only read, or `screen`, they change what you see, as a watch set. A method that changes the system is not
 offered, whatever the agent asks: `invoke` asks TurboJedi again before every call and refuses it. The effect is what the
 plugin promises; TurboJedi does not check its code, which runs with your rights as the plugin does anyway.

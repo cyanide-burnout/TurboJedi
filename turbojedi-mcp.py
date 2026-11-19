@@ -362,6 +362,7 @@ def list_instances(arguments):
             if not item.get('unsupported'):
                 item['windows'] = [{'window_id': window['id'], 'window': window['window'], 'title': window['title']}
                                    for window in plain(call(bus, found[pid], 'ListWindows'))]
+                item.update(overview(bus, found[pid]))
             result.append(item)
         except Failure as failure:
             if 'Denied' in str(failure):
@@ -586,6 +587,18 @@ def guess(name, value):
     raise Failure('argument %s is a string, a number, true or false, or a list of strings' % name)
 
 
+def overview(bus, name):
+    '''What the plugins of an instance offer an agent, without the schemas: nothing for an instance older than the
+    methods, or one whose list fails, the rest of the instance is told all the same'''
+    try:
+        found = methods(bus, name)
+    except Failure:
+        return {}
+
+    return {'methods': [{'plugin': method['plugin'], 'method': method['method'], 'effect': method['effect'],
+                         'description': method['description']} for method in found if offered(method)]}
+
+
 def list_methods(arguments):
     bus = connect()
     result = []
@@ -701,8 +714,9 @@ SCREEN = ' The user sees it on their screen and in the status line of TurboJedi,
 
 TOOLS = [
     ('list_instances', list_instances, True,
-     'Instances of TurboJedi running on this machine that answer this user: PID, user, host, version, start time and '
-     'their windows. Start here. An empty list comes with a note why: TurboJedi is not running, or its D-Bus policy is '
+     'Instances of TurboJedi running on this machine that answer this user: PID, user, host, version, start time, '
+     'their windows, and methods, what their plugins offer beyond a query of the journal, such as the sessions of an ID '
+     'in BrandMeister or TetraPack; list_methods gives their schemas, invoke calls them. Start here. An empty list comes with a note why: TurboJedi is not running, or its D-Bus policy is '
      'not installed. outdated marks an instance started before TurboJedi was updated, it lacks some fields until it is '
      'restarted; unsupported, one this proxy cannot speak to. Tell the user the note of either.',
      {'type': 'object', 'properties': {}, 'additionalProperties': False}),
@@ -745,7 +759,9 @@ TOOLS = [
     ('query_journal', query_journal, True,
      'Entries of the journal, the newest first unless after is given; the journal of a window or of the machine. '
      'Every field of an entry unless fields are given; binary values as {"base64": ...}. stopped tells why the query '
-     'has ended before the journal or the range: limit, scan or time (30 seconds). Up to 4 queries at once.',
+     'has ended before the journal or the range: limit, scan or time (30 seconds). Up to 4 queries at once. For what '
+     'a service means by its messages, its sessions, calls or contexts, look at methods of list_instances first: a '
+     'plugin that knows the service finds it better than a text does.',
      schema(QUERY)),
 
     ('list_actions', list_actions, True,
