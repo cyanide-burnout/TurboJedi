@@ -54,6 +54,31 @@ written only when it is a file of the user alone, not a link. Under `sudo`, `pro
 are left out, and the console tells so: root reads and writes no path a user names, give them in
 `/etc/turbojedi/arrakis.conf` then.
 
+### Several models
+
+A file can name several engines, a large model of a service and a small one of your own to compare them on the same
+entries: `[name]` starts the lines of one, the lines before the first `[name]` are of every engine.
+
+```
+language = ru
+
+[claude]
+url   = https://api.anthropic.com/v1/messages
+model = claude-sonnet-5-5
+key   = ...
+
+[arrakis]
+url    = http://127.0.0.1:8080/v1/chat/completions
+budget = 12000
+```
+
+The first request of a run asks which one, the one chosen the last time offered first (it is kept in
+`~/.config/turbojedi/arrakis-chosen.txt`); Choose the model of arrakis in the Plugins menu changes it, and Settings
+shows the one chosen. A job keeps the engine it has started with: the questions about an answer go where the answer has
+come from. A section of the same name in `~/.config/turbojedi/arrakis.conf` is over the one of
+`/etc/turbojedi/arrakis.conf` key by key, so a user adds a model of their own next to the ones of root, or changes one
+of them, without copying the file. Without a `[name]`, the file is one engine, as before.
+
 ## Engines
 
 Any service of the API of OpenAI or of Anthropic does, on this machine or not:

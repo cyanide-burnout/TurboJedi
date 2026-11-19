@@ -32,6 +32,12 @@
 -- record of the file of the user of sudo are left out: root reads and writes no path a user names. A value goes to the
 -- end of its line, a comment is a line of its own.
 --
+-- Several engines, a large model of a service and a small one of one's own: [name] starts the lines of one, the lines
+-- before the first [name] are of every engine, and a section of the same name in a file after is over the one before,
+-- key by key. Of several, the first request of a run asks which one, the one chosen the last time offered first (kept in
+-- ~/.config/turbojedi/arrakis-chosen.txt), and Choose the model of the Plugins menu changes it; a job keeps the engine it
+-- has started with, its questions go there.
+--
 -- An answer comes with a line for a question under it, and Enter on an answer or a question in the lines of its watch
 -- brings it back: the question goes with the whole conversation of its job, the entries, the answers and the questions
 -- before it; a job starts on its own, nothing of the others goes along. The record keeps the first
@@ -52,27 +58,83 @@ local LANGUAGES = { en = 'English', ru = 'Russian', uk = 'Ukrainian', de = 'Germ
                     it = 'Italian', pt = 'Portuguese', pl = 'Polish', nl = 'Dutch', cs = 'Czech', sv = 'Swedish',
                     tr = 'Turkish', ja = 'Japanese', zh = 'Chinese', ko = 'Korean', he = 'Hebrew', ar = 'Arabic' }
 
--- Settings of a file over the ones there are; false when there is no file
-local function read(path, settings)
+-- The settings of a file over the ones there are: the lines before a [name] for every engine, the ones after it of the
+-- engine of that name; false when there is no file
+local function read(path, found)
   local file = io.open(path)
   if not file then return false end
 
+  local into = found.common
+
   for line in file:lines() do
-    local key, value = line:match('^%s*([%w_]+)%s*=%s*(.-)%s*$')
-    if key then settings[key] = value end
+    local name = line:match('^%s*%[%s*(.-)%s*%]%s*$')
+
+    if name then
+      if not found.sections[name] then
+        found.sections[name] = { }
+        found.order[#found.order + 1] = name
+      end
+      into = found.sections[name]
+    else
+      local key, value = line:match('^%s*([%w_]+)%s*=%s*(.-)%s*$')
+      if key then into[key] = value end
+    end
   end
 
   file:close()
   return true
 end
 
-local function load()
-  local home     = os.getenv('XDG_CONFIG_HOME') or ((os.getenv('HOME') or '') .. '/.config')
-  local user     = home .. '/turbojedi/arrakis.conf'
+-- One engine: the settings of every engine with the ones of its section over them, checked; name is nil without sections
+local function engine(common, section, name, files, user)
   local settings = { }
-  local sudo     = turbojedi.sudo and turbojedi.sudo()
-  local paths    = { SYSTEM, user }
-  local used     = { }
+
+  for key, value in pairs(common) do settings[key] = value end
+  for key, value in pairs(section or { }) do settings[key] = value end
+
+  settings.name  = name
+  settings.files = files
+
+  settings.format  = settings.format or (settings.url and settings.url:match('/v1/messages$') and 'anthropic') or 'openai'
+  settings.budget  = tonumber(settings.budget) or 12000
+  settings.timeout = tonumber(settings.timeout) or 600
+  settings.tokens  = tonumber(settings.tokens)
+
+  if settings.prompt then
+    -- Instructions of one's own, the ones a model has been taught on
+    local file = io.open(settings.prompt)
+    if not file then error(('prompt %s of %s cannot be read'):format(settings.prompt, files)) end
+    settings.instructions = file:read('a'):gsub('%s+$', '')
+    file:close()
+  end
+
+  if (not settings.url) or (not settings.url:match('^https?://')) or
+     ((settings.format ~= 'openai') and (settings.format ~= 'anthropic')) or
+     ((settings.format == 'anthropic') and (not settings.model)) then
+    error(('%s or %s%s needs url of http or https, format of openai or anthropic, and model for anthropic'):format(SYSTEM,
+      user, name and (', [' .. name .. '] there,') or ''))
+  end
+
+  -- The language of the answers, of the locale when not said: ru of ru_RU.UTF-8, en of C.UTF-8 and POSIX
+  local locale = os.getenv('LC_ALL') or os.getenv('LC_MESSAGES') or os.getenv('LANG') or ''
+  settings.language = settings.language or locale:match('^(%l%l%l?)_') or locale:match('^(%l%l%l?)$') or 'en'
+
+  -- The host of the address, and whether it is this machine: another one is asked about before the first request
+  settings.host    = settings.url:match('^https?://%[([^%]]+)%]') or settings.url:match('^https?://([^/:]+)') or '?'
+  settings.trusted = (settings.host == 'localhost') or (settings.host == '::1') or
+                     (settings.host:match('^127%.%d+%.%d+%.%d+$') ~= nil)
+
+  return settings
+end
+
+-- The engines of the files, one without sections, or nil when there is no file
+local function load()
+  local home  = os.getenv('XDG_CONFIG_HOME') or ((os.getenv('HOME') or '') .. '/.config')
+  local user  = home .. '/turbojedi/arrakis.conf'
+  local found = { common = { }, sections = { }, order = { } }
+  local sudo  = turbojedi.sudo and turbojedi.sudo()
+  local paths = { SYSTEM, user }
+  local used  = { }
 
   if sudo then
     -- The user who has run sudo, not root, has set up the engine
@@ -81,18 +143,31 @@ local function load()
   end
 
   for index, path in ipairs(paths) do
-    local values = { }
+    local values = { common = { }, sections = { }, order = { } }
 
     if read(path, values) then
       used[#used + 1] = path
 
-      for key, value in pairs(values) do
-        if sudo and (index == 3) and ((key == 'prompt') or (key == 'record')) then
-          -- Root reads and writes no path a user names: /etc/turbojedi/arrakis.conf or the one of root tell them
-          turbojedi.log(('%s of %s is left out under sudo: a path for root goes to %s'):format(key, path, SYSTEM), { problem = true })
-        else
-          settings[key] = value
+      -- A section of the same name in a file after is over the one before, key by key, as the lines of every engine
+      local function over(into, from)
+        for key, value in pairs(from) do
+          if sudo and (index == 3) and ((key == 'prompt') or (key == 'record')) then
+            -- Root reads and writes no path a user names: /etc/turbojedi/arrakis.conf or the one of root tell them
+            turbojedi.log(('%s of %s is left out under sudo: a path for root goes to %s'):format(key, path, SYSTEM), { problem = true })
+          else
+            into[key] = value
+          end
         end
+      end
+
+      over(found.common, values.common)
+
+      for _, name in ipairs(values.order) do
+        if not found.sections[name] then
+          found.sections[name] = { }
+          found.order[#found.order + 1] = name
+        end
+        over(found.sections[name], values.sections[name])
       end
     end
   end
@@ -103,64 +178,78 @@ local function load()
     return nil
   end
 
-  settings.files = table.concat(used, ', ')
+  local files   = table.concat(used, ', ')
+  local engines = { }
 
-  settings.format  = settings.format or (settings.url and settings.url:match('/v1/messages$') and 'anthropic') or 'openai'
-  settings.budget  = tonumber(settings.budget) or 12000
-  settings.timeout = tonumber(settings.timeout) or 600
-  settings.tokens  = tonumber(settings.tokens)
-
-  if settings.prompt then
-    -- Instructions of one's own, the ones a model has been taught on
-    local file = io.open(settings.prompt)
-    if not file then error(('prompt %s of %s cannot be read'):format(settings.prompt, settings.files)) end
-    settings.instructions = file:read('a'):gsub('%s+$', '')
-    file:close()
+  if #found.order == 0 then
+    engines[1] = engine(found.common, nil, nil, files, user)
   end
 
-  if (not settings.url) or (not settings.url:match('^https?://')) or
-     ((settings.format ~= 'openai') and (settings.format ~= 'anthropic')) or
-     ((settings.format == 'anthropic') and (not settings.model)) then
-    error(('%s or %s needs url of http or https, format of openai or anthropic, and model for anthropic'):format(SYSTEM, user))
+  for _, name in ipairs(found.order) do
+    engines[#engines + 1] = engine(found.common, found.sections[name], name, files, user)
   end
 
-  -- The language of the answers, of the locale when not said: ru of ru_RU.UTF-8, en of C.UTF-8 and POSIX
-  local locale = os.getenv('LC_ALL') or os.getenv('LC_MESSAGES') or os.getenv('LANG') or ''
-  settings.language = settings.language or locale:match('^(%l%l%l?)_') or locale:match('^(%l%l%l?)$') or 'en'
-
-  return settings
+  return engines
 end
 
 -- Off without settings, or with settings or a module that cannot be taken
 local cjson = require('cjson')
 
-local loaded, settings = pcall(load)
-local failure = (not loaded) and settings or nil
+local loaded, engines = pcall(load)
+local failure = (not loaded) and engines or nil
 
 if failure then
-  settings = nil
+  engines = nil
 end
 
--- The host of the address, and whether it is this machine: another one is asked about once, and an address the user
--- has said yes to is kept in arrakis-trusted.txt among the settings of TurboJedi, a url a line, until it changes; under
--- sudo the file of the user of sudo, whose arrakis.conf tells the url
+-- An address another than this machine a user has said yes to is kept in arrakis-trusted.txt among the settings of
+-- TurboJedi, a url a line, until it changes; under sudo the file of the user of sudo, whose arrakis.conf tells the url.
+-- The engine chosen of several is kept in arrakis-chosen.txt, the first one offered the next time
 local TRUSTED = 'arrakis-trusted.txt'
-local host
-local trusted
+local CHOSEN  = 'arrakis-chosen.txt'
 
-if settings then
-  host    = settings.url:match('^https?://%[([^%]]+)%]') or settings.url:match('^https?://([^/:]+)') or '?'
-  trusted = (host == 'localhost') or (host == '::1') or (host:match('^127%.%d+%.%d+%.%d+$') ~= nil)
-
-  if not trusted then
+for _, settings in ipairs(engines or { }) do
+  if not settings.trusted then
     for line in (turbojedi.settings(TRUSTED) or ''):gmatch('[^\n]+') do
-      if line:match('^%s*(.-)%s*$') == settings.url then trusted = true end
+      if line:match('^%s*(.-)%s*$') == settings.url then settings.trusted = true end
     end
   end
 
-  turbojedi.log(('%s: %s at %s, model %s, answers in %s%s%s%s'):format(settings.files, settings.format, settings.url,
+  turbojedi.log(('%s: %s%s at %s, model %s, answers in %s%s%s%s'):format(settings.files,
+    settings.name and (settings.name .. ', ') or '', settings.format, settings.url,
     settings.model or 'of the server', settings.language, settings.prompt and (', instructions of ' .. settings.prompt) or '',
-    settings.record and (', answers recorded to ' .. settings.record) or '', trusted and '' or ', another machine: asked before the first request'))
+    settings.record and (', answers recorded to ' .. settings.record) or '',
+    settings.trusted and '' or ', another machine: asked before the first request'))
+end
+
+-- The engine of the requests: of several, the first request of a run asks which one, and Choose the model of the
+-- Plugins menu asks again; nil when the choice is cancelled
+local current
+
+local function chosen(again)
+  if #engines == 1 then return engines[1] end
+  if current and not again then return current end
+
+  local last    = current and current.name or (turbojedi.settings(CHOSEN) or ''):match('^%s*(.-)%s*$')
+  local names   = { }
+  local initial = 1
+
+  for index, settings in ipairs(engines) do
+    names[index] = ('%s: %s at %s'):format(settings.name, settings.model or 'the model of the server', settings.host)
+    if settings.name == last then initial = index end
+  end
+
+  local _, index = turbojedi.choose('Arrakis: the model', names, initial)
+  if not index then return nil end
+
+  current = engines[index]
+
+  if current.name ~= last then
+    local kept, reason = turbojedi.settings(CHOSEN, current.name .. '\n')
+    if not kept then turbojedi.log(('the choice is not kept: %s'):format(tostring(reason)), { problem = true }) end
+  end
+
+  return current
 end
 
 local number = 0
@@ -186,7 +275,7 @@ local function line(item)
 end
 
 -- Numbered lines up to the budget, the newest kept when there are too many: what has failed last tells most
-local function listing(items)
+local function listing(settings, items)
   local lines = { }
   local size  = 0
   local start = #items
@@ -214,7 +303,7 @@ cause, and what to check or do next. Name the entries that matter by their numbe
 repeat the entries. Plain text, no Markdown. Answer in {language}.]]
 
 -- The request of the format of the service: the instructions and the messages so far, the last one of the user
-local function send(system, messages)
+local function send(settings, system, messages)
   local headers = { ['Content-Type'] = 'application/json' }
   local body
 
@@ -233,28 +322,29 @@ local function send(system, messages)
   return { url = settings.url, method = 'POST', headers = headers, body = cjson.encode(body), timeout = settings.timeout }
 end
 
-local function language()
+local function language(settings)
   return LANGUAGES[settings.language] or settings.language
 end
 
 -- The first request of a job, the instructions and the entries it has been made of; focus is the number of the entry
 -- chosen when the ones before it are only what has led to it
-local function request(items, focus)
-  local tongue = language()
+local function request(settings, items, focus)
+  local tongue = language(settings)
   local system = (settings.instructions or INSTRUCTIONS):gsub('{language}', function() return tongue end)
-  local user   = listing(items)
+  local user   = listing(settings, items)
 
   if focus then
     user = user .. ('\n\nExplain entry [%d]. The entries before it are of the same unit or program, only what has led to it.'):format(focus)
   end
 
   user = user .. '\n\nAnswer in ' .. tongue .. '.'
-  return send(system, { { role = 'user', content = user } }), system, user
+  return send(settings, system, { { role = 'user', content = user } }), system, user
 end
 
 -- An answer with its request as a line of JSON of the file of record, for teaching a model of one's own: the entries are
 -- in it, so the core makes the file 0600 and writes only to one of the process alone, never through a link
 local function keep(job, text)
+  local settings = job.settings
   local line = cjson.encode({ time = os.time(), url = settings.url, model = settings.model, format = settings.format,
                               language = settings.language, system = job.system, user = job.user, answer = text }) .. '\n'
   local done, reason = turbojedi.append(settings.record, line)
@@ -265,7 +355,7 @@ local function keep(job, text)
 end
 
 -- The text of an answer, or nil and why there is none
-local function answer(code, body)
+local function answer(settings, code, body)
   local decoded, data = pcall(cjson.decode, body)
 
   if not decoded or (type(data) ~= 'table') then
@@ -339,12 +429,15 @@ end
 -- The answer has come: its text in the watch and on the screen, the entries it names as lines that go to them. The
 -- window shows it, so the lines come read and the watch does not call for attention
 local function done(code, body, more, job)
+  local settings = job.settings
+  local host     = settings.host
+
   if not code then
     failed(job, ('No answer from %s: %s, %s'):format(host, tostring(body), tostring(more)))
     return
   end
 
-  local text, failure, cut = answer(code, body)
+  local text, failure, cut = answer(settings, code, body)
 
   if not text then
     failed(job, ('%s has answered %s'):format(host, failure))
@@ -383,19 +476,20 @@ end
 -- goes with the whole conversation of the job, the entries, the answers and the questions before it, and its answer
 -- comes the same way
 converse = function(job, index)
+  local settings = job.settings
   local chosen   = job.messages[index or #job.messages]
   local text     = shown(job, (chosen and (chosen.role == 'assistant')) and (index or #job.messages) or #job.messages)
   local question = turbojedi.message(text, job.title, { input = '~Q~uestion about the answer' })
   if not question then return end
 
-  job.messages[#job.messages + 1] = { role = 'user', content = question .. '\n\nAnswer in ' .. language() .. '.' }
+  job.messages[#job.messages + 1] = { role = 'user', content = question .. '\n\nAnswer in ' .. language(settings) .. '.' }
 
   -- The question in the watch brings its answer back, the one that comes next
   local following = #job.messages + 1
   local asked = job.watch:add('? ' .. question, nil, { quiet = true, action = function() converse(job, following) end })
   -- The answer is waited for in a dialog with the seconds and Cancel, the conversation goes on from it
-  job.watch:status(('working at %s'):format(host))
-  local code, body, more = turbojedi.fetch(send(job.system, job.messages))
+  job.watch:status(('working at %s'):format(settings.host))
+  local code, body, more = turbojedi.fetch(send(settings, job.system, job.messages))
 
   if (not code) and (body == 'cancel') then
     -- The question goes, from the conversation and from the watch; the answers before it stay to ask about
@@ -410,9 +504,12 @@ end
 
 -- A request of a job waits for its answer in a window with the seconds so far and Cancel, the windows go on meanwhile
 local function analyze(items, what, focus)
-  if not trusted then
-    if not turbojedi.confirm(('The entries go to %s, another machine. Send them?'):format(host)) then return end
-    trusted = true
+  local settings = chosen()
+  if not settings then return end
+
+  if not settings.trusted then
+    if not turbojedi.confirm(('The entries go to %s, another machine. Send them?'):format(settings.host)) then return end
+    settings.trusted = true
 
     -- Not asked again for this url; a file that cannot be written leaves it to this run
     local kept, reason = turbojedi.settings(TRUSTED, (turbojedi.settings(TRUSTED) or '') .. settings.url .. '\n')
@@ -425,10 +522,11 @@ local function analyze(items, what, focus)
   local title = ('Arrakis %d: %s'):format(number, what or (#items .. ' entries'))
   local watch = turbojedi.watch({ title = title })
 
-  local query, system, user = request(items, focus)
-  local job = { number = number, title = title, items = items, watch = watch, system = system, user = user }
+  local query, system, user = request(settings, items, focus)
+  local job = { number = number, title = title, items = items, watch = watch, system = system, user = user,
+                settings = settings }
 
-  watch:status(('working at %s'):format(host))
+  watch:status(('working at %s'):format(settings.host))
   local code, body, more = turbojedi.fetch(query)
 
   if (not code) and (body == 'cancel') then
@@ -481,29 +579,34 @@ end
 
 -- What Arrakis has read and from where, and a short request to the service to see that it answers; no entry goes along
 local function show()
+  local settings = chosen()
+  if not settings then return end
+
+  local host = settings.host
   local card = table.concat({
     ('Files     %s'):format(settings.files),
+    ('Engine    %s'):format(settings.name and ('%s of %d, Choose the model of the Plugins menu changes it'):format(settings.name, #engines) or 'the one of the files'),
     ('Service   %s at %s'):format(settings.format, settings.url),
     ('Model     %s'):format(settings.model or 'of the server'),
     ('Key       %s'):format(settings.key and 'set' or 'none'),
-    ('Language  %s'):format(language()),
+    ('Language  %s'):format(language(settings)),
     ('Budget    %d characters of entries'):format(settings.budget),
     ('Timeout   %s'):format((settings.timeout > 0) and (settings.timeout .. ' seconds') or 'none'),
     ('Tokens    %s'):format(settings.tokens or ((settings.format == 'anthropic') and TOKENS) or 'of the server'),
     ('Prompt    %s'):format(settings.prompt or 'built in'),
     ('Record    %s'):format(settings.record or 'none'),
     ('Machine   %s'):format((host == 'localhost' or host == '::1' or host:match('^127%.')) and 'this one' or
-      (trusted and ('%s, the entries go there'):format(host) or ('%s, asked before the first request'):format(host))),
+      (settings.trusted and ('%s, the entries go there'):format(host) or ('%s, asked before the first request'):format(host))),
   }, '\n')
 
   if not turbojedi.confirm(card .. '\n\nSend a short request to see that the service answers?') then return end
 
   local started = os.time()
-  local code, body, more = turbojedi.fetch(send('Answer with the single word OK.', { { role = 'user', content = 'Are you there?' } }))
+  local code, body, more = turbojedi.fetch(send(settings, 'Answer with the single word OK.', { { role = 'user', content = 'Are you there?' } }))
   if (not code) and (body == 'cancel') then return end
   if not code then return turbojedi.message(('No answer from %s: %s, %s'):format(host, tostring(body), tostring(more)), 'Arrakis') end
 
-  local text, failure = answer(code, body)
+  local text, failure = answer(settings, code, body)
   turbojedi.message(text and ('%s has answered in %d s: %s'):format(host, os.time() - started, text) or ('%s has answered %s'):format(host, failure), 'Arrakis')
 end
 
@@ -521,8 +624,12 @@ if failure then
   error(failure, 0)
 end
 
-if settings then
+if engines then
   turbojedi.on('actions', actions)
   turbojedi.on('menu', 'Explain the errors of the window', errors)
   turbojedi.on('menu', 'Settings', show)
+
+  if #engines > 1 then
+    turbojedi.on('menu', 'Choose the model', function() chosen(true) end)
+  end
 end
