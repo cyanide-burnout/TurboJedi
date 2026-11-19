@@ -23,8 +23,8 @@ The package brings these, in `/usr/share/turbojedi/plugins`:
   there, the ones whose programs are installed
 - `030-coredump.lua`: for an entry of systemd-coredump, what coredumpctl knows of that dump, a copy of it, its stack in
   gdb
-- `040-fail2ban.lua`, for root where fail2ban is installed: Ban and Unban of an address of the entry, after asking for
-  the jail and a confirmation, never for an address of this machine
+- `040-fail2ban.lua`, for root where fail2ban is installed: for an address of the entry, the jails it is banned in now;
+  Ban and Unban of it, after asking for the jail and a confirmation, never for an address of this machine
 - `050-arrakis.lua`, where `arrakis.conf` tells a language model: the marked entries, or the entry and what has come
   before it, explained by the model, and in the Plugins menu the errors of the window; see [ARRAKIS.md](ARRAKIS.md)
 

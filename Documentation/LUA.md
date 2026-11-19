@@ -960,8 +960,9 @@ file is.
 
 ### fail2ban
 
-`040-fail2ban.lua` of the package, for root where `fail2ban-client` is installed, offers Ban and Unban for every address
-in the message. Ban asks for the jail, starting on `sshd` for an entry of sshd, `sshd-session` or `sshd-auth`, and for a
+`040-fail2ban.lua` of the package, for root where `fail2ban-client` is installed, offers the status, Ban and Unban for
+every address in the message. The status tells the jails the address is banned in now, by the list `fail2ban-client
+status` gives of each, an IPv6 address in either form. Ban asks for the jail, starting on `sshd` for an entry of sshd, `sshd-session` or `sshd-auth`, and for a
 confirmation, which warns when the address is the one of your own SSH session: a ban of the wrong address locks its
 user out. An address of this machine itself, such as the one sshd tells as `to`, gets no items. `fail2ban-client`
 answers nobody but root, so a TurboJedi of another user has no items of it.

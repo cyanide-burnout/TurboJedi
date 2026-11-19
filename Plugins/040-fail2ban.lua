@@ -2,9 +2,9 @@
 -- https://github.com/cyanide-burnout/TurboJedi
 -- Artem Prilutskiy, 2026
 
--- Bans or unbans an address of an entry in fail2ban. A ban of the wrong address can lock its user out, the own one
--- included: Ban asks for the jail and a confirmation, warns about the address of the own SSH session and is never
--- offered for an address of this machine
+-- Tells whether fail2ban has banned an address of an entry, bans or unbans it. A ban of the wrong address can lock its
+-- user out, the own one included: Ban asks for the jail and a confirmation, warns about the address of the own SSH
+-- session and is never offered for an address of this machine
 
 -- Only where fail2ban is installed, and for root: fail2ban-client answers nobody else, the items would only fail
 if not turbojedi.which('fail2ban-client') then
@@ -26,7 +26,7 @@ if uid ~= '0' then
   return
 end
 
-turbojedi.log('ban and unban by fail2ban-client')
+turbojedi.log('status, ban and unban by fail2ban-client')
 
 -- IPv4, or IPv6 in full or with ::, not a time such as 12:34:56
 local ADDRESS = [[(?<![\w.:])(?<address>(?:\d{1,3}\.){3}\d{1,3}|(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4})*)?::(?:[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4})*)?)(?![\w.:])]]
@@ -110,6 +110,57 @@ local function jails()
   return list
 end
 
+-- One address in either form of IPv6
+local function same(one, other)
+  return (one == other) or ((one:find(':') ~= nil) and (other:find(':') ~= nil) and (expand(one) == expand(other)))
+end
+
+-- The jails an address is banned in now, by the list of each; the ones that have not answered are told apart
+local function banned(address, list)
+  local found  = { }
+  local silent = { }
+
+  for _, jail in ipairs(list) do
+    local how, code, text = turbojedi.execute({ 'fail2ban-client', 'status', jail }, { mode = 'capture' })
+
+    if (how ~= 'exit') or (code ~= 0) then
+      silent[#silent + 1] = jail
+    else
+      for item in (text:match('Banned IP list:%s*([^\n]*)') or ''):gmatch('%S+') do
+        if same(item, address) then
+          found[#found + 1] = jail
+          break
+        end
+      end
+    end
+  end
+
+  return found, silent
+end
+
+local function check(address)
+  local list = jails()
+
+  if not list then
+    return
+  end
+
+  local found, silent = banned(address, list)
+  local text
+
+  if #found > 0 then
+    text = ('%s is banned in %s'):format(address, table.concat(found, ', '))
+  else
+    text = ('%s is not banned in any of the %d jails: %s'):format(address, #list, table.concat(list, ', '))
+  end
+
+  if #silent > 0 then
+    text = text .. ('\n\nNot answered: %s'):format(table.concat(silent, ', '))
+  end
+
+  turbojedi.message(text, 'fail2ban')
+end
+
 local function ban(address, jail)
   local list = jails()
 
@@ -154,6 +205,7 @@ local function actions(entry, menu, context)
 
     if (not seen[address]) and valid(address) and not (mine[address] or (address:find(':') and mine[expand(address)])) then
       seen[address] = true
+      menu:add('Status of ' .. address .. ' in fail2ban', check, address)
       menu:add('Ban ' .. address, ban, address, jail)
       menu:add('Unban ' .. address, unban, address)
     end
