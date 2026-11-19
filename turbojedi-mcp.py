@@ -39,6 +39,10 @@ open a new window; the user sees each of them in the status line of TurboJedi. N
 the plugins and commands are never run from here, list_actions only names them for the user to run. The filters of the
 user's windows are not changed either: open a window of your own with open_window.
 
+Plugins may offer methods for an agent, list_methods tells them: searches of what a plugin knows, such as the sessions
+of a subscriber in BrandMeister, and a watch of a context for the user to follow. invoke calls one. Only the methods
+that read or change the screen are there; what a plugin does to the system stays with the user.
+
 Start with list_instances. describe tells what the user has in front: a window of the journal, a timeline, the list
 of watches or the lines of one. Windows are named by window_id from list_windows, watches by watch_id from
 list_watches; entries by their __CURSOR. Times are microseconds since the epoch.'''
@@ -504,6 +508,148 @@ def open_window(arguments):
     return {'window_id': plain(call(bus, instance(bus, arguments), 'OpenWindow', options(arguments, False)))}
 
 
+# Methods of the plugins
+
+EFFECTS = ('none', 'screen')  # What an agent may call: a method that reads, or one that changes what the user sees
+LIMITS = {'u': (0, 0xffffffff), 'i': (-0x80000000, 0x7fffffff), 't': (0, 0xffffffffffffffff),
+          'x': (-0x8000000000000000, 0x7fffffffffffffff)}
+JSON = {'s': {'type': 'string'}, 'b': {'type': 'boolean'}, 'd': {'type': 'number'},
+        'as': {'type': 'array', 'items': {'type': 'string'}}}
+
+
+def offered(method):
+    '''A method an agent is given: one that tells what it does, and does not change the system by its own word'''
+    return bool(method.get('description')) and (method.get('effect') in EFFECTS)
+
+
+def methods(bus, name):
+    return plain(call(bus, name, 'ListMethods'))
+
+
+def values_schema(method):
+    '''The JSON schema of the values of a method by its arguments, any values for one that has not told them'''
+    if not method.get('declared'):
+        return {'type': 'object', 'description': 'the method has not told its arguments'}
+
+    properties = {}
+
+    for argument in method.get('arguments', []):
+        item = dict(JSON.get(argument['type'], {'type': 'integer'}))
+        if argument['type'] in LIMITS:
+            item['minimum'], item['maximum'] = LIMITS[argument['type']]
+        if argument.get('description'):
+            item['description'] = argument['description']
+        properties[argument['name']] = item
+
+    result = {'type': 'object', 'properties': properties, 'additionalProperties': False}
+    required = [argument['name'] for argument in method.get('arguments', []) if argument.get('required')]
+
+    if required:
+        result['required'] = required
+
+    return result
+
+
+def convert(name, kind, value):
+    '''A value of the agent as the argument of its type, checked: the core checks it again'''
+    integer = isinstance(value, int) and not isinstance(value, bool)
+
+    if kind == 's' and isinstance(value, str):
+        return dbus.String(value)
+    if kind == 'b' and isinstance(value, bool):
+        return dbus.Boolean(value)
+    if kind == 'd' and (integer or isinstance(value, float)):
+        return dbus.Double(value)
+    if kind == 'as' and isinstance(value, list) and all(isinstance(item, str) for item in value):
+        return dbus.Array(value, signature='s')
+    if kind in LIMITS and integer and (LIMITS[kind][0] <= value <= LIMITS[kind][1]):
+        return {'u': dbus.UInt32, 'i': dbus.Int32, 't': dbus.UInt64, 'x': dbus.Int64}[kind](value)
+
+    raise Failure('argument %s is %s, the value given is not' % (name, {'s': 'a string', 'b': 'true or false',
+                  'd': 'a number', 'as': 'a list of strings', 'u': 'a whole number of 0 to 4294967295',
+                  'i': 'a whole number of 32 bits', 't': 'a whole number of 0 or more', 'x': 'a whole number of 64 bits'}[kind]))
+
+
+def guess(name, value):
+    '''A value for a method that has not told its arguments, of the type JSON gives it'''
+    if isinstance(value, bool):
+        return dbus.Boolean(value)
+    if isinstance(value, int):
+        return dbus.Int64(value)
+    if isinstance(value, float):
+        return dbus.Double(value)
+    if isinstance(value, str):
+        return dbus.String(value)
+    if isinstance(value, list) and all(isinstance(item, str) for item in value):
+        return dbus.Array(value, signature='s')
+
+    raise Failure('argument %s is a string, a number, true or false, or a list of strings' % name)
+
+
+def list_methods(arguments):
+    bus = connect()
+    result = []
+
+    for method in methods(bus, instance(bus, arguments)):
+        if offered(method):
+            result.append({'plugin': method['plugin'], 'method': method['method'], 'description': method['description'],
+                           'effect': method['effect'], 'values': values_schema(method)})
+
+    return {'methods': result}
+
+
+def invoke(arguments):
+    bus = connect()
+    name = instance(bus, arguments)
+    plugin = text(arguments, 'plugin')
+    called = text(arguments, 'method')
+    given = arguments.get('values', {})
+
+    if given is None:
+        given = {}
+
+    if not plugin or not called:
+        raise Failure('plugin and method are needed, list_methods tells the ones there are')
+    if not isinstance(given, dict):
+        raise Failure('values is an object of the arguments of the method')
+
+    # Asked again for every call: the plugins may have been loaded again since list_methods
+    found = [method for method in methods(bus, name) if (method['plugin'] == plugin) and (method['method'] == called)]
+
+    if not found:
+        raise Failure('plugin %s has no method %s, list_methods tells the ones there are' % (plugin, called))
+    if not offered(found[0]):
+        raise Failure('method %s of plugin %s is not for an agent: it %s' % (called, plugin, 'tells nothing of what '
+                      'it does' if not found[0].get('description') else 'changes the system, the user runs it'))
+
+    method = found[0]
+    kinds = dict((argument['name'], argument['type']) for argument in method.get('arguments', []))
+    values = dbus.Dictionary({}, signature='sv')
+
+    for key, value in given.items():
+        if key.startswith('_'):
+            raise Failure('keys beginning with _ are of TurboJedi: the window goes by window_id')
+        if method.get('declared') and (key not in kinds):
+            raise Failure('method %s of plugin %s takes no argument %s' % (called, plugin, key))
+        values[key] = convert(key, kinds[key], value) if method.get('declared') else guess(key, value)
+
+    for argument in method.get('arguments', []):
+        if argument.get('required') and (argument['name'] not in given):
+            raise Failure('method %s of plugin %s needs argument %s' % (called, plugin, argument['name']))
+
+    try:
+        # The window in front unless another is named, the journal of the machine when the user has none in front
+        identity = window(bus, name, arguments)
+        values['_window'] = dbus.UInt32(identity)
+    except Failure:
+        if arguments.get('window_id') is not None:
+            raise
+        identity = None
+
+    answer = plain(call(bus, name, 'Invoke', dbus.String(plugin), dbus.String(called), values))
+    return {'window_id': identity, 'answer': answer}
+
+
 # Schemas
 
 PID = {'type': 'integer', 'description': 'PID of the instance, from list_instances; may be left out when only one runs'}
@@ -641,6 +787,23 @@ TOOLS = [
      schema({'window_id': WINDOW, 'time': {'type': ['integer', 'string'],
              'description': 'microseconds since the epoch, or ISO 8601 such as 2026-11-16T03:12:00, without a zone in '
                             'the one of the machine'}}, ('window_id', 'time'))),
+
+    ('list_methods', list_methods, True,
+     'Methods plugins offer for an agent: what each does, its effect (none: it only reads; screen: it changes what the '
+     'user sees, such as a watch set) and the JSON schema of its values. They know what the plugin knows: the searches '
+     'of BrandMeister or TetraPack in the journal and in their cores, a watch of a context. A method that changes the '
+     'system is never offered, nor one that does not tell what it does.',
+     schema({})),
+
+    ('invoke', invoke, False,
+     'Calls a method of a plugin from list_methods with its values, in a window: queries of the method read the journal '
+     'of the window and a watch it sets follows it. Without window_id, the window the user has in front, the journal of '
+     'the machine when no window of the journal is in front. Returns the answer of the method. A method of effect '
+     'screen changes what the user sees.' + SCREEN,
+     schema({'plugin': {'type': 'string', 'description': 'the plugin, as list_methods names it'},
+             'method': {'type': 'string', 'description': 'the method, as list_methods names it'},
+             'values': {'type': 'object', 'description': 'the arguments of the method, as its schema of list_methods tells'},
+             'window_id': ACTIVE}, ('plugin', 'method'))),
 
     ('open_window', open_window, False,
      'Opens a new window of the journal with a filter of its own, in front, and returns its window_id. The way to show '
