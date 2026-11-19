@@ -14,7 +14,7 @@ your choice, see [ARRAKIS.md](Documentation/ARRAKIS.md).
 Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd, PCRE2, Lua 5.4, libcurl and
 [lua-cjson](https://github.com/openresty/lua-cjson).
 
-![Three windows: the whole journal following, its warnings and errors paused with marked lines and 7 entries come meanwhile, and their timeline](Documentation/screenshot.png)
+![Three windows: the whole journal following, its warnings and errors paused with marked lines and 7 entries come meanwhile, and their timeline](screenshot.png)
 
 ## Features
 
