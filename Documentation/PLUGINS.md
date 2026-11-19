@@ -33,7 +33,8 @@ run by themselves: `100-ssh.lua`, a watch of the attacks on the SSH server of th
 address a line with its failures and the user names it has tried, a login after failures or a flood of tries bringing
 the list of watches up with a bell; `100-storage.lua`, the device, mounts, udev and SMART of a block device an
 entry of the kernel or smartd names; `100-asterisk.lua`, the calls, channels, endpoints, AORs, modules and dialplan of an entry
-of Asterisk, shown, traced in the journal, hung up or reloaded through `asterisk -rx`; `100-alert.lua`, watches of the
+of Asterisk, shown, traced in the journal, hung up or reloaded through `asterisk -rx`, the calls of a number and a watch
+of a call, in the Plugins menu and for an agent; `100-alert.lua`, watches of the
 journal by rules of `~/.config/turbojedi/alert.conf`, while TurboJedi is open; `100-chat.lua`, the entry or the
 marked ones sent to Slack, Mattermost, Rocket.Chat, Discord, Telegram or ntfy through a webhook told in
 `~/.config/turbojedi/chat.conf`.

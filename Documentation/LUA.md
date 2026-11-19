@@ -1023,7 +1023,7 @@ actions chosen in a list there:
 
 | Object | As the entry has it | Actions |
 |---|---|---|
-| Call | `VERBOSE[1234][C-0000001a]` | History, Mark history, Previous mention, Copy |
+| Call | `VERBOSE[1234][C-0000001a]` | History, Mark history, Previous mention, Copy, Watch |
 | Channel | `PJSIP/2505-0000002b`, `Local/1@ctx-0000000a;1` | Show (`core show channel`), Hang up, and the ones of a call |
 | Endpoint | the one of a PJSIP channel, `Endpoint 2505 is now ...` | Show (`pjsip show endpoint`), Qualify |
 | AOR | `Contact 2505/sip:... is now ...` | Show (`pjsip show aor`) |
@@ -1036,6 +1036,16 @@ in the `PATH`, or of a build of its own in `/opt/asterisk/sbin`, `/usr/local/sbi
 machine has only the actions of calls and channels in the journal. A value of the entry takes part in a command only
 when the CLI would take it as one argument. Hang up, Load and Reload ask first; it is an example since they change the
 PBX.
+
+A call has Watch as well: a watch of it in the list, a line for every mention from its first one on, the status telling
+the steps of its dialplan and the last thing said; a layout keeps it. The Plugins menu finds calls in the journal of the
+window: Calls of a number, the ones an extension of the number has taken in the dialplan and the ones an endpoint of it
+has made, and Call by its identifier. Asterisk counts its calls from `C-00000001` again once started anew, so a call
+is of its process as well: the list tells apart two calls of one identifier.
+
+For an agent, see [MCP.md](MCP.md), the same as methods: `calls` of a number, `call`, what a call has been, its
+channels in the order they have come and the steps of its dialplan, and `watch` of a call. They read the journal and set
+a watch, the CLI is left to the user.
 
 ### Alerts
 

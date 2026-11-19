@@ -158,6 +158,10 @@ The plugins of BrandMeister and TetraPack offer:
 | `context` | none | the card of a context as the core has it now, for a window of this machine |
 | `watch` | screen | the watch of a context from its first mention on, its sessions a line each; of a session as well in TetraPack |
 
+The example of Asterisk, `/usr/share/turbojedi/examples/100-asterisk.lua`, offers the same for calls: `calls` of a
+number, made or taken, `call`, its channels and the steps of its dialplan, and `watch` of a call. Ask "find the calls
+of 2505 today and put a watch on the one still going".
+
 The calls the agent makes are the D-Bus interface of [DBUS.md](DBUS.md), which a script of your own can use as well.
 
 ## What to ask
