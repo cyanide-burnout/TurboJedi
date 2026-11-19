@@ -5,10 +5,15 @@ cursor, the marked entries, queries of the journal, the watches of the plugins a
 an AI agent through [turbojedi-mcp.py](MCP.md) reads what the user has in front of them and can point at things on their
 screen: mark entries, put the cursor on one, take a window to a moment, open a window of its own.
 
-The rule is: **the caller points, the user acts.** Nothing through the bus changes the system. The interface does not
-run the actions of the plugins or commands, does not touch the clipboard, does not change the filters of the user's
-windows, and does not close windows or open layouts. `ListActions()` names what the Actions menu has for an entry, the
+The rule is: **the caller points, the user acts.** The calls of TurboJedi itself change nothing on the system. They do
+not run the actions of the plugins or commands, do not touch the clipboard, do not change the filters of the user's
+windows, and do not close windows or open layouts. `ListActions()` names what the Actions menu has for an entry, the
 user chooses and runs it.
+
+`Invoke()` is the one exception: it runs a method a plugin offers, and that is the code of the plugin, which may do
+anything the plugin may. The bus does not hold back a method that changes the system; the files of allow decide who may
+call `Invoke()` and which methods, and the effect a method tells, see Plugins below, lets a caller choose. The server of
+MCP is such a caller: it gives an agent only the methods that read or change the screen.
 
 ## Names on the bus
 
