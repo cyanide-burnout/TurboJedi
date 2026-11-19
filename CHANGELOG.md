@@ -3,6 +3,39 @@
 Every release has a theme of its own, the patch releases after it finish the same one. Packages of every release are on
 the [releases page](https://github.com/cyanide-burnout/TurboJedi/releases).
 
+## 0.17 — 2026-11-19
+
+One interface of plugins, and the Plugins menu: what plugins do without an entry, the watches and the console.
+
+- The Plugins menu, Alt-P: items plugins give by `on('menu', title, func, ...)`, run without an entry in the window of
+  the journal on top, each named with its plugin on the right; Watches (F12) and Console have moved there from the
+  Window menu, under the items of the plugins
+- Arrakis in the Plugins menu: Explain the errors of the window sends the errors among what the window shows, its filter
+  and its time, without marking them; Settings tells the settings in effect and the files they come from, and sends a
+  short request to see that the service answers. Its items are named without the prefix Arrakis, the plugin stands on
+  their right, and without settings Arrakis offers nothing at all
+- lua-cjson of OpenResty is built into TurboJedi: `require('cjson')` works for every plugin whatever the distribution
+  has, Arrakis included on Ubuntu 22.04, whose lua-cjson has no Lua 5.4; the packages recommend it no more. Thanks to
+  konkere
+- The policy of the bus for dbus-daemon older than 1.13.12, of Ubuntu 22.04 for one, which refused the one of 0.16 for
+  its `send_destination_prefix`: the calls go by the interface of TurboJedi alone there, introspection is left out.
+  The package of Ubuntu 22.04 has it, `make install` takes it by the version of dbus-daemon. Thanks to konkere
+- One interface for plugins, a plugin of 0.16 needs these changes: `on('actions', func)`, `on('restore', func)` and
+  `on('invoke', name, func)` take the places of `registerHandler`, `registerRestore` and `registerMethod`;
+  `execute(argv, { mode = ... })` of `output`, `terminal` and `capture`, with the modes `background` (the default),
+  `window`, `terminal` and `capture`, and `capture` gives `how, code, output, errors`; `timeout(milliseconds,
+  [periodic,] func, ...)` takes the function last, a function second is a timer of once
+- `query()` and `open()` with `window = true` start from the whole filter of the window, which the other options narrow;
+  `unique(field)` tells the values a field has in the journal of the window, as `journalctl -F` does, so that a service
+  whose instances name themselves after their numbers is found by all of them at once
+- `choose()` is as wide as its title, and a title cut to fit the screen keeps a letter of Cyrillic or CJK before a Latin
+  one cut away
+- A directory of the settings removed while TurboJedi runs is made again on the next save without `sudo` too
+- `make` takes the submodules a clone lacks, one made without `--recursive` or pulled since lua-cjson has come, and
+  stops with the reason when git cannot; the sources are in folders of their components
+- The documentation is in `Documentation/`: the usage, building, the plugins of the package, the interface of Lua,
+  Arrakis, MCP and D-Bus in documents of their own, and a short README
+
 ## 0.16 — 2026-11-17
 
 Arrakis: a language model explains the entries and answers questions about them; the timeline gets ranges, their
