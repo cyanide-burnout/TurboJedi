@@ -7,7 +7,9 @@ entries, while other windows follow the whole system next to it.
 It is scriptable in Lua 5.4: plugins make the Actions menu of an entry and watch the journal as it comes, see
 [plugins](Documentation/PLUGINS.md). It is open to AI agents as well: `turbojedi-mcp.py`, a server of the Model Context Protocol,
 gives Claude Code, Codex or another agent the windows you have open, over SSH; the agent finds and points at entries
-on your screen, you act, see [MCP.md](Documentation/MCP.md).
+on your screen, you act, see [MCP.md](Documentation/MCP.md). And it asks a language model itself: Arrakis explains the
+entries you mark or the errors of a window, answers questions about them, by a model on your machine or a service of
+your choice, see [ARRAKIS.md](Documentation/ARRAKIS.md).
 
 Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd, PCRE2, Lua 5.4, libcurl and
 [lua-cjson](https://github.com/openresty/lua-cjson).
