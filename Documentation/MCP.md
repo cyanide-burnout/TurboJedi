@@ -10,12 +10,15 @@ The rule is: **the agent points, you act.** The agent can show you what it has f
 - mark entries in a window;
 - put the cursor on an entry;
 - take a window to a moment;
-- open a window of its own.
+- open a window of its own;
+- set a watch a plugin offers for it, such as the watch of a context of BrandMeister or TetraPack.
 
 Each of these shows in the status line, as `API: marked 12 entries in window 1`, until you press a key. The agent
 changes nothing on the machine. It cannot:
 
 - run the actions of the plugins or commands: it names the items of the Actions menu, you choose and run them;
+- call a method of a plugin that changes the system, or one that does not tell what it does;
+- remove a watch: only you remove them, in the list of watches;
 - touch the clipboard;
 - change the filters of your windows;
 - close windows or open layouts.
@@ -125,10 +128,34 @@ The instances of other users do not answer: the agent is told how many there are
 | `go_to_entry` | the cursor of a window on an entry, the window in front |
 | `seek_window` | a window to a moment, as Ctrl-G does; the window stops following the end |
 | `open_window` | a new window with a filter |
+| `list_methods` | the methods plugins offer an agent: what each does, its effect and the schema of its values |
+| `invoke` | calls one of them in a window, the one in front by default |
 
-The last four change your screen. They wait while you have a dialog open, up to 30 seconds, so they never pull a window
+`mark_entries`, `go_to_entry`, `seek_window` and `open_window` change your screen. They wait while you have a dialog open, up to 30 seconds, so they never pull a window
 from under Find or a question you are answering. A query reads for up to 30 seconds and gives what it has found by then;
 the windows go on meanwhile.
+
+### Methods of the plugins
+
+A plugin may offer methods for an agent, see [LUA.md](LUA.md#methods-for-the-bus): it knows its service, so it finds
+what a query of the journal alone does not. `list_methods` gives the ones that tell what they do and whose effect is
+`none`, they only read, or `screen`, they change what you see, as a watch set. A method that changes the system is not
+offered, whatever the agent asks: `invoke` asks TurboJedi again before every call and refuses it. The effect is what the
+plugin promises; TurboJedi does not check its code, which runs with your rights as the plugin does anyway.
+
+`invoke` runs the method as an action of a window: its queries read the journal of that window, a watch it sets follows
+it. Without `window_id`, the window you have in front, or the journal of the machine when no window of the journal is
+in front. The values are checked by the schema of the method, by the server and again by TurboJedi.
+
+The plugins of BrandMeister and TetraPack offer:
+
+| Method | Effect | |
+|---|---|---|
+| `sessions` | none | the sessions of an ID in the journal of the core, the newest first |
+| `contexts` | none | the contexts of an ID: the ones the core has now, for a window of this machine, then the ones of the journal |
+| `identify` | none | what a UUID is, a context or a session, and its newest mention |
+| `context` | none | the card of a context as the core has it now, for a window of this machine |
+| `watch` | screen | the watch of a context from its first mention on, its sessions a line each; of a session as well in TetraPack |
 
 The calls the agent makes are the D-Bus interface of [DBUS.md](DBUS.md), which a script of your own can use as well.
 
@@ -141,6 +168,7 @@ The calls the agent makes are the D-Bus interface of [DBUS.md](DBUS.md), which a
 - "Open a window of the errors of the last hour from every unit except cron."
 - "Which actions does the entry under the cursor have? Which one should I run?"
 - "Set every window to the time of the first error of postgresql today."
+- "Find the contexts of 2501 and put a watch on the one of the repeater, I want to follow it."
 
 ## When it does not work
 

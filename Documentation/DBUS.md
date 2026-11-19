@@ -118,6 +118,7 @@ These calls are answered at once, also while the user has a dialog open.
 | `ListActions(id, cursor)` | `us → aa{sv}` | the items of the Actions menu for the entry: `title` s, `plugin` s, in the order of the menu |
 | `ListWatches()` | `→ aa{sv}` | the watches of the plugins, see below |
 | `GetWatchLines(id)` | `u → aa{sv}` | the lines of a watch, the newest first, see below |
+| `ListMethods()` | `→ aa{sv}` | the methods of the plugins for `Invoke()` the caller may call, see Plugins below |
 
 A window of `ListWindows()`:
 
@@ -248,21 +249,49 @@ what only it knows: a service that has analyzed entries, a script of cron, an ag
 |---|---|---|
 | `Invoke(plugin, method, values)` | `ssa{sv} → a{sv}` | calls the method of the plugin with the values as a table, the table it returns is the answer, empty without one. `plugin` is the name of its file without the number and `.lua`, `fail2ban` of `040-fail2ban.lua`, as `ListActions()` and `ListWatches()` tell it |
 
-The method runs as a callback of the plugin does: it waits while a dialog is open or Lua runs something else, as the
+The method runs as an action of a window does: it waits while a dialog is open or Lua runs something else, as the
 calls of the screen do, and may open a dialog itself, a question to the user. Then the answer comes once the user has
 answered, and the caller waits that long; a call that has to come back at once is better answered by the plugin
 first and asked later, by a timer of its own. The status line tells `API: called notify of plugin arrakis`.
 
+The keys of `values` beginning with `_` are of TurboJedi, not of the method, which never gets them:
+
+| Key | Type | |
+|---|---|---|
+| `_window` | u | the `id` of a window of `ListWindows()`: the method runs as an action of that window, its queries, marks and watches take its journal. Without it, the journal of this machine and no window. No window of that `id` gives `NoWindow` |
+
+Another key beginning with `_` gives `InvalidArgs`, so a caller learns that an instance does not know it yet. A method
+that has told its arguments, see `ListMethods()`, gets its values checked before it runs: a key it has not told, a
+value of another type or a required one missing gives `InvalidArgs` with the name. An integer of another type is taken
+when its value fits, any number for `d`.
+
 Values of the answer are of the types of Lua: a string `s`, `true`/`false` `b`, an integer `i` while it fits, `t`
 above, `x` below, a float `d`; any other type is given as `{ type = 'as', value = { ... } }`, as `dbus()` takes a
-variant. No plugin or no method of that name gives `NoMethod`, an error of the method `Failed` with its message.
+variant, `aa{sv}` for a list of records. No plugin or no method of that name gives `NoMethod`, an error of the method
+`Failed` with its message.
+
+A method of `ListMethods()`, of the plugins in the order of their names:
+
+| Key | Type | |
+|---|---|---|
+| `plugin`, `method` | s | what `Invoke()` takes |
+| `description` | s | what it does and gives back, as the plugin tells it; empty when it tells nothing |
+| `effect` | s | `none`, it only reads; `screen`, it changes what the user sees, windows, marks, watches; `system`, it changes the machine or a service, and so is every method that has not told its effect |
+| `declared` | b | it has told its arguments and its values are checked by them; any values go to it otherwise |
+| `arguments` | aa{sv} | `name` s, `type` s (`s`, `u`, `i`, `t`, `x`, `b`, `d`, `as`), `description` s, `required` b |
+
+A caller limited by the files of allow sees only the methods its `Invoke:` permissions give, and needs `ListMethods`
+there to ask. The effect is what the plugin promises: a caller decides by it what to call, the server of MCP offers an
+agent only the methods of `none` and `screen` with a description, see MCP.md.
 
 ### Time of a call
 
 A call has 30 seconds from the moment it comes, the wait for a dialog to close and the work together:
 
 - a dialog open for the whole time gives `Busy`, "a dialog is open in TurboJedi";
-- a query or the history of a window not read through in time gives what has come so far and `time`.
+- a query or the history of a window not read through in time gives what has come so far and `time`;
+- the queries of a method of `Invoke()` read until the 30 seconds are over and stop with `time` then, `left()` of LUA.md
+  tells the method what is left. A method that runs past them still answers; the console tells it.
 
 The default timeout of a D-Bus call is 25 seconds, so a caller sets a longer one, 40 seconds for example:
 `busctl --timeout=40`, `timeout=40` of dbus-python. The answer then always comes before the caller stops waiting.
@@ -279,6 +308,7 @@ The default timeout of a D-Bus call is 25 seconds, so a caller sets a longer one
 | `me.burnaway.TurboJedi.Error.NoMethod` | `Invoke()`: no plugin of that name, or it has no such method |
 | `me.burnaway.TurboJedi.Error.Failed` | `Invoke()`: the method has failed, the message tells its error |
 | `me.burnaway.TurboJedi.Error.Invalid` | an option is wrong: a match, a regular expression, a time, a priority, a cursor without its time |
+| `me.burnaway.TurboJedi.Error.InvalidArgs` | `Invoke()`: a value the method has not told or of another type, a required one missing, a key beginning with `_` TurboJedi does not know |
 
 The message of an error tells the reason in words.
 
@@ -299,6 +329,9 @@ busctl --system --timeout=40 call me.burnaway.TurboJedi.U1000.P4242 /me/burnaway
   Query 'a{sv}' 3 matches as 1 _SYSTEMD_UNIT=nginx.service priority s err limit u 20
 busctl --system --timeout=40 call me.burnaway.TurboJedi.U1000.P4242 /me/burnaway/TurboJedi me.burnaway.TurboJedi \
   Seek ut 1 1794812400000000
+busctl --system --json=pretty call me.burnaway.TurboJedi.U1000.P4242 /me/burnaway/TurboJedi me.burnaway.TurboJedi ListMethods
+busctl --system --timeout=40 call me.burnaway.TurboJedi.U1000.P4242 /me/burnaway/TurboJedi me.burnaway.TurboJedi \
+  Invoke 'ssa{sv}' tetrapack sessions 2 id u 2621234 _window u 1
 ```
 
 ### Python

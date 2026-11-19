@@ -127,7 +127,7 @@ argument whatever it holds, no shell sees it.
 
 | Function | When | |
 |---|---|---|
-| `on(event, ...)` | loading | what the plugin is called for: `on('actions', func)` a handler of the Actions menu, `func(entry, menu, context)`; `on('menu', title, func, ...)` an item of the Plugins menu, `func(context, ...)`; `on('restore', func)` gets back the watches of the plugin a layout has kept, `func(context, position)` for each; `on('invoke', name, func)` a method for `Invoke()` of D-Bus, `func(values)` with the values of the caller as a table, the table it returns is the answer; see below |
+| `on(event, ...)` | loading | what the plugin is called for: `on('actions', func)` a handler of the Actions menu, `func(entry, menu, context)`; `on('menu', title, func, ...)` an item of the Plugins menu, `func(context, ...)`; `on('restore', func)` gets back the watches of the plugin a layout has kept, `func(context, position)` for each; `on('invoke', name, func, options)` a method for `Invoke()` of D-Bus, `func(values, context)` with the values of the caller as a table, the table it returns is the answer, the options tell what it does; see below |
 | `settings(name, text)` | any time | a file of the plugin of its own among the settings TurboJedi writes, `~/.config/turbojedi/name`, under `sudo` the one of the user of sudo, read and written as that user. Without the text, its text or `nil`; with it, the file replaced whole: `true`, or `nil` and why. A name of letters, digits, dots, dashes and underscores; `update.conf`, `screen.conf`, `clipboard.conf`, `allow.conf` and `last.jedi` are the ones of TurboJedi itself, so a plugin names its file after itself, and a file several plugins share after what they share. For what a plugin remembers of the user, the addresses Arrakis may send to for one |
 | `append(path, text)` | any time | the text at the end of a file of the process alone: made with 0600, never through a link, refused when it is another's or open to others; `true`, or `nil` and why. For what a plugin keeps of the journal |
 | `log(text, options)` | any time | a line of the console, Plugins → Console, with the name of the plugin; `{ problem = true }` leaves it unread, the status line tells it. `print()` writes there too, as a quiet line |
@@ -153,6 +153,7 @@ argument whatever it holds, no shell sees it.
 | `regex(text, pattern, flags)` | any time | the first match, or `nil` |
 | `matches(text, pattern, flags)` | any time | an iterator over every match |
 | `which(name)` | any time | the path of a program in `PATH`, or `nil` |
+| `left()` | any time | the milliseconds a method of `Invoke()` has left of the 30 seconds of its call, `nil` outside one: its queries take what is left on their own, a method weighs the rest of its work by it |
 | `sudo()` | any time | the user who has run TurboJedi as root by `sudo`: `{ name = ..., uid = ..., home = ... }`, `nil` otherwise; for a file of settings of that user, see Plugins and root |
 | `utc()` | any time | `true` when the user wants the times of the watches in UTC, `false` for the local zone |
 | `date(format, time)` | any time | `os.date()` in the zone the user has chosen for the watches: put it in its place for the times a watch shows. `!` in front of the format forces UTC as in `os.date()`, `*t` is left to `os.date()` |
@@ -707,12 +708,43 @@ busctl --system call me.burnaway.TurboJedi.U1000.P4242 /me/burnaway/TurboJedi me
   Invoke 'ssa{sv}' alerts notify 1 text s 'disk is almost full'
 ```
 
-- `values` is the `a{sv}` of the caller as a table, the values of their types; nested ones as `dbus()` gives them.
-- The function runs as a callback: dialogs, commands, watches, timers, `dbus()`; not `mark()` and not `query()`.
+- `values` is the `a{sv}` of the caller as a table, the values of their types; nested ones as `dbus()` gives them. The
+  keys beginning with `_` are of TurboJedi and never come to the method.
+- The function runs as an action of a window: the one of `_window` of the caller, see DBUS.md, or the journal of this
+  machine without one. `query()`, `unique()`, `open()`, `find()`, `seek()` and `mark()` take that window as they take
+  the window of the menu, a watch made there follows its journal; without a window `find()`, `seek()` and `mark()` give
+  `nil` and why. `context`, the second argument, tells where the journal comes from, as for a handler.
+- The call has 30 seconds for the wait of a dialog and the method together: a query reads at most until they are over
+  and stops with `time` then, whatever `timeout` it has been given; `left()` tells what is left.
 - The table it returns is the answer, `a{sv}`: strings, numbers, `true`/`false` as they are, anything else as
-  `{ type = 'as', value = { ... } }`. Nothing returned is an empty answer.
+  `{ type = 'as', value = { ... } }`, `{ type = 'aa{sv}', value = { { ... }, ... } }` for a list of records. Nothing
+  returned is an empty answer.
 - An error of the function goes to the caller as `Failed` with its message; the user is not told.
 - Only the methods a plugin has registered are there; a plugin that has failed to load has none.
+
+The options tell a caller what the method does and takes, `ListMethods()` of DBUS.md gives them; the server of MCP
+offers an agent only the methods that have a description and the effect `none` or `screen`:
+
+```lua
+turbojedi.on('invoke', 'sessions', function(values, context)
+  local entries, stopped = turbojedi.query { matches = { SYSLOG_IDENTIFIER = 'tetrapack' }, text = 'from ' .. values.id .. ' ', limit = 200 }
+  local list = { }
+  for index, entry in ipairs(entries) do list[index] = { message = entry.MESSAGE, cursor = entry.__CURSOR } end
+  return { sessions = { type = 'aa{sv}', value = list }, stopped = stopped or '' }
+end, { description = 'The sessions of a subscriber in the journal of the window, the newest first', effect = 'none',
+       arguments = { id = { type = 'u', description = 'the ID of the subscriber', required = true } } })
+```
+
+| Option | |
+|---|---|
+| `description` | what the method does and gives back, for a person and an agent: one without it is not offered to an agent |
+| `effect` | `'none'`: it only reads; `'screen'`: it changes what the user sees, windows, marks, watches; `'system'`: it changes the machine or a service. `'system'` without the option, and for a method without options |
+| `arguments` | `{ name = { type = ..., description = ..., required = true } }`: the type is `s`, `u`, `i`, `t`, `x`, `b`, `d` or `as`, a name does not begin with `_`. TurboJedi checks the values of every caller by them: a key not told, a value of another type or an argument required and not given is refused with `InvalidArgs` before the method runs, an integer of another type is taken when its value fits. `{}` is a method that takes no values; without `arguments` any values go to it as in 0.17 |
+
+The effect is a promise of the plugin, not a sandbox: TurboJedi does not check what the Lua of a method does, a plugin
+runs with the rights of the user anyway. The server of MCP keeps an agent to what the plugin has promised, it does not
+keep the code from doing more. A wrong option is an error of loading the plugin, told in the console, and the plugin
+has none of its methods then.
 
 ## The console
 
@@ -754,6 +786,7 @@ turbojedi.timeout(60000, function() job:status('done') job:add('backup of /srv i
 | `key` | what the watch is to the plugin, unique among its watches: a layout finds the window of its lines by it. Without one, by its title and its place among the ones of the same title, which holds while the plugin sets them in the same order. A key taken by another watch of the plugin is an error |
 | `window` | `'current'`, by default: the window of the menu is the window of the watch while it is open; `'new'`: a window of its own, opened when needed |
 | `context` | data a layout keeps to get the watch back, see Layouts below |
+| `removed` | `removed(watch)`, once the user has removed the watch in the list: the plugin forgets it, its methods do nothing anymore. Not called for `watch:remove()` of the plugin, which knows, nor for a watch TurboJedi stops, which stays in the list as failed until the user removes it |
 
 `watch()` reads no journal: an option of a filter, `skipped` or `from` is for `watch:follow()` and an error there. A
 line added with an entry goes to that entry in the window of the watch, the one of the menu it has been made in.
@@ -782,11 +815,12 @@ monitoring of the server: closed TurboJedi or a broken SSH connection watch noth
 | Option | |
 |---|---|
 | `skipped` | `skipped(gap, watch, ...)`, when the watch has not seen a part of the journal |
-| `from` | the place a layout has kept, given by `on('restore')` |
+| `from` | the place a layout has kept, given by `on('restore')`: the watch goes on after that entry. Or an entry, or its `__CURSOR`: the watch reads from it on, the entry itself first when it is of the filter, then the next ones up to the end and on as they come. An entry the journal of the watch does not have makes `follow()` give `nil` and the reason |
 
-- The watch starts at the end of the journal: what has been there before it is not its business, so it takes neither
-  `since` nor `until`. Called while loading, it follows the journal of this machine; in an action, the journal of the
-  window of the menu; in a callback of a watch, the journal of that watch.
+- The watch starts at the end of the journal, or at the entry of `from`: what has been there before it is not its
+  business, so it takes neither `since` nor `until`. From an old entry it catches up as a watch a layout gives back
+  does, see Gaps. Called while loading, it follows the journal of this machine; in an action or a method of the bus, the
+  journal of its window; in a callback of a watch, the journal of that watch.
 - A watch follows one journal: a second `follow()` of it is an error. Its window is the one the watch has been made
   with, `mark` and the entries of its lines go there.
 - `func(entry, watch, ...)` gets the entry as a handler does, the watch itself, the same table every time, and the
@@ -822,7 +856,8 @@ monitoring of the server: closed TurboJedi or a broken SSH connection watch noth
   status and lines takes them from `turbojedi.date()`, the ones written already stay as they are.
 - A callback of `watch:follow()` that fails leaves its watch failed: it reads nothing more, its lines and the error stay in
   the list until it is removed. A watch whose journal has gone, a directory unmounted, is stopped the same way.
-- Methods of a watch removed meanwhile, by the user in the list for one, do nothing.
+- Methods of a watch removed meanwhile, by the user in the list for one, do nothing; `removed` of its options tells the
+  plugin the user has removed it.
 
 ### Gaps
 

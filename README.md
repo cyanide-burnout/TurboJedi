@@ -47,8 +47,9 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd, PC
 - Watches of plugins: entries of a filter as they come, a status and lines of each in a list, F12; Watch 1/3 * in the
   status line tells about new ones, an important one brings the list up with a bell
 - AI agents: every instance offers its workspace on the system bus, and `turbojedi-mcp.py` gives it to an agent such
-  as Claude Code or Codex over SSH. The agent points, the user acts. See [MCP.md](Documentation/MCP.md), the interface
-  itself in [DBUS.md](Documentation/DBUS.md)
+  as Claude Code or Codex over SSH. The agent points, the user acts; plugins may offer it methods of their own, a
+  search or a watch the user follows. See [MCP.md](Documentation/MCP.md), the interface itself in
+  [DBUS.md](Documentation/DBUS.md)
 - Selection with the keyboard or the mouse, copy to the clipboard (OSC 52 over SSH), export to a file
 - Timeline: entries of the filter of a window by intervals of time, errors, warnings and the rest stacked
   in a column per interval; a column takes every journal window to its time
