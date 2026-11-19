@@ -205,7 +205,7 @@ local function actions(entry, menu, context)
 
     if (not seen[address]) and valid(address) and not (mine[address] or (address:find(':') and mine[expand(address)])) then
       seen[address] = true
-      menu:add('Status of ' .. address .. ' in fail2ban', check, address)
+      menu:add('Status of ' .. address, check, address)
       menu:add('Ban ' .. address, ban, address, jail)
       menu:add('Unban ' .. address, unban, address)
     end
