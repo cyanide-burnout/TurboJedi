@@ -29,7 +29,5 @@ package() {
   install -D -m 644 Import/lua-cjson/LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/lua-cjson-LICENSE"
   install -D -m 644 README.md "${pkgdir}/usr/share/doc/${pkgname}/README.md"
   install -D -m 644 CHANGELOG.md "${pkgdir}/usr/share/doc/${pkgname}/CHANGELOG.md"
-  install -D -m 644 PLUGINS.md "${pkgdir}/usr/share/doc/${pkgname}/PLUGINS.md"
-  install -D -m 644 DBUS.md "${pkgdir}/usr/share/doc/${pkgname}/DBUS.md"
-  install -D -m 644 MCP.md "${pkgdir}/usr/share/doc/${pkgname}/MCP.md"
+  install -D -m 644 -t "${pkgdir}/usr/share/doc/${pkgname}/Documentation" Documentation/*
 }

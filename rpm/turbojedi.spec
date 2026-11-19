@@ -64,7 +64,8 @@ or rule files of grc, synchronized time across windows and saved layouts.
 
 %prep
 # What %%setup would unpack: %%license and %%doc take the names from the build directory
-cp -p "%{turbojedi_tree}/LICENSE" "%{turbojedi_tree}/README.md" "%{turbojedi_tree}/CHANGELOG.md" "%{turbojedi_tree}/PLUGINS.md" "%{turbojedi_tree}/DBUS.md" "%{turbojedi_tree}/MCP.md" .
+cp -p "%{turbojedi_tree}/LICENSE" "%{turbojedi_tree}/README.md" "%{turbojedi_tree}/CHANGELOG.md" .
+cp -pr "%{turbojedi_tree}/Documentation" .
 cp -p "%{turbojedi_tree}/Import/tvision/COPYRIGHT" tvision-COPYRIGHT
 cp -p "%{turbojedi_tree}/Import/lua-cjson/LICENSE" lua-cjson-LICENSE
 
@@ -84,7 +85,7 @@ make install PREFIX=%{buildroot}%{_prefix}
 
 %files
 %license LICENSE tvision-COPYRIGHT lua-cjson-LICENSE
-%doc README.md CHANGELOG.md PLUGINS.md DBUS.md MCP.md
+%doc README.md CHANGELOG.md Documentation
 %{_bindir}/turbojedi
 %{_bindir}/turbojedi-mcp.py
 %{_datadir}/dbus-1/system.d/me.burnaway.TurboJedi.conf

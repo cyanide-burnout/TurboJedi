@@ -18,7 +18,7 @@
 
 class JournalView;
 
-// Plugins in Lua 5.4 make the Actions menu of an entry, see PLUGINS.md. The *.lua files of /usr/share/turbojedi/plugins,
+// Plugins in Lua 5.4 make the Actions menu of an entry, see LUA.md. The *.lua files of /usr/share/turbojedi/plugins,
 // /usr/local/share/turbojedi/plugins and the directory of the user are run in the order of their names once at start, a file
 // of the same name in a later directory takes the place of an earlier one and an empty one leaves it out. Each file registers
 // its handlers, every handler adds the items it has for the entry when the menu is opened, an item runs its function when

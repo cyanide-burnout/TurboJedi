@@ -172,7 +172,7 @@ window and every watch keeps every file of its journal open, the archives includ
 `ListActions()` calls the handlers of the plugins as opening the menu does, and never the functions of the items. The
 functions of TurboJedi give the handlers no dialogs and no commands in that phase, and `query()` has the 200 ms budget of
 a menu. A handler is still Lua with its standard libraries: it is code of a plugin, trusted as the plugins are, and is to
-make the menu and nothing else, as [PLUGINS.md](PLUGINS.md) asks. The call waits while a dialog is open or Lua is busy,
+make the menu and nothing else, as [LUA.md](LUA.md#how-a-plugin-works) asks. The call waits while a dialog is open or Lua is busy,
 as the calls of the next section do. An entry that is not in the journal of the window gives
 `me.burnaway.TurboJedi.Error.NoEntry`.
 
@@ -241,7 +241,7 @@ trace. It says API, not agent: any allowed script may call.
 
 ### Plugins
 
-A plugin offers methods of its own by `on('invoke')` (PLUGINS.md), for programs that tell it something or ask it
+A plugin offers methods of its own by `on('invoke')` ([LUA.md](LUA.md#methods-for-the-bus)), for programs that tell it something or ask it
 what only it knows: a service that has analyzed entries, a script of cron, an agent.
 
 | Method | Signature | |

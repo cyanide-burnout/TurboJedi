@@ -95,9 +95,9 @@ Watches of the journal, and the workspace given to scripts and AI agents over D-
   the user of sudo of an instance of root: its windows, what is in front, the entry under the cursor, the marked
   entries, queries of the journal, the actions of an entry and the watches. It changes only the screen, marks, the
   cursor, the moment of a window, a new window, and says so in the status line as `API: ...`; such a call waits while
-  a dialog is open. See [DBUS.md](DBUS.md)
+  a dialog is open. See [DBUS.md](Documentation/DBUS.md)
 - `turbojedi-mcp.py` gives that to an AI agent such as Claude Code or Codex over SSH, as a server of the Model Context
-  Protocol: the agent points, the user acts, no action of a plugin or command is run from there. See [MCP.md](MCP.md);
+  Protocol: the agent points, the user acts, no action of a plugin or command is run from there. See [MCP.md](Documentation/MCP.md);
   the packages recommend Python 3 and dbus-python for it and bring the policy of the bus
 - Relative times are read as journalctl reads them: `-1min`, `-1h 30min`, `-2days`, `5min ago`, `2 hours left`
 - Keys are not held back while a journal that has changed is read
@@ -130,7 +130,7 @@ Actions on entries: plugins in Lua 5.4 make the menu of what can be done with th
 - Plugins in Lua 5.4 come from `/usr/share/turbojedi/plugins`, `/usr/local/share/turbojedi/plugins` and
   `~/.config/turbojedi/plugins`: a file of the same name takes the place of one above, an empty one or a link to
   `/dev/null` leaves it out; root runs only the ones nobody but root, or the groups root and staff, can change. How to
-  write them is in [PLUGINS.md](PLUGINS.md)
+  write them is in [LUA.md](Documentation/LUA.md)
 - Plugins ask with dialogs, copy to the clipboard and run commands in the background, in a window of their output or on
   the terminal, always as lists of arguments, never through a shell
 - Plugins open windows with a filter, find and go to a time in the window, read the journal for the entries before or
