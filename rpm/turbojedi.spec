@@ -66,6 +66,8 @@ or rule files of grc, synchronized time across windows and saved layouts.
 # What %%setup would unpack: %%license and %%doc take the names from the build directory
 cp -p "%{turbojedi_tree}/LICENSE" "%{turbojedi_tree}/README.md" "%{turbojedi_tree}/CHANGELOG.md" .
 cp -pr "%{turbojedi_tree}/Documentation" .
+# The screenshot is for README on GitHub, a package has no use for it
+rm -f Documentation/screenshot.png
 cp -p "%{turbojedi_tree}/Import/tvision/COPYRIGHT" tvision-COPYRIGHT
 cp -p "%{turbojedi_tree}/Import/lua-cjson/LICENSE" lua-cjson-LICENSE
 
