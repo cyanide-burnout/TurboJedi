@@ -236,7 +236,7 @@ local function findCalls(number)
       local call = calls[key]
       if not call then
         -- Its newest mention tells where it has got to
-        call = { uuid = id[1], pid = tonumber(entry._PID), cursor = entry.__CURSOR, time = entry.__REALTIME_TIMESTAMP,
+        call = { id = id[1], pid = tonumber(entry._PID), cursor = entry.__CURSOR, time = entry.__REALTIME_TIMESTAMP,
                  role = 'made', said = said(message) }
         calls[key] = call
         found[#found + 1] = call
@@ -302,12 +302,12 @@ local function calls()
   if #found == 0 then return turbojedi.message('No call of ' .. number .. ' in the journal' .. more(stopped)) end
   local names = { }
   for index, call in ipairs(found) do
-    names[index] = ('%s  %s  %s'):format(date('%F %T', call.time // 1000000), call.uuid,
+    names[index] = ('%s  %s  %s'):format(date('%F %T', call.time // 1000000), call.id,
       (call.role == 'taken') and ('taken by ' .. call.step) or ('made from ' .. tostring(call.channel)))
   end
   local _, index = turbojedi.choose('Calls of ' .. number .. more(stopped), names)
   if not index then return end
-  local id = found[index].uuid
+  local id = found[index].id
   local call, reason = findCall(id, found[index].pid)
   if not call then return turbojedi.message(reason) end
   offer('Call ' .. id, follows(call.first, id, true))
@@ -328,7 +328,7 @@ local function methods()
     if not number:match(NUMBER) then return { error = number .. ' is not an extension or an endpoint' } end
     local found, stopped = findCalls(number)
     return { calls = { type = 'aa{sv}', value = found }, stopped = stopped or '' }
-  end, { description = 'The calls a number has made or taken in the journal of Asterisk, the newest first: uuid, the identifier '
+  end, { description = 'The calls a number has made or taken in the journal of Asterisk, the newest first: id, the identifier '
            .. 'of the call as C-0000001a, pid of the process of Asterisk it has been in, cursor and time of its newest mention '
            .. 'and what it says, role (taken by an extension of the number, made by an endpoint of it otherwise), the first '
            .. 'step of the dialplan and channel among its mentions. '
@@ -339,7 +339,7 @@ local function methods()
                 .. 'that identifier without it, Asterisk counts them anew when started again' }
 
   turbojedi.on('invoke', 'call', function(values)
-    local id = tostring(values.uuid)
+    local id = tostring(values.id)
     if not id:match('^C%-%x%x%x%x%x%x%x%x$') then return { error = id .. ' is not a call, such as C-0000001a' } end
     local call, stopped = findCall(id, values.pid)
     if not call then return { error = stopped } end
@@ -349,10 +349,10 @@ local function methods()
   end, { description = 'What a call of Asterisk has been, by its mentions in the journal: its channels in the order they have '
            .. 'come, the steps of its dialplan with their applications, the first and the last thing said, since and till, '
            .. 'the cursor of its first mention',
-         effect = 'none', arguments = { uuid = { type = 's', description = 'the identifier of the call, such as C-0000001a', required = true }, pid = PID } })
+         effect = 'none', arguments = { id = { type = 's', description = 'the identifier of the call the logger of Asterisk gives it, such as C-0000001a', required = true }, pid = PID } })
 
   turbojedi.on('invoke', 'watch', function(values)
-    local id = tostring(values.uuid)
+    local id = tostring(values.id)
     if not id:match('^C%-%x%x%x%x%x%x%x%x$') then return { error = id .. ' is not a call, such as C-0000001a' } end
     local call, stopped = findCall(id, values.pid)
     if not call then return { error = stopped } end
@@ -365,7 +365,7 @@ local function methods()
   end, { description = 'Sets the watch of a call the user sees in the list of watches, as Watch of its Actions: a line for every '
            .. 'step of its dialplan and every mention, from its first one on, and the ones as they come while it goes on; key '
            .. 'and title tell it in list_watches. Only the user removes it',
-         effect = 'screen', arguments = { uuid = { type = 's', description = 'the identifier of the call, such as C-0000001a', required = true }, pid = PID } })
+         effect = 'screen', arguments = { id = { type = 's', description = 'the identifier of the call the logger of Asterisk gives it, such as C-0000001a', required = true }, pid = PID } })
 end
 
 turbojedi.on('actions', actions)
