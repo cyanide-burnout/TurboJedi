@@ -518,8 +518,9 @@ local function analyze(items, what, focus)
 
   number = number + 1
 
-  -- A watch of the job, its status and the answer in its lines; it reads no journal
-  local title = ('Arrakis %d: %s'):format(number, what or (#items .. ' entries'))
+  -- A watch of the job, its status and the answer in its lines; it reads no journal. Of several models the title names
+  -- the one of the job, its questions go there whatever is chosen later
+  local title = ('Arrakis %d%s: %s'):format(number, settings.name and (' (' .. settings.name .. ')') or '', what or (#items .. ' entries'))
   local watch = turbojedi.watch({ title = title })
 
   local query, system, user = request(settings, items, focus)
@@ -624,12 +625,14 @@ if failure then
   error(failure, 0)
 end
 
+-- The model first when there are several, then what it does, then what is in effect
 if engines then
   turbojedi.on('actions', actions)
-  turbojedi.on('menu', 'Explain the errors of the window', errors)
-  turbojedi.on('menu', 'Settings', show)
 
   if #engines > 1 then
     turbojedi.on('menu', 'Choose the model', function() chosen(true) end)
   end
+
+  turbojedi.on('menu', 'Explain the errors of the window', errors)
+  turbojedi.on('menu', 'Status', show)
 end

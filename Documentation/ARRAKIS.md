@@ -7,7 +7,7 @@ in a window, stays in a watch "Arrakis N" of F12, and the entries it names are l
 The request waits for the answer in a window with the seconds so far and Cancel, the journal windows go on behind it.
 
 Without marking anything, Explain the errors of the window of arrakis in the Plugins menu sends the errors among what
-the window shows, its filter and its time, the newest when there are too many. Settings of arrakis there tells the
+the window shows, its filter and its time, the newest when there are too many. Status of arrakis there tells the
 settings in effect and the files they come from, and sends a short request to see that the service answers.
 
 Under the answer is a line for a question about it, what a number of an error means for one: Ask sends it with the
@@ -67,15 +67,21 @@ url   = https://api.anthropic.com/v1/messages
 model = claude-sonnet-5-5
 key   = ...
 
+[openai]
+url   = https://api.openai.com/v1/chat/completions
+model = gpt-5
+key   = ...
+
 [arrakis]
 url    = http://127.0.0.1:8080/v1/chat/completions
 budget = 12000
 ```
 
 The first request of a run asks which one, the one chosen the last time offered first (it is kept in
-`~/.config/turbojedi/arrakis-chosen.txt`); Choose the model of arrakis in the Plugins menu changes it, and Settings
-shows the one chosen. A job keeps the engine it has started with: the questions about an answer go where the answer has
-come from. A section of the same name in `~/.config/turbojedi/arrakis.conf` is over the one of
+`~/.config/turbojedi/arrakis-chosen.txt`); Choose the model of arrakis, first in the Plugins menu, changes it, and
+Status shows the one chosen. A job keeps the engine it has started with, its title names it, `Arrakis 2 (claude): ...`:
+the questions about an answer go where the answer has come from, so conversations with different models go on side by
+side. A section of the same name in `~/.config/turbojedi/arrakis.conf` is over the one of
 `/etc/turbojedi/arrakis.conf` key by key, so a user adds a model of their own next to the ones of root, or changes one
 of them, without copying the file. Without a `[name]`, the file is one engine, as before.
 
