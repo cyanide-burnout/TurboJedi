@@ -79,8 +79,9 @@ class JournalWatch
     ~JournalWatch();
 
     // Opens the journal of the filter: after the entry of the position, or at its end without one; false and the reason
-    // when the journal cannot be opened
-    bool start(const JournalFilter& filter, const JournalPosition* from, std::string& error);
+    // when the journal cannot be opened. With first the entry of the position is the first one read, false when it is
+    // not in the journal
+    bool start(const JournalFilter& filter, const JournalPosition* from, std::string& error, bool first = false);
 
     // Reads what has come, up to the limit of entries and the deadline in milliseconds of CLOCK_MONOTONIC. Paused while a
     // dialog is open: nothing is read and the time behind does not count
@@ -128,6 +129,8 @@ class JournalWatch
     std::string saved;     // The line of a layout a watch of a plugin that is not there keeps as it is
     int callback;          // Of the engine in the registry of Lua, LUA_NOREF without
     int self;              // Its table there, the same in every callback
+    int removal;           // Of removed() of its options, LUA_NOREF without
+    bool due;              // The user has removed it, removed() is called once no dialog is open
 
   private:
 

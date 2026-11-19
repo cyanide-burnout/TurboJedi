@@ -506,6 +506,7 @@ bool HasPluginEvents()
   for (const std::pair<const int, std::unique_ptr<JournalWatch>>& watch : journals)
   {
     if ((watch.second->state == WATCH_ACTIVE) && (!watch.second->events.empty())) return true;
+    if (watch.second->due) return true;
   }
 
   return false;
@@ -692,6 +693,12 @@ void DispatchPluginEvents()
     RunCallback(callback, name, [reply, &failure] (lua_State* state) { return PushDBusAnswer(state, reply, failure); }, errors);
     sd_bus_message_unref(reply);
     luaL_unref(state, LUA_REGISTRYINDEX, callback);
+  }
+
+  for (const RemovedWatch& removed : TakeRemovedWatches())
+  {
+    // Its methods do nothing anymore, the plugin forgets it; freed by the next round
+    RunCallback(removed.callback, removed.plugin, [&removed] (lua_State* state) { lua_rawgeti(state, LUA_REGISTRYINDEX, removed.self); return 1; }, errors);
   }
 
   DispatchJournalWatches(errors);

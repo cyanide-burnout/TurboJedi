@@ -131,15 +131,16 @@ extern JournalView* origin; // Window the menu has been opened in, for open(), f
 extern const JournalFilter* basis;  // What open() and query() of an item of the Plugins menu start from when no window is open
 extern int64_t deadline;    // Of the queries of the handlers making the menu, shared by all of them
 extern size_t budget;       // Entries they may look at yet
-extern std::map<int, Watch> watches;
+extern int64_t invoked;     // Milliseconds of CLOCK_MONOTONIC a method of Invoke() has until, its queries stop there; zero outside one
 extern std::map<int, Timer> timers;
+extern std::map<int, Watch> watches;
 extern std::map<int, Request> requests;
 extern std::map<int, Request> invocations;  // Calls of dbus() with a callback, their calls go by the same number
 extern std::map<int, std::unique_ptr<JournalWatch>> journals;  // Of watch(), by the same numbers
 extern int watching;      // The watch whose callback runs, zero outside
 extern int dispatching;   // Rounds of events going on, nested by the dialogs of callbacks
+extern bool universal;    // Times of the watches and of date() are of UTC, not of the local zone
 extern bool changed;      // Watches have changed, their windows and the status line are told
-extern bool universal;      // Times of the watches and of date() are of UTC, not of the local zone
 extern int serial;
 extern std::map<std::string, JournalExpression> expressions;
 
@@ -206,6 +207,16 @@ void ShowErrors(const std::vector<std::string>& errors);
 void OpenConsole();
 std::vector<int> RoundJournalWatches();
 void DispatchJournalWatches(std::vector<std::string>& errors);
+
+// A watch the user has removed whose plugin has asked to be told by removed() of its options
+struct RemovedWatch
+{
+  int callback;  // removed() in the registry
+  int self;      // The table of the watch there
+  std::string plugin;
+};
+
+std::vector<RemovedWatch> TakeRemovedWatches();
 
 template <Body body, int needed> static int Call(lua_State* state)
 {

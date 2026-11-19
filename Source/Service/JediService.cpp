@@ -489,8 +489,9 @@ static bool Permits(const Permission& permission, const char* member, const std:
           (permission.methods.count("Invoke:" + plugin + "." + method) != 0));
 }
 
-// Invoke() tells its plugin and method, the files of allow may name them
-static int Allow(sd_bus_message* message, sd_bus_error* error, const std::string& plugin = std::string(), const std::string& method = std::string())
+// Invoke() tells its plugin and method, the files of allow may name them; ListMethods() asks it for every method as if
+// Invoke() were called, the member tells which one
+static int Allow(sd_bus_message* message, sd_bus_error* error, const std::string& plugin = std::string(), const std::string& method = std::string(), const char* member = nullptr)
 {
   int result;
   uid_t uid;
@@ -517,7 +518,7 @@ static int Allow(sd_bus_message* message, sd_bus_error* error, const std::string
   for (const Permission& permission : permissions)
   {
     if ((permission.group ? IsMember(uid, permission.id) : (permission.id == uid)) &&
-        (Permits(permission, sd_bus_message_get_member(message), plugin, method)))
+        (Permits(permission, (member != nullptr) ? member : sd_bus_message_get_member(message), plugin, method)))
     {
       // A service or another user the files let in, for the methods they name
       return 0;
@@ -1035,6 +1036,231 @@ static int ListActions(sd_bus_message* message, void*, sd_bus_error* error)
   return Defer(message, operation);
 }
 
+// An integer type of the bus: y n q i u x t
+static bool IsInteger(const char* type)
+{
+  return (type[0] != '\0') && (type[1] == '\0') && (strchr("ynqiuxt", type[0]) != nullptr);
+}
+
+// The integer of the variant the message is at, of a type IsInteger() has taken, as a sign and a magnitude: the variant is
+// read through
+static bool ReadInteger(sd_bus_message* message, const char* type, bool& negative, uint64_t& magnitude)
+{
+  int64_t value;
+  union { uint8_t y; int16_t n; uint16_t q; int32_t i; uint32_t u; int64_t x; uint64_t t; } number;
+
+  if ((sd_bus_message_enter_container(message, 'v', type) < 0) ||
+      (sd_bus_message_read_basic(message, type[0], &number) < 0) ||
+      (sd_bus_message_exit_container(message) < 0))
+  {
+    return false;
+  }
+
+  switch (type[0])
+  {
+    case 'y': value = number.y; break;
+    case 'n': value = number.n; break;
+    case 'q': value = number.q; break;
+    case 'i': value = number.i; break;
+    case 'u': value = number.u; break;
+    case 'x': value = number.x; break;
+    default:  negative = false; magnitude = number.t; return true;
+  }
+
+  negative  = (value < 0);
+  magnitude = negative ? (uint64_t)(-(value + 1)) + 1 : (uint64_t)value;
+  return true;
+}
+
+// A value of the bus fits a type of an argument: an integer of another type when its value fits, any number for d. An
+// integer is read through, read tells it; the variant of another value is left for the caller to skip
+static bool FitsArgument(sd_bus_message* message, const char* contents, const std::string& type, bool& read)
+{
+  bool negative;
+  uint64_t magnitude;
+
+  read = false;
+
+  if ((type == "s") || (type == "b") || (type == "as") ||
+      (strcmp(contents, "d") == 0))
+  {
+    return (type == contents) || ((type == "d") && (strcmp(contents, "d") == 0));
+  }
+
+  if ((!IsInteger(contents)) ||
+      (!(read = ReadInteger(message, contents, negative, magnitude))))
+  {
+    return false;
+  }
+
+  return (type == "d") ||
+         ((type == "i") && (magnitude <= (negative ? 0x80000000ULL : 0x7fffffffULL))) ||
+         ((type == "u") && (!negative) && (magnitude <= 0xffffffffULL)) ||
+         ((type == "x") && (magnitude <= (negative ? 0x8000000000000000ULL : 0x7fffffffffffffffULL))) ||
+         ((type == "t") && (!negative));
+}
+
+// The values of Invoke() at the place of the message: the keys of TurboJedi taken, _window of the window the method runs
+// in, the ones of the method checked by its arguments when it has told them. False and why for a value it does not take,
+// a key of TurboJedi there is not, or an argument it needs and has not got
+static bool CheckValues(sd_bus_message* message, const PluginMethod* method, bool& windowed, uint32_t& window, std::string& error)
+{
+  int result;
+  char type;
+  bool read;
+  bool negative;
+  uint64_t magnitude;
+  const char* key;
+  const char* contents;
+  std::set<std::string> given;
+  std::vector<PluginArgument>::const_iterator argument;
+
+  windowed = false;
+  error    = "the values cannot be read";
+
+  if (sd_bus_message_enter_container(message, 'a', "{sv}") < 0)
+  {
+    return false;
+  }
+
+  while ((result = sd_bus_message_enter_container(message, 'e', "sv")) > 0)
+  {
+    read = false;
+
+    if ((sd_bus_message_read(message, "s", &key) < 0) ||
+        (sd_bus_message_peek_type(message, &type, &contents) < 0))
+    {
+      return false;
+    }
+
+    if (key[0] == '_')
+    {
+      // Of TurboJedi, not of the method
+      if (strcmp(key, "_window") != 0)
+      {
+        error = std::string("TurboJedi has no key ") + key + ", the keys beginning with _ are of TurboJedi";
+        return false;
+      }
+
+      if ((!IsInteger(contents)) ||
+          (!(read = ReadInteger(message, contents, negative, magnitude))) ||
+          (negative) ||
+          (magnitude > 0xffffffffULL))
+      {
+        error = "_window is the id of a window, u";
+        return false;
+      }
+
+      windowed = true;
+      window   = (uint32_t)magnitude;
+    }
+    else if (method->declared)
+    {
+      argument = std::find_if(method->arguments.begin(), method->arguments.end(), [key] (const PluginArgument& item)
+      {
+        return item.name == key;
+      });
+
+      if (argument == method->arguments.end())
+      {
+        error = "method " + method->method + " of plugin " + method->plugin + " takes no argument " + key;
+        return false;
+      }
+
+      if (!FitsArgument(message, contents, argument->type, read))
+      {
+        error = "argument " + argument->name + " is " + argument->type + ", the value given is not";
+        return false;
+      }
+
+      given.insert(key);
+    }
+
+    if (((!read) && (sd_bus_message_skip(message, "v") < 0)) ||
+        (sd_bus_message_exit_container(message) < 0))
+    {
+      return false;
+    }
+  }
+
+  if ((result < 0) ||
+      (sd_bus_message_exit_container(message) < 0))
+  {
+    return false;
+  }
+
+  for (const PluginArgument& item : method->arguments)
+  {
+    if (item.required && (given.count(item.name) == 0))
+    {
+      error = "method " + method->method + " of plugin " + method->plugin + " needs argument " + item.name;
+      return false;
+    }
+  }
+
+  return true;
+}
+
+// The methods of the plugins, the ones the caller may invoke: what each does and takes, as its plugin tells it, empty
+// and system for a method that tells nothing
+static int ListMethods(sd_bus_message* message, void*, sd_bus_error* error)
+{
+  int result;
+  std::vector<const PluginMethod*> methods;
+
+  if ((result = Allow(message, error)) < 0)
+  {
+    return result;
+  }
+
+  for (const PluginMethod* method : ListPluginMethods())
+  {
+    if (Allow(message, nullptr, method->plugin, method->method, "Invoke") >= 0)
+    {
+      methods.push_back(method);
+    }
+  }
+
+  return Reply(message, [&] (sd_bus_message* reply)
+  {
+    int result;
+
+    result = std::min(0, sd_bus_message_open_container(reply, 'a', "a{sv}"));
+
+    for (const PluginMethod* method : methods)
+    {
+      result = std::min(result, sd_bus_message_open_container(reply, 'a', "{sv}"));
+      result = std::min(result, AppendString(reply, "plugin", method->plugin));
+      result = std::min(result, AppendString(reply, "method", method->method));
+      result = std::min(result, AppendString(reply, "description", method->description));
+      result = std::min(result, AppendString(reply, "effect", method->effect));
+      result = std::min(result, sd_bus_message_append(reply, "{sv}", "declared", "b", (int)method->declared));
+      result = std::min(result, sd_bus_message_open_container(reply, 'e', "sv"));
+      result = std::min(result, sd_bus_message_append(reply, "s", "arguments"));
+      result = std::min(result, sd_bus_message_open_container(reply, 'v', "aa{sv}"));
+      result = std::min(result, sd_bus_message_open_container(reply, 'a', "a{sv}"));
+
+      for (const PluginArgument& argument : method->arguments)
+      {
+        result = std::min(result, sd_bus_message_open_container(reply, 'a', "{sv}"));
+        result = std::min(result, AppendString(reply, "name", argument.name));
+        result = std::min(result, AppendString(reply, "type", argument.type));
+        result = std::min(result, AppendString(reply, "description", argument.description));
+        result = std::min(result, sd_bus_message_append(reply, "{sv}", "required", "b", (int)argument.required));
+        result = std::min(result, sd_bus_message_close_container(reply));
+      }
+
+      result = std::min(result, sd_bus_message_close_container(reply));
+      result = std::min(result, sd_bus_message_close_container(reply));
+      result = std::min(result, sd_bus_message_close_container(reply));
+      result = std::min(result, sd_bus_message_close_container(reply));
+    }
+
+    result = std::min(result, sd_bus_message_close_container(reply));
+    return result;
+  });
+}
+
 static int Invoke(sd_bus_message* message, void*, sd_bus_error* error)
 {
   int result;
@@ -1262,6 +1488,7 @@ static const sd_bus_vtable Table[] =
   SD_BUS_METHOD_WITH_NAMES("GoTo",          "us",    SD_BUS_PARAM(id) SD_BUS_PARAM(cursor),             "bs",     SD_BUS_PARAM(found) SD_BUS_PARAM(stopped), GoTo,    SD_BUS_VTABLE_UNPRIVILEGED),
   SD_BUS_METHOD_WITH_NAMES("Seek",          "ut",    SD_BUS_PARAM(id) SD_BUS_PARAM(time),               "bs",     SD_BUS_PARAM(reached) SD_BUS_PARAM(stopped), Seek,  SD_BUS_VTABLE_UNPRIVILEGED),
   SD_BUS_METHOD_WITH_NAMES("OpenWindow",    "a{sv}", SD_BUS_PARAM(options),                             "u",      SD_BUS_PARAM(id),                    OpenWindow,    SD_BUS_VTABLE_UNPRIVILEGED),
+  SD_BUS_METHOD_WITH_NAMES("ListMethods",   "",      SD_BUS_PARAM(),                                    "aa{sv}", SD_BUS_PARAM(methods),               ListMethods,   SD_BUS_VTABLE_UNPRIVILEGED),
   SD_BUS_METHOD_WITH_NAMES("Invoke",        "ssa{sv}", SD_BUS_PARAM(plugin) SD_BUS_PARAM(method) SD_BUS_PARAM(values), "a{sv}", SD_BUS_PARAM(answer), Invoke,   SD_BUS_VTABLE_UNPRIVILEGED),
   SD_BUS_VTABLE_END
 };
@@ -1287,8 +1514,10 @@ template <typename Function> static void Answer(Operation& operation, Function m
 // One step of a call answered later: true once it is answered
 static bool Step(Operation& operation, bool paused, int64_t now)
 {
+  uint32_t id;
   bool over;
   bool found;
+  bool windowed;
   size_t count;
   char moment[32];
   time_t seconds;
@@ -1297,6 +1526,7 @@ static bool Step(Operation& operation, bool paused, int64_t now)
   sd_bus_message* reply;
   JournalWindow* window;
   JournalWindowRequest request;
+  const PluginMethod* described;
   std::vector<std::pair<std::string, std::string>> actions;
 
   if (operation.kind == DO_QUERY)
@@ -1351,7 +1581,32 @@ static bool Step(Operation& operation, bool paused, int64_t now)
       return true;
     }
 
-    switch (InvokePluginMethod(operation.plugin, operation.method, operation.message, reply, reason))
+    // The values checked by the method as it is now: the plugins may have been loaded again while the call has waited
+    if ((described = FindPluginMethod(operation.plugin, operation.method)) == nullptr)
+    {
+      ReplyError(operation, BUS_ERROR "NoMethod", "plugin " + operation.plugin + " has no method " + operation.method);
+      sd_bus_message_unref(reply);
+      return true;
+    }
+
+    if ((!CheckValues(operation.message, described, windowed, id, reason)) ||
+        (sd_bus_message_rewind(operation.message, 1) < 0) ||
+        (sd_bus_message_skip(operation.message, "ss") < 0))
+    {
+      ReplyError(operation, BUS_ERROR "InvalidArgs", reason);
+      sd_bus_message_unref(reply);
+      return true;
+    }
+
+    if ((windowed) &&
+        ((window = FindWindow(id)) == nullptr))
+    {
+      ReplyError(operation, BUS_ERROR "NoWindow", "there is no window of id " + std::to_string(id));
+      sd_bus_message_unref(reply);
+      return true;
+    }
+
+    switch (InvokePluginMethod(operation.plugin, operation.method, operation.message, reply, windowed ? window->view : nullptr, operation.deadline, reason))
     {
       case PLUGIN_METHOD_NONE:
         ReplyError(operation, BUS_ERROR "NoMethod", "plugin " + operation.plugin + " has no method " + operation.method);

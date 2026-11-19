@@ -40,6 +40,8 @@ JournalWatch::JournalWatch()
   lag         = WATCH_LAG;
   callback    = -2;  // LUA_NOREF, the engine sets it
   self        = -2;
+  removal     = -2;
+  due         = false;
   journal     = nullptr;
   notifier    = nullptr;
   blind       = false;
@@ -62,7 +64,27 @@ JournalWatch::~JournalWatch()
   close();
 }
 
-bool JournalWatch::start(const JournalFilter& filter, const JournalPosition* from, std::string& error)
+// The entry of a cursor is in the journal of a filter, whatever its matches: seeking one that is not there lands near
+// its place all the same
+static bool HasJournalEntry(const JournalFilter& filter, const std::string& cursor)
+{
+  bool found;
+  sd_journal* journal;
+
+  if (OpenJournal(&journal, filter) < 0)
+  {
+    return false;
+  }
+
+  found = (sd_journal_seek_cursor(journal, cursor.c_str()) >= 0) &&
+          (sd_journal_next(journal) > 0) &&
+          (sd_journal_test_cursor(journal, cursor.c_str()) > 0);
+
+  sd_journal_close(journal);
+  return found;
+}
+
+bool JournalWatch::start(const JournalFilter& filter, const JournalPosition* from, std::string& error, bool first)
 {
   int result;
 
@@ -85,6 +107,41 @@ bool JournalWatch::start(const JournalFilter& filter, const JournalPosition* fro
   attach();
   begun   = GetRealTime();
   reached = GetQueryMilliseconds();
+
+  if ((from != nullptr) &&
+      (!from->cursor.empty()) &&
+      (first))
+  {
+    // From an entry of the plugin, read itself first when it is of the matches, from the next one of them otherwise:
+    // the entry has to be in the journal, which the matches alone do not tell
+    if (!HasJournalEntry(filter, from->cursor))
+    {
+      close();
+      error = "the entry of from is not in the journal of the watch";
+      return false;
+    }
+
+    if ((sd_journal_seek_cursor(journal, from->cursor.c_str()) < 0) ||
+        (sd_journal_next(journal) <= 0))
+    {
+      // Nothing of the matches from there on: the watch follows the end as without one
+      SeekJournalEnd(journal);
+      remember();
+    }
+    else if (sd_journal_previous(journal) > 0)
+    {
+      // The next entry read is the one of the cursor, or the first of the matches after it
+      remember();
+    }
+    else
+    {
+      // Nothing of the matches before it, the journal reads from its head
+      sd_journal_seek_head(journal);
+    }
+
+    delivered = place;
+    return true;
+  }
 
   if ((from != nullptr) &&
       (!from->cursor.empty()))

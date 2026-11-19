@@ -32,8 +32,11 @@ JournalView* origin; // Window the menu has been opened in, for open(), find(), 
 const JournalFilter* basis;  // What open() and query() of an item of the Plugins menu start from when no window is open
 int64_t deadline;    // Of the queries of the handlers making the menu, shared by all of them
 size_t budget;       // Entries they may look at yet
+int64_t invoked;     // Milliseconds of CLOCK_MONOTONIC a method of Invoke() has until, its queries stop there; zero outside one
 
 static std::vector<std::string> directories;  // In the order a file of the same name takes the place: the user last
+static std::map<std::pair<std::string, std::string>, PluginMethod> descriptions;  // Of on('invoke') by plugin and name
+static const JournalFilter machine = { };     // The journal of this machine, of a method called without a window
 
 int Fail(lua_State* state, const char* format, ...)
 {
@@ -286,15 +289,198 @@ static int PrintConsole(lua_State* state)
   return 0;
 }
 
-// on('invoke', name, func): func(values) for Invoke() of the bus, the table it returns is the answer
+// A text field of the options of on('invoke'): false and the error for one of another type, true for none or a text
+static bool GetMethodText(lua_State* state, int index, const char* name, std::string& value, std::string& error)
+{
+  bool done;
+
+  lua_pushstring(state, name);
+  lua_rawget(state, index);
+  done = lua_isnil(state, -1) || GetString(state, -1, value);
+  lua_pop(state, 1);
+
+  if (!done)
+  {
+    error = std::string(name) + " is a text";
+  }
+
+  return done;
+}
+
+// An argument of the options of on('invoke'), at the top of the stack under its name: its type, what it is, whether
+// it has to be given
+static bool ReadMethodArgument(lua_State* state, PluginArgument& argument, std::string& error)
+{
+  int index;
+  int type;
+
+  index = lua_gettop(state);
+
+  if (lua_type(state, index) != LUA_TTABLE)
+  {
+    error = "argument " + argument.name + " is a table of type, description and required";
+    return false;
+  }
+
+  if ((!GetMethodText(state, index, "type", argument.type, error)) ||
+      (!GetMethodText(state, index, "description", argument.description, error)))
+  {
+    error = "argument " + argument.name + ": " + error;
+    return false;
+  }
+
+  if ((argument.type != "s") && (argument.type != "u") && (argument.type != "i") && (argument.type != "t") &&
+      (argument.type != "x") && (argument.type != "b") && (argument.type != "d") && (argument.type != "as"))
+  {
+    error = "argument " + argument.name + " has type s, u, i, t, x, b, d or as, not '" + argument.type + "'";
+    return false;
+  }
+
+  lua_pushliteral(state, "required");
+  type              = lua_rawget(state, index);
+  argument.required = lua_toboolean(state, -1);
+  lua_pop(state, 1);
+
+  if ((type != LUA_TNIL) &&
+      (type != LUA_TBOOLEAN))
+  {
+    error = "required of argument " + argument.name + " is true or false";
+    return false;
+  }
+
+  return true;
+}
+
+// The options of on('invoke') at the index: what the method does, its effect and its arguments. A method without them
+// changes the system for all a caller knows
+static bool ReadMethodOptions(lua_State* state, int index, PluginMethod& method, std::string& error)
+{
+  method.effect   = "system";
+  method.declared = false;
+
+  if (lua_isnone(state, index) ||
+      lua_isnil(state, index))
+  {
+    return true;
+  }
+
+  if (lua_type(state, index) != LUA_TTABLE)
+  {
+    error = "the options are a table of description, effect and arguments";
+    return false;
+  }
+
+  if ((!GetMethodText(state, index, "description", method.description, error)) ||
+      (!GetMethodText(state, index, "effect", method.effect, error)))
+  {
+    return false;
+  }
+
+  if ((method.effect != "none") &&
+      (method.effect != "screen") &&
+      (method.effect != "system"))
+  {
+    error = "effect is 'none', 'screen' or 'system', not '" + method.effect + "'";
+    return false;
+  }
+
+  lua_pushliteral(state, "arguments");
+
+  if (lua_rawget(state, index) == LUA_TNIL)
+  {
+    lua_pop(state, 1);
+    return true;
+  }
+
+  if (lua_type(state, -1) != LUA_TTABLE)
+  {
+    lua_pop(state, 1);
+    error = "arguments is a table of the arguments by their names";
+    return false;
+  }
+
+  // Its arguments are checked now, an empty table as well: such a method takes no values
+  method.declared = true;
+
+  for (lua_pushnil(state); lua_next(state, -2) != 0; lua_pop(state, 1))
+  {
+    PluginArgument argument;
+
+    if (lua_type(state, -2) != LUA_TSTRING)
+    {
+      lua_pop(state, 3);
+      error = "the arguments are named by texts";
+      return false;
+    }
+
+    argument.name     = lua_tostring(state, -2);
+    argument.required = false;
+
+    if (argument.name.empty() ||
+        (argument.name[0] == '_'))
+    {
+      // The keys of TurboJedi, _window of the window a method runs in
+      lua_pop(state, 3);
+      error = "argument '" + argument.name + "': a name beginning with _ is of TurboJedi, an empty one of nothing";
+      return false;
+    }
+
+    if (!ReadMethodArgument(state, argument, error))
+    {
+      lua_pop(state, 3);
+      return false;
+    }
+
+    method.arguments.push_back(argument);
+  }
+
+  lua_pop(state, 1);
+
+  // In the order of their names, a table of Lua has none of its own
+  std::sort(method.arguments.begin(), method.arguments.end(), [] (const PluginArgument& one, const PluginArgument& other)
+  {
+    return one.name < other.name;
+  });
+
+  return true;
+}
+
+// Methods of a plugin that has failed to load: it offers nothing, as if it had none
+static void ForgetPluginMethods(const std::string& name)
+{
+  lua_getfield(state, LUA_REGISTRYINDEX, METHODS);
+  lua_pushnil(state);
+  lua_setfield(state, -2, name.c_str());
+  lua_pop(state, 1);
+
+  for (std::map<std::pair<std::string, std::string>, PluginMethod>::iterator item = descriptions.begin(); item != descriptions.end(); )
+  {
+    item = (item->first.first == name) ? descriptions.erase(item) : std::next(item);
+  }
+}
+
+// on('invoke', name, func, options): func(values, context) for Invoke() of the bus, the table it returns is the
+// answer; the options tell what it does
 static int OnInvoke(lua_State* state)
 {
+  std::string error;
+  PluginMethod method;
+
   if ((lua_type(state, 1) != LUA_TSTRING) ||
       (lua_type(state, 2) != LUA_TFUNCTION))
   {
-    return Fail(state, "on('invoke') takes a name and a function");
+    return Fail(state, "on('invoke') takes a name, a function and its options");
   }
 
+  method.plugin = plugin;
+  method.method = lua_tostring(state, 1);
+
+  if (!ReadMethodOptions(state, 3, method, error))
+  {
+    return Fail(state, "on('invoke') of %s: %s", method.method.c_str(), error.c_str());
+  }
+
+  descriptions[{ plugin, method.method }] = method;
   lua_getfield(state, LUA_REGISTRYINDEX, METHODS);
 
   if (lua_getfield(state, -1, plugin.c_str()) != LUA_TTABLE)
@@ -491,6 +677,16 @@ int GetHandle(lua_State* state)
   return number;
 }
 
+// Milliseconds a method of Invoke() has left of the time of its call, nil outside one: queries take what is left on
+// their own, a plugin weighs the rest of its work by it
+static int GetLeft(lua_State* state)
+{
+  if (invoked == 0) lua_pushnil(state);
+  else              lua_pushinteger(state, std::max<int64_t>(0, invoked - GetQueryMilliseconds()));
+
+  return 1;
+}
+
 static const luaL_Reg functions[] =
 {
   { "on",              Call<On,              PHASE_LOAD>   },
@@ -512,6 +708,7 @@ static const luaL_Reg functions[] =
   { "regex",           Call<Match,           PHASE_ANY>    },
   { "matches",         Call<Matches,         PHASE_ANY>    },
   { "which",           Call<Which,           PHASE_ANY>    },
+  { "left",            Call<GetLeft,         PHASE_ANY>    },
   { "utc",             Call<GetUniversal,    PHASE_ANY>    },
   { "sudo",            Call<GetSudoUser,     PHASE_ANY>    },
   { "settings",        Call<Settings,        PHASE_ANY>    },
@@ -909,6 +1106,7 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
     {
       errors.push_back(GetError(state));
       lua_settop(state, 0);
+      ForgetPluginMethods(plugin);
       continue;
     }
 
@@ -1205,6 +1403,7 @@ void RunPluginMenu(int index, JournalView* view, const JournalFilter& filter)
 
   phase  = PHASE_IDLE;
   origin = nullptr;
+  basis  = nullptr;  // The filter is of the caller, gone once it returns
   lua_settop(state, base);
 }
 
@@ -1215,6 +1414,7 @@ void ClosePlugins()
   timers.clear();
   requests.clear();
   invocations.clear();
+  descriptions.clear();
   CloseFetches();
   CloseDBus();
 
@@ -1232,11 +1432,32 @@ bool IsPluginIdle()
   return (state != nullptr) && (phase == PHASE_IDLE);
 }
 
-int InvokePluginMethod(const std::string& name, const std::string& method, sd_bus_message* call, sd_bus_message* reply, std::string& error)
+std::vector<const PluginMethod*> ListPluginMethods()
+{
+  std::vector<const PluginMethod*> list;
+
+  for (const std::pair<const std::pair<std::string, std::string>, PluginMethod>& item : descriptions)
+  {
+    list.push_back(&item.second);
+  }
+
+  return list;
+}
+
+const PluginMethod* FindPluginMethod(const std::string& name, const std::string& method)
+{
+  std::map<std::pair<std::string, std::string>, PluginMethod>::const_iterator item;
+
+  item = descriptions.find({ name, method });
+  return (item != descriptions.end()) ? &item->second : nullptr;
+}
+
+int InvokePluginMethod(const std::string& name, const std::string& method, sd_bus_message* call, sd_bus_message* reply, JournalView* view, int64_t deadline, std::string& error)
 {
   int base;
   int result;
   bool done;
+  int64_t late;
 
   if (!IsPluginIdle())
   {
@@ -1257,7 +1478,7 @@ int InvokePluginMethod(const std::string& name, const std::string& method, sd_bu
     return PLUGIN_METHOD_NONE;
   }
 
-  // Trace, the function, the values of the caller as a table
+  // Trace, the function, the values of the caller as a table, the context of the window
   lua_replace(state, base + 2);
   lua_settop(state, base + 2);
 
@@ -1268,10 +1489,40 @@ int InvokePluginMethod(const std::string& name, const std::string& method, sd_bu
     return PLUGIN_METHOD_FAILED;
   }
 
-  phase  = PHASE_EVENT;
-  plugin = name;
-  done   = (lua_pcall(state, 1, 1, base + 1) == LUA_OK);
-  phase  = PHASE_IDLE;
+  for (lua_pushnil(state); lua_next(state, base + 3) != 0; )
+  {
+    // The keys of TurboJedi are not of the method, the bus has taken them
+    lua_pop(state, 1);
+
+    if ((lua_type(state, -1) == LUA_TSTRING) &&
+        (lua_tostring(state, -1)[0] == '_'))
+    {
+      lua_pushvalue(state, -1);
+      lua_pushnil(state);
+      lua_rawset(state, base + 3);
+    }
+  }
+
+  if (view != nullptr) PushWindowContext(state, view);
+  else                 PushContext(state, machine);
+
+  // As an action of the window: its journal is the one queries, marks and watches take
+  phase   = PHASE_ACTION;
+  plugin  = name;
+  origin  = view;
+  basis   = (view != nullptr) ? &view->getFilter() : &machine;
+  invoked = deadline;
+  done    = (lua_pcall(state, 2, 1, base + 1) == LUA_OK);
+  phase   = PHASE_IDLE;
+  origin  = nullptr;
+  basis   = nullptr;
+  invoked = 0;
+
+  if ((late = GetQueryMilliseconds() - deadline) > 0)
+  {
+    // Past the 30 seconds of the call: a caller that keeps to them has given up, the answer may go nowhere
+    LogConsole(name, "method " + method + " has answered " + std::to_string((late + 999) / 1000) + " s past the 30 s of its call", true);
+  }
 
   if (!done)
   {

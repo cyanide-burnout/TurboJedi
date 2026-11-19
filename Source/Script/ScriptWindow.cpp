@@ -380,6 +380,7 @@ int Query(lua_State* state)
 {
   bool older;
   int timeout;
+  int64_t left;
   size_t limit;
   size_t scan;
   std::string text;
@@ -442,6 +443,15 @@ int Query(lua_State* state)
       // The menu has spent its entries rather than this query its own
       query.stopped = "scan";
     }
+  }
+  else if (invoked != 0)
+  {
+    // A method of the bus has its 30 seconds for all of its work, a query takes what is left of them
+    left    = (invoked - GetQueryMilliseconds()) / 1000;
+    timeout = ((timeout == 0) || (timeout > left)) ? (int)left : timeout;
+
+    if (timeout > 0) RunJournalQuery(query, timeout);
+    else             query.stop("time");
   }
   else
   {

@@ -55,12 +55,38 @@ bool IsPluginIdle();
 void LogConsole(const std::string& source, const std::string& text, bool problem);
 int GetConsoleWatch();
 
+// A method of on('invoke') as its plugin has told it: what it does for a caller to know, an agent of MCP first. A method
+// registered without options has none of it and is taken as one that changes the system
+struct PluginArgument
+{
+  std::string name;
+  std::string type;         // s u i t x b d as
+  std::string description;
+  bool required;
+};
+
+struct PluginMethod
+{
+  std::string plugin;
+  std::string method;
+  std::string description;  // Empty when the plugin has given none
+  std::string effect;       // none, screen or system
+  bool declared;            // Its arguments are told and checked, any values go to it otherwise
+  std::vector<PluginArgument> arguments;
+};
+
+// The methods of the plugins loaded, by plugin and name; nullptr for one there is not
+std::vector<const PluginMethod*> ListPluginMethods();
+const PluginMethod* FindPluginMethod(const std::string& name, const std::string& method);
+
 // Invoke() of the bus: the method a plugin has registered by on('invoke'), with the a{sv} at the place of the call
-// as its values, its answer appended to the reply as a{sv}; the error tells why it has failed. Only while Lua is idle
+// as its values, the keys of TurboJedi left out, its answer appended to the reply as a{sv}; the error tells why it has
+// failed. It runs as an action of the window, of the journal of this machine without one, until the deadline in
+// milliseconds of CLOCK_MONOTONIC: queries stop there. Only while Lua is idle
 #define PLUGIN_METHOD_DONE    0
 #define PLUGIN_METHOD_NONE    1  // No such plugin or method
 #define PLUGIN_METHOD_FAILED  2
-int InvokePluginMethod(const std::string& name, const std::string& method, sd_bus_message* call, sd_bus_message* reply, std::string& error);
+int InvokePluginMethod(const std::string& name, const std::string& method, sd_bus_message* call, sd_bus_message* reply, JournalView* view, int64_t deadline, std::string& error);
 
 // The items of the Actions menu of the entry of a cursor in a window, title and plugin in the order of the menu, nothing
 // run; false when Lua is busy or the entry is gone

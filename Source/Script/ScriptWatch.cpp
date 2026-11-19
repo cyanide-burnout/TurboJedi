@@ -83,7 +83,7 @@ static JournalFilter GetWatchBase()
 
 // The filter and the place of the options of a journal to follow, -1 with the error for a wrong one: checked before a
 // watch is made
-static int ReadFollow(lua_State* state, int options, const char* name, JournalFilter& filter, JournalPosition& from)
+static int ReadFollow(lua_State* state, int options, const char* name, JournalFilter& filter, JournalPosition& from, bool& first)
 {
   int type;
   std::string value;
@@ -121,27 +121,44 @@ static int ReadFollow(lua_State* state, int options, const char* name, JournalFi
     return Fail(state, "%s follows the matches of its options, it takes no window", name);
   }
 
-  // The place a layout has kept, given by on('restore')
-  from = { std::string(), 0 };
+  // The place a layout has kept, given by on('restore'), the watch goes on after it; or an entry or its cursor, the
+  // watch reads from it on, the entry itself first
+  from  = { std::string(), 0 };
+  first = false;
   lua_pushliteral(state, "from");
+  type = lua_rawget(state, options);
 
-  if (lua_rawget(state, options) == LUA_TTABLE)
+  if (type == LUA_TSTRING)
   {
-    lua_pushliteral(state, "cursor");
+    GetString(state, -1, from.cursor);
+    first = true;
+  }
+  else if (type == LUA_TTABLE)
+  {
+    lua_pushliteral(state, "__CURSOR");
+    first = (lua_rawget(state, -2) != LUA_TNIL);
+    lua_pop(state, 1);
+    lua_pushstring(state, first ? "__CURSOR" : "cursor");
     lua_rawget(state, -2);
     GetString(state, -1, from.cursor);
-    lua_pushliteral(state, "time");
+    lua_pushstring(state, first ? "__REALTIME_TIMESTAMP" : "time");
     lua_rawget(state, -3);
     from.realtime = lua_tointeger(state, -1);
     lua_pop(state, 2);
   }
-  else if (!lua_isnil(state, -1))
+  else if (type != LUA_TNIL)
   {
     lua_pop(state, 1);
-    return Fail(state, "from of %s is the position on('restore') gives", name);
+    return Fail(state, "from of %s is an entry, its cursor, or the position on('restore') gives", name);
   }
 
   lua_pop(state, 1);
+
+  if ((type != LUA_TNIL) &&
+      (from.cursor.empty()))
+  {
+    return Fail(state, "from of %s has no cursor", name);
+  }
 
   if (!MakeFilter(state, options, GetWatchBase(), filter, error))
   {
@@ -153,11 +170,11 @@ static int ReadFollow(lua_State* state, int options, const char* name, JournalFi
 
 // The journal of a watch: the entries of the filter as they come go to the function after the options, with the values
 // after it, the gaps to options.skipped. 0 when it reads, nil and the reason pushed when the journal refuses
-static int FollowJournal(lua_State* state, JournalWatch* watch, int options, const JournalFilter& filter, const JournalPosition& from)
+static int FollowJournal(lua_State* state, JournalWatch* watch, int options, const JournalFilter& filter, const JournalPosition& from, bool first)
 {
   std::string error;
 
-  if (!watch->start(filter, from.cursor.empty() ? nullptr : &from, error))
+  if (!watch->start(filter, from.cursor.empty() ? nullptr : &from, error, first))
   {
     // The journal refuses, not the plugin
     lua_pushnil(state);
@@ -182,7 +199,9 @@ static int FollowJournal(lua_State* state, JournalWatch* watch, int options, con
 // of the filter of the options at once: nil and the reason when the journal cannot be opened
 int AddJournalWatch(lua_State* state)
 {
+  int type;
   int result;
+  bool first;
   bool follow;
   bool current;
   std::string title;
@@ -195,6 +214,7 @@ int AddJournalWatch(lua_State* state)
   std::unique_ptr<JournalWatch> watch;
 
   follow = (lua_type(state, 2) == LUA_TFUNCTION);
+  first  = false;
 
   if (lua_type(state, 1) != LUA_TTABLE)
   {
@@ -270,8 +290,19 @@ int AddJournalWatch(lua_State* state)
 
   lua_pop(state, 1);
 
+  // Told when the user removes the watch in the list, not when the plugin does
+  lua_pushliteral(state, "removed");
+  type = lua_rawget(state, 1);
+  lua_pop(state, 1);
+
+  if ((type != LUA_TNIL) &&
+      (type != LUA_TFUNCTION))
+  {
+    return Fail(state, "removed of watch() is a function");
+  }
+
   if ((follow) &&
-      (ReadFollow(state, 1, "watch()", filter, from) < 0))
+      (ReadFollow(state, 1, "watch()", filter, from, first) < 0))
   {
     return -1;
   }
@@ -281,7 +312,7 @@ int AddJournalWatch(lua_State* state)
   watch->filter = GetWatchBase();
 
   if ((follow) &&
-      ((result = FollowJournal(state, watch.get(), 1, filter, from)) != 0))
+      ((result = FollowJournal(state, watch.get(), 1, filter, from, first)) != 0))
   {
     return result;
   }
@@ -300,6 +331,14 @@ int AddJournalWatch(lua_State* state)
   lua_pushvalue(state, -1);
   watch->self = luaL_ref(state, LUA_REGISTRYINDEX);
 
+  if (type == LUA_TFUNCTION)
+  {
+    lua_pushliteral(state, "removed");
+    lua_rawget(state, 1);
+    watch->removal = KeepCallback(state, lua_gettop(state), lua_gettop(state) + 1);
+    lua_pop(state, 1);
+  }
+
   journals[watch->number] = std::move(watch);
   changed = true;
   return 1;
@@ -310,6 +349,7 @@ int AddJournalWatch(lua_State* state)
 int FollowWatch(lua_State* state)
 {
   int result;
+  bool first;
   JournalWatch* watch;
   JournalFilter filter;
   JournalPosition from;
@@ -326,12 +366,12 @@ int FollowWatch(lua_State* state)
     return Fail(state, "follow() of watch %s: it follows a journal already, one is for a watch", watch->title.c_str());
   }
 
-  if (ReadFollow(state, 2, "follow()", filter, from) < 0)
+  if (ReadFollow(state, 2, "follow()", filter, from, first) < 0)
   {
     return -1;
   }
 
-  if ((result = FollowJournal(state, watch, 2, filter, from)) != 0)
+  if ((result = FollowJournal(state, watch, 2, filter, from, first)) != 0)
   {
     return result;
   }
@@ -586,14 +626,17 @@ void CollectJournalWatches()
 
   for (watch = journals.begin(); watch != journals.end(); )
   {
-    if (watch->second->state != WATCH_REMOVED)
+    if ((watch->second->state != WATCH_REMOVED) ||
+        (watch->second->due))
     {
+      // Still there, or its removed() is yet to be told
       ++ watch;
       continue;
     }
 
     luaL_unref(state, LUA_REGISTRYINDEX, watch->second->callback);
     luaL_unref(state, LUA_REGISTRYINDEX, watch->second->self);
+    luaL_unref(state, LUA_REGISTRYINDEX, watch->second->removal);
     DropLineActions(watch->first, 0);
     watch = journals.erase(watch);
   }
@@ -901,8 +944,27 @@ bool RemovePluginWatch(int number)
     return false;
   }
 
+  // Its plugin is told once no dialog is open, the question of the list is one
+  watch->due = (watch->removal != LUA_NOREF);
   DropJournalWatch(number);
   return true;
+}
+
+// The watches the user has removed whose plugins have yet to be told: removed() of each, its table and its plugin
+std::vector<RemovedWatch> TakeRemovedWatches()
+{
+  std::vector<RemovedWatch> list;
+
+  for (std::pair<const int, std::unique_ptr<JournalWatch>>& watch : journals)
+  {
+    if (watch.second->due)
+    {
+      watch.second->due = false;
+      list.push_back({ watch.second->removal, watch.second->self, watch.second->plugin });
+    }
+  }
+
+  return list;
 }
 
 void ErasePluginWatchLine(JournalWatch* watch, uint64_t line)
