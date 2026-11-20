@@ -681,25 +681,6 @@ local function unavailable()
   turbojedi.message('The bookmarks cannot be used: ' .. tostring(reason), 'Bookmarks')
 end
 
-local function browse()
-  if not open() then return unavailable() end
-
-  local all  = query('SELECT COUNT(*) AS count FROM bookmarks')[1].count
-  local none = query('SELECT COUNT(*) AS count FROM bookmarks WHERE topic IS NULL')[1].count
-  local list_of = topics()
-  local names = { ('All bookmarks (%d)'):format(all), ('Without a topic (%d)'):format(none) }
-
-  for _, item in ipairs(list_of) do
-    names[#names + 1] = ('%s (%d%s)'):format(item.name, item.count, item.last and (', last ' .. date('%F %T', item.last // 1000000)) or '')
-  end
-
-  local _, choice = turbojedi.choose('Bookmarks', names)
-
-  if choice == 1 then list({ })
-  elseif choice == 2 then list({ none = true })
-  elseif choice then list({ topic = list_of[choice - 2].name }) end
-end
-
 local function find()
   if not open() then return unavailable() end
   local text = turbojedi.input('Find in bookmarks', '')
@@ -707,61 +688,77 @@ local function find()
   if text and (text ~= '') then list({ text = text }) end
 end
 
--- Topics...: the topics with how many bookmarks each has and the time of the last, New topic... on top; a topic chosen
--- gives its bookmarks, Rename and Remove
-local function manage()
-  if not open() then return unavailable() end
-
+-- A topic chosen from the list of the topics, with how many bookmarks each has and the time of the last: its name
+local function topical(title)
   local list_of = topics()
-  local names   = { 'New topic...' }
+  local names   = { }
+
+  if #list_of == 0 then
+    return turbojedi.message('There are no topics yet', 'Bookmarks')
+  end
 
   for index, item in ipairs(list_of) do
-    names[index + 1] = ('%s (%d%s)'):format(item.name, item.count, item.last and (', last ' .. date('%F %T', item.last // 1000000)) or '')
+    names[index] = ('%s (%d%s)'):format(item.name, item.count, item.last and (', last ' .. date('%F %T', item.last // 1000000)) or '')
   end
 
-  local _, choice = turbojedi.choose(('Topics: %d'):format(#list_of), names)
+  local _, choice = turbojedi.choose(title, names)
+  return choice and list_of[choice].name
+end
 
-  if not choice then
-    return
-  end
+-- The Plugins menu: Bookmarks and Topics, submenus of what is done, then the list of the bookmarks or the topics
+local function all()
+  if open() then list({ }) else unavailable() end
+end
 
-  if choice == 1 then
-    local name = turbojedi.input('New topic', '')
-    name = name and name:match('^%s*(.-)%s*$')
-    if name and (name ~= '') then reported(change(topic, name)) end
-    return
-  end
+local function untopical()
+  if open() then list({ none = true }) else unavailable() end
+end
 
-  local name    = list_of[choice - 1].name
-  local _, what = turbojedi.popup({ 'Its bookmarks', 'Rename...', 'Remove...' }, 'Topic ' .. name)
+local function ofTopic()
+  if not open() then return unavailable() end
+  local name = topical('Bookmarks of the topic')
+  if name then list({ topic = name }) end
+end
 
-  if what == 1 then
-    list({ topic = name })
-  elseif what == 2 then
-    local new = turbojedi.input('Rename ' .. name .. ' to', name)
-    new = new and new:match('^%s*(.-)%s*$')
-    if (not new) or (new == '') or (new == name) then return end
-    reported(change(function()
-      run('UPDATE topics SET name = ? WHERE name = ?', new, name)
-      for _, row in ipairs(query('SELECT b.id FROM bookmarks b JOIN topics t ON t.id = b.topic WHERE t.name = ?', new)) do reindex(row.id) end
-    end))
-  elseif what == 3 then
-    local _, how = turbojedi.popup({ 'Keep its bookmarks without a topic', 'Remove its bookmarks as well' }, 'Remove the topic ' .. name)
-    if not how then return end
-    reported(change(function()
-      local ids = query('SELECT b.id FROM bookmarks b JOIN topics t ON t.id = b.topic WHERE t.name = ?', name)
-      if how == 2 then
-        for _, row in ipairs(ids) do
-          run('DELETE FROM texts WHERE rowid = ?', row.id)
-          run('DELETE FROM bookmarks WHERE id = ?', row.id)
-        end
+local function newTopic()
+  if not open() then return unavailable() end
+  local name = turbojedi.input('New topic', '')
+  name = name and name:match('^%s*(.-)%s*$')
+  if name and (name ~= '') then reported(change(topic, name)) end
+end
+
+local function renameTopic()
+  if not open() then return unavailable() end
+  local name = topical('Rename the topic')
+  if not name then return end
+  local new = turbojedi.input('Rename ' .. name .. ' to', name)
+  new = new and new:match('^%s*(.-)%s*$')
+  if (not new) or (new == '') or (new == name) then return end
+  reported(change(function()
+    run('UPDATE topics SET name = ? WHERE name = ?', new, name)
+    for _, row in ipairs(query('SELECT b.id FROM bookmarks b JOIN topics t ON t.id = b.topic WHERE t.name = ?', new)) do reindex(row.id) end
+  end))
+end
+
+local function removeTopic()
+  if not open() then return unavailable() end
+  local name = topical('Remove the topic')
+  if not name then return end
+  local _, how = turbojedi.popup({ 'Keep its bookmarks without a topic', 'Remove its bookmarks as well' }, 'Remove the topic ' .. name)
+  if not how then return end
+  reported(change(function()
+    local ids = query('SELECT b.id FROM bookmarks b JOIN topics t ON t.id = b.topic WHERE t.name = ?', name)
+    if how == 2 then
+      for _, row in ipairs(ids) do
+        run('DELETE FROM texts WHERE rowid = ?', row.id)
+        run('DELETE FROM bookmarks WHERE id = ?', row.id)
       end
-      run('DELETE FROM topics WHERE name = ?', name)
-      if how == 1 then
-        for _, row in ipairs(ids) do reindex(row.id) settle(row.id) end
-      end
-    end))
-  end
+    end
+    run('DELETE FROM topics WHERE name = ?', name)
+    if how == 1 then
+      for _, row in ipairs(ids) do reindex(row.id) settle(row.id) end
+    end
+  end))
 end
 
 -- The Actions menu: the bookmark of the entry under the cursor, its comment, its topic and its removal; and a bookmark
@@ -963,9 +960,13 @@ end
 -- What the plugin offers: Actions, the Plugins menu, the watches of Show a layout has kept, the methods for an agent
 
 turbojedi.on('actions', actions)
-turbojedi.on('menu', 'Bookmarks...', browse)
+turbojedi.on('menu', { 'Bookmarks', 'All...' }, all)
+turbojedi.on('menu', { 'Bookmarks', 'Without a topic...' }, untopical)
+turbojedi.on('menu', { 'Bookmarks', 'Of a topic...' }, ofTopic)
 turbojedi.on('menu', 'Find in bookmarks...', find)
-turbojedi.on('menu', 'Topics...', manage)
+turbojedi.on('menu', { 'Topics', 'New topic...' }, newTopic)
+turbojedi.on('menu', { 'Topics', 'Rename...' }, renameTopic)
+turbojedi.on('menu', { 'Topics', 'Remove...' }, removeTopic)
 turbojedi.on('restore', function(context) if open() then show(context) end end)
 
 if turbojedi.left then methods() end

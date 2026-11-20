@@ -210,17 +210,42 @@ static int OnActions(lua_State* state)
   return 0;
 }
 
-// on('menu', title, func, ...): an item of the Plugins menu of the menu bar, func(context, ...) when it is chosen
+// on('menu', title, func, ...): an item of the Plugins menu of the menu bar, func(context, ...) when it is chosen; a
+// title of a list, { 'Topics', 'New topic...' }, puts it into the submenus its first strings name
 static int OnMenu(lua_State* state)
 {
   int top;
+  lua_Integer count;
 
   top = lua_gettop(state);
 
-  if ((lua_type(state, 1) != LUA_TSTRING) ||
+  if (((lua_type(state, 1) != LUA_TSTRING) &&
+       (lua_type(state, 1) != LUA_TTABLE)) ||
       (lua_type(state, 2) != LUA_TFUNCTION))
   {
     return Fail(state, "on('menu') takes a title and a function");
+  }
+
+  if (lua_type(state, 1) == LUA_TTABLE)
+  {
+    count = lua_rawlen(state, 1);
+
+    if ((count < 1) ||
+        (count > SUBMENU_DEPTH + 1))
+    {
+      return Fail(state, "the title of on('menu') is a list of 1 to %d strings, the submenus and the item", SUBMENU_DEPTH + 1);
+    }
+
+    for (lua_Integer number = 1; number <= count; number ++)
+    {
+      if ((lua_rawgeti(state, 1, number) != LUA_TSTRING) ||
+          (lua_rawlen(state, -1) == 0))
+      {
+        return Fail(state, "the title of on('menu') is a list of strings, none of them empty");
+      }
+
+      lua_pop(state, 1);
+    }
   }
 
   lua_getfield(state, LUA_REGISTRYINDEX, MENUS);
@@ -231,9 +256,30 @@ static int OnMenu(lua_State* state)
   }
 
   // The item keeps its values the way menu:add() does, nil in the middle included
-  lua_createtable(state, top - 2, 4);
-  lua_pushvalue(state, 1);
-  lua_setfield(state, -2, "title");
+  lua_createtable(state, top - 2, 5);
+
+  if (lua_type(state, 1) == LUA_TTABLE)
+  {
+    // The path without the title, copied: the list of the plugin may change afterwards
+    count = lua_rawlen(state, 1);
+    lua_rawgeti(state, 1, count);
+    lua_setfield(state, -2, "title");
+    lua_createtable(state, count - 1, 0);
+
+    for (lua_Integer number = 1; number < count; number ++)
+    {
+      lua_rawgeti(state, 1, number);
+      lua_rawseti(state, -2, number);
+    }
+
+    lua_setfield(state, -2, "path");
+  }
+  else
+  {
+    lua_pushvalue(state, 1);
+    lua_setfield(state, -2, "title");
+  }
+
   lua_pushvalue(state, 2);
   lua_setfield(state, -2, "action");
   lua_pushinteger(state, top - 2);
@@ -1304,9 +1350,10 @@ static void WalkActions(int list, int flat, const std::string& owner, int depth,
   }
 }
 
-// The items of the menu, a line between the items of two plugins on top, the plugin standing where a menu has the key
-// of an item; in a submenu the plugin is the one of the item it opens from
-static TMenuItem* MakeActionItems(const std::vector<ActionNode>& nodes, int width, bool top)
+// The items of the menu, the command of an action the first one and its index, a line between the items of two plugins
+// on top, the plugin standing where a menu has the key of an item; in a submenu the plugin is the one of the item it
+// opens from
+static TMenuItem* MakeActionItems(const std::vector<ActionNode>& nodes, int width, bool top, ushort command)
 {
   TMenuItem* first;
   TMenuItem* last;
@@ -1330,12 +1377,12 @@ static TMenuItem* MakeActionItems(const std::vector<ActionNode>& nodes, int widt
     if (node.leaf > 0)
     {
       title = Fit(node.title, width - (top ? strwidth(node.plugin) + 2 : 0));
-      item  = new TMenuItem(title.c_str(), cmJournalAction + node.leaf - 1, kbNoKey, hcNoContext, top ? node.plugin.c_str() : nullptr);
+      item  = new TMenuItem(title.c_str(), command + node.leaf - 1, kbNoKey, hcNoContext, top ? node.plugin.c_str() : nullptr);
     }
     else
     {
       title = Fit(node.title, width - 3);
-      item  = new TMenuItem(title.c_str(), kbNoKey, new TMenu(*MakeActionItems(node.children, width, false)), hcNoContext);
+      item  = new TMenuItem(title.c_str(), kbNoKey, new TMenu(*MakeActionItems(node.children, width, false, command)), hcNoContext);
     }
 
     first    = (first == nullptr) ? item : first;
@@ -1402,7 +1449,7 @@ void ShowActions(JournalView* view, const std::string& cursor, TPoint where, boo
     return;
   }
 
-  command = ShowActionMenu(where, *MakeActionItems(nodes, TProgram::deskTop->size.x - 8, true), "", keyboard);
+  command = ShowActionMenu(where, *MakeActionItems(nodes, TProgram::deskTop->size.x - 8, true, cmJournalAction), "", keyboard);
 
   if ((command >= cmJournalAction) &&
       (command < cmJournalAction + count))
@@ -1440,29 +1487,65 @@ void ShowActions(JournalView* view, const std::string& cursor, TPoint where, boo
   lua_settop(state, base);
 }
 
-std::vector<std::pair<std::string, std::string>> ListPluginMenu(int width)
+TMenuItem* MakePluginMenu(int width)
 {
-  std::vector<std::pair<std::string, std::string>> items;
+  int top;
+  size_t place;
+  std::string title;
+  std::string name;
+  std::vector<ActionNode> nodes;
+  std::vector<ActionNode>* level;
 
   if (state == nullptr)
   {
-    return items;
+    return nullptr;
   }
 
+  top = lua_gettop(state);
   lua_getfield(state, LUA_REGISTRYINDEX, MENUS);
 
-  for (lua_Integer index = 1; index <= (lua_Integer)lua_rawlen(state, -1); index ++)
+  for (lua_Integer index = 1; index <= (lua_Integer)lua_rawlen(state, top + 1); index ++)
   {
-    lua_rawgeti(state, -1, index);
-    lua_getfield(state, -1, "title");
-    lua_getfield(state, -2, "plugin");
-    // A title is cut to fit the width beside its plugin
-    items.emplace_back(Fit(lua_tostring(state, -2), width - strwidth(lua_tostring(state, -1)) - 2), lua_tostring(state, -1));
-    lua_pop(state, 3);
+    lua_rawgeti(state, top + 1, index);
+    lua_getfield(state, top + 2, "plugin");
+    name  = lua_tostring(state, -1);
+    level = &nodes;
+
+    if (lua_getfield(state, top + 2, "path") == LUA_TTABLE)
+    {
+      for (lua_Integer number = 1; number <= (lua_Integer)lua_rawlen(state, top + 4); number ++)
+      {
+        // Into the submenu of that title of the plugin, made by its first item
+        lua_rawgeti(state, top + 4, number);
+        title = lua_tostring(state, -1);
+        lua_pop(state, 1);
+
+        for (place = 0; place < level->size(); place ++)
+        {
+          if (((*level)[place].leaf == 0) &&
+              ((*level)[place].plugin == name) &&
+              ((*level)[place].title == title))
+          {
+            break;
+          }
+        }
+
+        if (place == level->size())
+        {
+          level->push_back(ActionNode { title, name, 0, { } });
+        }
+
+        level = &(*level)[place].children;
+      }
+    }
+
+    lua_getfield(state, top + 2, "title");
+    level->push_back(ActionNode { lua_tostring(state, -1), name, (int)index, { } });
+    lua_settop(state, top + 1);
   }
 
-  lua_pop(state, 1);
-  return items;
+  lua_settop(state, top);
+  return nodes.empty() ? nullptr : MakeActionItems(nodes, width, true, cmJournalMenu);
 }
 
 void RunPluginMenu(int index, JournalView* view, const JournalFilter& filter)

@@ -509,21 +509,18 @@ class MenuCursor : public TMenuView
     }
 };
 
-static int opened;  // Menus of ShowActionMenu() open, the ones in them included
-
 ActionMenu::ActionMenu(const TRect& bounds, TMenu* menu, const std::string& title) :
   TMenuPopup(bounds, menu),
   title(title)
 {
 }
 
-void TranslateActionMenuKey(TEvent& event, TView* top)
+void TranslateMenuKey(TEvent& event, TView* top)
 {
   TMenuBox* box;
   TMenuItem* item;
 
-  if ((opened == 0) ||
-      (event.what != evKeyDown) ||
+  if ((event.what != evKeyDown) ||
       (event.keyDown.keyCode != kbRight) ||
       ((box = dynamic_cast<TMenuBox*>(top)) == nullptr))
   {
@@ -537,8 +534,9 @@ void TranslateActionMenuKey(TEvent& event, TView* top)
       (item->command == 0) &&
       (!item->disabled))
   {
-    // A box of Turbo Vision opens a submenu by Enter only and goes back by Right as well as by Left, the submenus of a
-    // submenu are boxes of its own: Right goes into one as in the menus of a desktop, at any depth
+    // A box of Turbo Vision opens a submenu by Enter only, goes back by Right as well as by Left, and one of the menu
+    // bar goes on to the next menu: Right goes into a submenu as in the menus of a desktop, at any depth, and on to the
+    // next menu from any other item
     event.keyDown.keyCode = kbEnter;
   }
 }
@@ -606,9 +604,7 @@ unsigned short ShowActionMenu(TPoint where, TMenuItem& items, const std::string&
     TProgram::application->putEvent(event);
   }
 
-  opened ++;
   command = application->execView(menu);
-  opened --;
   TObject::destroy(menu);
   return command;
 }

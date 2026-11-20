@@ -30,9 +30,13 @@ give that bookmark, so a comment changed is changed in it, not kept as a second 
 
 | Item | |
 |---|---|
-| Bookmarks... | all of them, the ones without a topic, or a topic, with how many each has and the time of the last |
+| Bookmarks ▸ All... | all of them |
+| Bookmarks ▸ Without a topic... | the ones without a topic |
+| Bookmarks ▸ Of a topic... | the ones of a topic, chosen in the list of the topics with how many bookmarks each has and the time of the last |
 | Find in bookmarks... | the bookmarks whose topic, comment or entries have the words |
-| Topics... | the topics, how many bookmarks each has and the time of the last, New topic... on top; a topic chosen gives its bookmarks, Rename and Remove, its bookmarks kept without a topic or removed with it |
+| Topics ▸ New topic... | a topic to choose for bookmarks later |
+| Topics ▸ Rename... | a topic chosen in the list, its new name typed |
+| Topics ▸ Remove... | a topic chosen in the list, its bookmarks kept without a topic or removed with it |
 
 A list of bookmarks, the newest first, up to 500, has two items on top:
 
@@ -43,8 +47,7 @@ A list of bookmarks, the newest first, up to 500, has two items on top:
   the window at it. Ctrl-D then shows them alone, the marked lines without the ones between them; Ctrl-D again shows all.
   An entry the journal of the window does not have, rotated or of another machine, is told: Show has its copy.
 
-A bookmark chosen gives a popup menu of Mark in the window, Show, Comment, Topic, Copy and Remove bookmark, as a topic
-chosen in Topics... gives one of its own.
+A bookmark chosen gives a popup menu of Mark in the window, Show, Comment, Topic, Copy and Remove bookmark.
 
 ## For an agent
 
@@ -114,7 +117,7 @@ writes into a file of the user, which keeps its owner.
 
 TurboJedi under `sudo` stopped in the middle of a change, killed or the machine gone, leaves `bookmarks.sqlite-journal` of
 root beside the base, which SQLite needs to finish or undo that change. The next run under `sudo` does it by itself.
-A run without `sudo` cannot read that file and leaves the base alone: Bookmarks... and the console tell to start
+A run without `sudo` cannot read that file and leaves the base alone: the items of Bookmarks and the console tell to start
 TurboJedi under `sudo` once, or to remove `bookmarks.sqlite-journal` and lose that one change.
 
 ### SQLite of TurboJedi

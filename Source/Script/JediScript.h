@@ -32,11 +32,13 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
 // keys it starts on its first item, by the mouse on none
 void ShowActions(JournalView* view, const std::string& cursor, TPoint where, bool keyboard);
 
-// The Plugins menu of the menu bar, items of on('menu'): title and plugin in the order the plugins have given them, a
-// title cut to the width with its plugin, made once the plugins are loaded. An item runs by its index as an action does, in the window of the journal on top, nullptr
-// when none is open: open() and query() start from the filter then, find(), seek() and mark() tell there is no window
+// The Plugins menu of the menu bar, items of on('menu') in the order the plugins have given them, the ones of a path in
+// their submenus, a line between two plugins: a title cut to the width with its plugin, made once the plugins are
+// loaded; nullptr without items. The command of an item is cmJournalMenu and its index, it runs by the index as an
+// action does, in the window of the journal on top, nullptr when none is open: open() and query() start from the filter
+// then, find(), seek() and mark() tell there is no window
 #define PLUGIN_MENU_LIMIT  100
-std::vector<std::pair<std::string, std::string>> ListPluginMenu(int width);
+TMenuItem* MakePluginMenu(int width);
 void RunPluginMenu(int index, JournalView* view, const JournalFilter& filter);
 
 // Descriptors, timers, requests of fetch() and watches of journals of plugins, looked at between the events: milliseconds

@@ -159,7 +159,7 @@ TStatusLine* JediApplication::initStatusLine(TRect bounds)
 
 TMenuBar* JediApplication::initMenuBar(TRect bounds)
 {
-  std::vector<std::pair<std::string, std::string>> items;
+  TMenuItem* items;
 
   bounds.b.y = bounds.a.y + 1;
 
@@ -205,24 +205,13 @@ TMenuBar* JediApplication::initMenuBar(TRect bounds)
   // The items of the plugins not bound to an entry, then what the plugins have made: the plugins are loaded before the
   // application, a line goes between two plugins and before the watches, the name of a plugin stands where a menu has
   // the key of an item
-  items = ListPluginMenu(bounds.b.x - bounds.a.x - 8);
+  items = MakePluginMenu(bounds.b.x - bounds.a.x - 8);
 
   menu + *new TSubMenu("~P~lugins", kbAltP);
 
-  for (size_t index = 0; index < items.size(); index ++)
+  if (items != nullptr)
   {
-    if ((index > 0) &&
-        (items[index].second != items[index - 1].second))
-    {
-      menu + newLine();
-    }
-
-    menu + *new TMenuItem(items[index].first.c_str(), cmJournalMenu + index, kbNoKey, hcNoContext, items[index].second.c_str());
-  }
-
-  if (!items.empty())
-  {
-    menu + newLine();
+    menu + *items + newLine();
   }
 
   menu +
@@ -253,7 +242,7 @@ void JediApplication::getEvent(TEvent& event)
   uint64_t ticks;
 
   TApplication::getEvent(event);
-  TranslateActionMenuKey(event, TopView());
+  TranslateMenuKey(event, TopView());
   ticks = THardwareInfo::getTickCountMs();
 
   if (event.what & (evMouseDown | evMouseMove | evMouseAuto)) held = event.mouse;

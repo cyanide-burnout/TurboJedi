@@ -136,6 +136,18 @@ turbojedi.on('menu', 'Journal of a ~u~nit...', function(context)
 end)
 ```
 
+A title of a list puts the item into submenus: its first strings name them, the last one is the item,
+`{ 'Topics', 'Rename...' }`. The items of a plugin of one path go into one submenu, at the place of the first of them,
+up to three levels deep. What to do goes there, and the dialog after it asks only what for: Topics ▸ Rename... and
+then the topic, not a list of the topics and then a list of what to do with one. The menu is made once, when the
+plugins are loaded: a submenu of what changes, the topics themselves, is a list of `choose` instead. Since 0.18, which
+has `popup` as well: 0.17 refuses a list, a plugin for both gives it a string when `turbojedi.popup` is not there.
+
+```lua
+turbojedi.on('menu', { 'Topics', 'New topic...' }, newTopic)
+turbojedi.on('menu', { 'Topics', 'Rename...' }, renameTopic)
+```
+
 ## Functions
 
 All of them are in the table `turbojedi`. Arguments of a command are a list, `{ 'systemctl', 'status', unit }`: the
@@ -144,7 +156,7 @@ argument whatever it holds, no shell sees it.
 
 | Function | When | |
 |---|---|---|
-| `on(event, ...)` | loading | what the plugin is called for: `on('actions', func)` a handler of the Actions menu, `func(entry, menu, context)`; `on('menu', title, func, ...)` an item of the Plugins menu, `func(context, ...)`; `on('restore', func)` gets back the watches of the plugin a layout has kept, `func(context, position)` for each; `on('invoke', name, func, options)` a method for `Invoke()` of D-Bus, `func(values, context)` with the values of the caller as a table, the table it returns is the answer, the options tell what it does; see below |
+| `on(event, ...)` | loading | what the plugin is called for: `on('actions', func)` a handler of the Actions menu, `func(entry, menu, context)`; `on('menu', title, func, ...)` an item of the Plugins menu, `func(context, ...)`, a title of a list puts it into submenus; `on('restore', func)` gets back the watches of the plugin a layout has kept, `func(context, position)` for each; `on('invoke', name, func, options)` a method for `Invoke()` of D-Bus, `func(values, context)` with the values of the caller as a table, the table it returns is the answer, the options tell what it does; see below |
 | `settings(name, text)` | any time | a file of the plugin of its own among the settings TurboJedi writes, `~/.config/turbojedi/name`, under `sudo` the one of the user of sudo, read and written as that user. Without the text, its text or `nil`; with it, the file replaced whole: `true`, or `nil` and why; `{ private = true }` after the text makes it 0600, of the user alone. A name of letters, digits, dots, dashes and underscores; `update.conf`, `screen.conf`, `clipboard.conf`, `allow.conf` and `last.jedi` are the ones of TurboJedi itself, so a plugin names its file after itself, and a file several plugins share after what they share. For what a plugin remembers of the user, the addresses Arrakis may send to for one |
 | `append(path, text)` | any time | the text at the end of a file of the process alone: made with 0600, never through a link, refused when it is another's or open to others; `true`, or `nil` and why. For what a plugin keeps of the journal |
 | `log(text, options)` | any time | a line of the console, Plugins → Console, with the name of the plugin; `{ problem = true }` leaves it unread, the status line tells it. `print()` writes there too, as a quiet line |

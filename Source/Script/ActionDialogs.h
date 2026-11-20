@@ -37,9 +37,9 @@ int AskActionChoice(const std::string& title, const std::vector<std::string>& it
 // Esc close it. With keyboard the first item is under the cursor. The command chosen, 0 when none
 unsigned short ShowActionMenu(TPoint where, TMenuItem& items, const std::string& title, bool keyboard);
 
-// Right on an item with a submenu in a menu of ShowActionMenu() made Enter, which opens it; for getEvent() of the
-// application, with TopView()
-void TranslateActionMenuKey(TEvent& event, TView* top);
+// Right on an item with a submenu in a box of a menu made Enter, which opens it; for getEvent() of the application, with
+// TopView()
+void TranslateMenuKey(TEvent& event, TView* top);
 
 // One of the items in a popup menu in the middle of the desktop, the title on its frame, both fit to it by the caller; up
 // to 100 items; -1 when closed
