@@ -706,47 +706,60 @@ local function find()
   if text and (text ~= '') then list({ text = text }) end
 end
 
+-- Topics...: the topics with how many bookmarks each has and the time of the last, New topic... on top; a topic chosen
+-- gives its bookmarks, Rename and Remove
 local function manage()
   if not open() then return unavailable() end
 
-  local _, choice = turbojedi.choose('Topics', { 'New topic...', 'Rename a topic...', 'Remove a topic...' })
-  local names = { }
-  for index, item in ipairs(topics()) do names[index] = item.name end
+  local list_of = topics()
+  local names   = { 'New topic...' }
+
+  for index, item in ipairs(list_of) do
+    names[index + 1] = ('%s (%d%s)'):format(item.name, item.count, item.last and (', last ' .. date('%F %T', item.last // 1000000)) or '')
+  end
+
+  local _, choice = turbojedi.choose(('Topics: %d'):format(#list_of), names)
+
+  if not choice then
+    return
+  end
 
   if choice == 1 then
     local name = turbojedi.input('New topic', '')
     name = name and name:match('^%s*(.-)%s*$')
     if name and (name ~= '') then reported(change(topic, name)) end
-  elseif (choice == 2) or (choice == 3) then
-    if #names == 0 then return turbojedi.message('There are no topics', 'Bookmarks') end
-    local name = turbojedi.choose((choice == 2) and 'Rename the topic' or 'Remove the topic', names)
-    if not name then return end
+    return
+  end
 
-    if choice == 2 then
-      local new = turbojedi.input('Rename ' .. name .. ' to', name)
-      new = new and new:match('^%s*(.-)%s*$')
-      if (not new) or (new == '') or (new == name) then return end
-      reported(change(function()
-        run('UPDATE topics SET name = ? WHERE name = ?', new, name)
-        for _, row in ipairs(query('SELECT b.id FROM bookmarks b JOIN topics t ON t.id = b.topic WHERE t.name = ?', new)) do reindex(row.id) end
-      end))
-    else
-      local _, how = turbojedi.choose('Remove the topic ' .. name, { 'Keep its bookmarks without a topic', 'Remove its bookmarks as well' })
-      if not how then return end
-      reported(change(function()
-        local ids = query('SELECT b.id FROM bookmarks b JOIN topics t ON t.id = b.topic WHERE t.name = ?', name)
-        if how == 2 then
-          for _, row in ipairs(ids) do
-            run('DELETE FROM texts WHERE rowid = ?', row.id)
-            run('DELETE FROM bookmarks WHERE id = ?', row.id)
-          end
+  local name    = list_of[choice - 1].name
+  local _, what = turbojedi.choose('Topic ' .. name, { 'Its bookmarks', 'Rename...', 'Remove...' })
+
+  if what == 1 then
+    list({ topic = name })
+  elseif what == 2 then
+    local new = turbojedi.input('Rename ' .. name .. ' to', name)
+    new = new and new:match('^%s*(.-)%s*$')
+    if (not new) or (new == '') or (new == name) then return end
+    reported(change(function()
+      run('UPDATE topics SET name = ? WHERE name = ?', new, name)
+      for _, row in ipairs(query('SELECT b.id FROM bookmarks b JOIN topics t ON t.id = b.topic WHERE t.name = ?', new)) do reindex(row.id) end
+    end))
+  elseif what == 3 then
+    local _, how = turbojedi.choose('Remove the topic ' .. name, { 'Keep its bookmarks without a topic', 'Remove its bookmarks as well' })
+    if not how then return end
+    reported(change(function()
+      local ids = query('SELECT b.id FROM bookmarks b JOIN topics t ON t.id = b.topic WHERE t.name = ?', name)
+      if how == 2 then
+        for _, row in ipairs(ids) do
+          run('DELETE FROM texts WHERE rowid = ?', row.id)
+          run('DELETE FROM bookmarks WHERE id = ?', row.id)
         end
-        run('DELETE FROM topics WHERE name = ?', name)
-        if how == 1 then
-          for _, row in ipairs(ids) do reindex(row.id) settle(row.id) end
-        end
-      end))
-    end
+      end
+      run('DELETE FROM topics WHERE name = ?', name)
+      if how == 1 then
+        for _, row in ipairs(ids) do reindex(row.id) settle(row.id) end
+      end
+    end))
   end
 end
 

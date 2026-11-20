@@ -29,7 +29,7 @@ Insert or Ctrl+click, then right click, Bookmark: what the selection has found i
 |---|---|
 | Bookmarks... | all of them, the ones without a topic, or a topic, with how many each has and the time of the last |
 | Find in bookmarks... | the bookmarks whose topic, comment or entries have the words |
-| Topics... | New topic, Rename a topic, Remove a topic, its bookmarks kept without a topic or removed with it |
+| Topics... | the topics, how many bookmarks each has and the time of the last, New topic... on top; a topic chosen gives its bookmarks, Rename and Remove, its bookmarks kept without a topic or removed with it |
 
 A list of bookmarks, the newest first, up to 500, has two items on top:
 
