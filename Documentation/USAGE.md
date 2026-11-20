@@ -34,6 +34,8 @@ one as journalctl takes it: `-1h`, `+30m`, `-1h 30min`, `-2days`, `5min ago` (`u
 
 Reading the whole journal needs root or the `systemd-journal` group, others see their own entries only.
 
+### Clipboard
+
 Copy (Ctrl-Ins, and Copy in the details) goes to the clipboard of the terminal by OSC 52 or to a clipboard tool
 of the desktop. A command of your own takes the lines instead, such as `remote-copy.sh` of
 [RemoteClipboard](https://github.com/cyanide-burnout/RemoteClipboard) that brings them home over an SSH socket:
