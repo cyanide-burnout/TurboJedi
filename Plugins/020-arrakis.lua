@@ -326,6 +326,12 @@ local function language(settings)
   return LANGUAGES[settings.language] or settings.language
 end
 
+-- A text cut to most characters of UTF-8, never in the middle of one, … told where it is cut
+local function clip(text, most)
+  local cut = utf8.offset(text, most + 1)
+  return (cut and (cut <= #text)) and (text:sub(1, cut - 1) .. '…') or text
+end
+
 -- The first request of a job, the instructions and the entries it has been made of; focus is the number of the entry
 -- chosen when the ones before it are only what has led to it. Another plugin may tell more: notes before the entries,
 -- within the budget as well, and the question after them
@@ -336,7 +342,7 @@ local function request(settings, items, focus, extra)
   local notes  = extra and extra.notes
 
   if notes and (notes ~= '') then
-    if #notes > settings.budget then notes = notes:sub(1, settings.budget) .. '\n(the rest left out)' end
+    if #notes > settings.budget then notes = clip(notes, settings.budget) .. '\n(the rest left out)' end
     user = notes .. '\n\n' .. user
   end
 
@@ -647,20 +653,53 @@ if engines then
   turbojedi.on('menu', 'Explain the errors of the window', errors)
   turbojedi.on('menu', 'Status', show)
 
-  -- An item of a list of bookmarks, which share the globals of Lua with Arrakis: the bookmarks of the list and their
-  -- entries, what each has found told before them, the model asked what they have in common
+  -- An item of a list of bookmarks, which share the globals of Lua with Arrakis: the bookmarks of the list, what each
+  -- has found told before its first entries, the model asked what they have in common. The budget goes to whole
+  -- bookmarks from the newest back, a comment never without its entries nor entries without their comment; the ones
+  -- it has no room for are told by their number
+  local SHARE   = 3     -- Entries of a bookmark told at most, its first ones
+  local SAID    = 300   -- Characters of a message of them
+  local COMMENT = 1000  -- Characters of a comment
+
   Bookmarks       = Bookmarks       or { }
   Bookmarks.items = Bookmarks.items or { }
   table.insert(Bookmarks.items, { title = 'Ask Arrakis about them', action = function(bookmarks, what)
-    local items, notes = { }, { 'These are bookmarks the user has kept over time, each with its comment and topic, and the entries it keeps:' }
+    local settings = chosen()
+    if not settings then return end
 
-    for _, bookmark in ipairs(bookmarks) do
-      local from = #items + 1
-      for _, entry in ipairs(bookmark.entries) do items[#items + 1] = entry end
-      notes[#notes + 1] = ('- made %s%s: %s; entries %s%s'):format(turbojedi.date('%Y-%m-%d %H:%M:%S', bookmark.created // 1000000),
-        bookmark.topic and (', topic ' .. bookmark.topic) or '', bookmark.comment or '(no comment)',
+    local taken, used = { }, 0
+
+    for position = #bookmarks, 1, -1 do
+      local bookmark = bookmarks[position]
+      local note     = ('- made %s%s: %s'):format(turbojedi.date('%Y-%m-%d %H:%M:%S', bookmark.created // 1000000),
+                         bookmark.topic and (', topic ' .. bookmark.topic) or '', clip(bookmark.comment or '(no comment)', COMMENT))
+      local entries  = bookmark.entries(SHARE)
+      local cost     = #note + 40
+
+      for _, entry in ipairs(entries) do
+        entry.MESSAGE = clip(tostring(entry.MESSAGE or ''), SAID)
+        cost = cost + #line(entry) + 8
+      end
+
+      -- The newest one goes whatever it takes
+      if (#taken > 0) and (used + cost > settings.budget) then break end
+      table.insert(taken, 1, { bookmark = bookmark, note = note, entries = entries })
+      used = used + cost
+    end
+
+    local items, notes = { }, { 'These are bookmarks the user has kept over time, each with its comment and topic, and the first entries it keeps:' }
+
+    for _, kept in ipairs(taken) do
+      local bookmark, from = kept.bookmark, #items + 1
+      for _, entry in ipairs(kept.entries) do items[#items + 1] = entry end
+      local rest = bookmark.count - #kept.entries + bookmark.left_out
+      notes[#notes + 1] = ('%s; entries %s%s'):format(kept.note,
         (#items >= from) and (('[%d]'):format(from) .. ((#items > from) and ('-[%d]'):format(#items) or '')) or 'none',
-        (bookmark.left_out > 0) and (', %d more not kept'):format(bookmark.left_out) or '')
+        (rest > 0) and (', %d more not told'):format(rest) or '')
+    end
+
+    if #taken < #bookmarks then
+      notes[#notes + 1] = ('%d older bookmarks of the list are left out, the request has no room for them.'):format(#bookmarks - #taken)
     end
 
     analyze(items, what, nil, { notes = table.concat(notes, '\n'),

@@ -13,7 +13,8 @@ settings in effect and the files they come from, and sends a short request to se
 A list of bookmarks has Ask Arrakis about them, see [BOOKMARKS.md](BOOKMARKS.md): the bookmarks with their times,
 topics and comments and the copies of their entries, the model asked what they have in common, whether what they have
 found comes back and when, and what to look at next. A pile gathered over weeks is told at once, rotated entries
-included.
+included: each bookmark with its comment and its first three entries, the newest bookmarks first as far as `budget`
+goes, the older ones it has no room for told by their number.
 
 Under the answer is a line for a question about it, what a number of an error means for one: Ask sends it with the
 entries, the answer and the questions before it, as a conversation of that job alone, waits for the answer in a

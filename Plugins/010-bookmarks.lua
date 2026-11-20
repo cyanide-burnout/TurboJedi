@@ -649,8 +649,10 @@ end
 -- A list of bookmarks, Show and Mark of all of them first
 -- Other plugins add items to a list of bookmarks, they share the globals of Lua: an item of Bookmarks.items,
 -- { title = ..., action = func }, calls func(bookmarks, what) with the bookmarks of the list, the oldest first, each
--- { id, created, topic, comment, left_out, entries }, its entries as query() gives them with every field as text, and
--- what names the list. Arrakis adds Ask Arrakis about them. Made by whichever plugin comes first, read as a list opens
+-- { id, created, topic, comment, count, left_out, entries }, and what names the list. entries(limit) reads the first
+-- limit entries of the bookmark from the base, all of them without it, as query() gives them with every field as text:
+-- a list of hundreds of bookmarks of 1 MiB each is not read whole for an item that takes a few entries of each. Arrakis
+-- adds Ask Arrakis about them. Made by whichever plugin comes first, read as a list opens
 Bookmarks       = Bookmarks       or { }
 Bookmarks.items = Bookmarks.items or { }
 
@@ -658,18 +660,24 @@ local function collect(rows)
   local bookmarks = { }
 
   for number = #rows, 1, -1 do
-    local row     = rows[number]
-    local entries = { }
+    local row = rows[number]
 
-    for _, entry in ipairs(query('SELECT cursor, time, fields FROM entries WHERE bookmark = ? ORDER BY time, id', row.id)) do
-      local item = { }
-      for name, value in pairs(cjson.decode(entry.fields)) do item[name] = told(value) end
-      item.__REALTIME_TIMESTAMP, item.__CURSOR = entry.time, entry.cursor
-      entries[#entries + 1] = item
+    local function entries(limit)
+      local list = { }
+
+      for _, entry in ipairs(query(('SELECT cursor, time, fields FROM entries WHERE bookmark = ? ORDER BY time, id LIMIT %d'):format(
+                                     math.max(0, math.tointeger(limit) or row.count)), row.id)) do
+        local item = { }
+        for name, value in pairs(cjson.decode(entry.fields)) do item[name] = told(value) end
+        item.__REALTIME_TIMESTAMP, item.__CURSOR = entry.time, entry.cursor
+        list[#list + 1] = item
+      end
+
+      return list
     end
 
     bookmarks[#bookmarks + 1] = { id = row.id, created = row.created, topic = row.topic_name, comment = row.comment,
-                                  left_out = row.left_out, entries = entries }
+                                  count = row.count, left_out = row.left_out, entries = entries }
   end
 
   return bookmarks
