@@ -66,7 +66,7 @@ CREATE TABLE topics (
   created INTEGER NOT NULL);           -- microseconds since the epoch
 CREATE TABLE bookmarks (
   id        INTEGER PRIMARY KEY,
-  created   INTEGER NOT NULL,          -- microseconds since the epoch
+  created   INTEGER NOT NULL,          -- microseconds since the epoch, to the millisecond
   changed   INTEGER NOT NULL,
   topic     INTEGER REFERENCES topics(id) ON DELETE SET NULL,
   comment   TEXT,                      -- NULL without one: a bookmark has a comment, a topic or both
@@ -89,8 +89,8 @@ CREATE VIRTUAL TABLE texts USING fts5(topic, comment, entries);  -- rowid is the
 N the bytes it has had; a field the entry has more than once is a list of them. A bookmark keeps up to 1 MiB of copies:
 of a larger selection the newest entries are kept, `left_out` tells how many are not. One entry larger than that by
 itself has its fields cut shorter, by halves down to 256 bytes each, told by `cut` as above; an entry of so many fields
-that even this is too much keeps its main ones, `MESSAGE`, `PRIORITY`, its source and its place, and `__LEFT_OUT` tells
-how many of the others are not kept. What is shown to you of a cut field
+that even this is too much keeps its main ones, `MESSAGE`, `PRIORITY`, its source and its place, each cut to 256 bytes and
+by its first value when the entry has it many times, and `__LEFT_OUT` tells how many values of fields are not kept. What is shown to you of a cut field
 ends with "… (cut, N bytes)".
 
 ```

@@ -290,10 +290,21 @@ local function copy(entry)
   end
 
   if #json > BOOKMARK then
-    local only, count, kept = { }, 0, nil
+    -- The main fields, a field there many times by its first value: some hundreds of bytes each, whatever the entry
+    local only, count, kept = { }, 0, { }
     for _, name in ipairs(MAIN) do only[name] = true end
-    for name in pairs(entry) do count = count + ((only[name] and 0) or 1) end
-    kept = fields(entry, most, only)
+
+    for name, value in pairs(entry) do
+      if not only[name] then
+        count = count + ((type(value) == 'table') and #value or 1)
+      elseif type(value) == 'table' then
+        count = count + #value - 1
+        kept[name] = keep(value[1], SMALLEST)
+      else
+        kept[name] = keep(value, SMALLEST)
+      end
+    end
+
     kept.__LEFT_OUT = count
     json = cjson.encode(kept)
   end
@@ -320,8 +331,9 @@ local function told(value)
   return table.concat(list, ' | ')
 end
 
+-- Lua tells the time by seconds, SQLite by milliseconds: bookmarks of one second keep their order; the base is open
 local function microseconds()
-  return os.time() * 1000000
+  return query("SELECT CAST(ROUND((julianday('now') - 2440587.5) * 86400000.0) AS INTEGER) * 1000 AS now")[1].now
 end
 
 -- Titles of items cut to a width by whole characters
@@ -339,7 +351,7 @@ end
 
 local function topics()
   return query([[SELECT t.id, t.name, COUNT(b.id) AS count, MAX(b.created) AS last FROM topics t
-                 LEFT JOIN bookmarks b ON b.topic = t.id GROUP BY t.id ORDER BY MAX(b.created) DESC, t.name]])
+                 LEFT JOIN bookmarks b ON b.topic = t.id GROUP BY t.id ORDER BY MAX(b.created) DESC, MAX(b.id) DESC, t.name]])
 end
 
 -- The id of a topic of that name, made when it is not there; nil for none
@@ -592,7 +604,7 @@ local function pick(scope, limit, offset)
   local rows  = query(([[SELECT b.*, t.name AS topic_name, (SELECT COUNT(*) FROM entries e WHERE e.bookmark = b.id) AS count,
                                 (SELECT message FROM entries e WHERE e.bookmark = b.id ORDER BY time, id LIMIT 1) AS message
                          FROM bookmarks b LEFT JOIN topics t ON t.id = b.topic WHERE %s
-                         ORDER BY b.created DESC LIMIT %d OFFSET %d]]):format(where, limit or LIST, offset or 0), table.unpack(values))
+                         ORDER BY b.created DESC, b.id DESC LIMIT %d OFFSET %d]]):format(where, limit or LIST, offset or 0), table.unpack(values))
   return rows, total
 end
 
@@ -755,7 +767,7 @@ local function actions(entry, menu, context)
   if not open() then return end
 
   local own = (type(entry.__CURSOR) == 'string') and query([[SELECT b.id, b.comment, t.name AS topic FROM entries e
-    JOIN bookmarks b ON b.id = e.bookmark LEFT JOIN topics t ON t.id = b.topic WHERE e.cursor = ? ORDER BY b.created DESC]],
+    JOIN bookmarks b ON b.id = e.bookmark LEFT JOIN topics t ON t.id = b.topic WHERE e.cursor = ? ORDER BY b.created DESC, b.id DESC]],
     entry.__CURSOR) or { }
   local mine = own[1]
 

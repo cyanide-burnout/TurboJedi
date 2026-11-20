@@ -4,8 +4,10 @@ From the sources, and the packages of the distributions. Ready packages: [README
 
 ## Dependencies
 
-Debian packages: `build-essential cmake pkg-config libsystemd-dev libncurses-dev libpcre2-dev liblua5.4-dev libcurl4-openssl-dev libsqlite3-dev curl`,
-`libgpm-dev` for the mouse in the Linux console, and `grc` for its rule files if they are wanted
+Debian packages: `build-essential cmake pkg-config git curl libsystemd-dev libncurses-dev libpcre2-dev liblua5.4-dev libcurl4-openssl-dev libsqlite3-dev`,
+`libgpm-dev` for the mouse in the Linux console, and `grc` for its rule files if they are wanted. git clones the project
+with its submodules and tells the version; curl fetches lsqlite3, which lives in Fossil: Fossil itself is not needed, the
+file comes over HTTPS.
 
 ```
 git submodule update --init
@@ -60,19 +62,19 @@ sudo apt install crossbuild-essential-amd64 libsystemd-dev:amd64 libncurses-dev:
 ## RPM package
 
 ```
-sudo dnf install rpm-build gcc-c++ make cmake curl systemd-devel ncurses-devel pcre2-devel gpm-devel libcurl-devel sqlite-devel lua-devel
+sudo dnf install rpm-build gcc-c++ make cmake git curl systemd-devel ncurses-devel pcre2-devel gpm-devel libcurl-devel sqlite-devel lua-devel
 make rpm
 ```
 
 `make rpm` builds `rpmbuild/RPMS/<arch>/turbojedi-<version>-1.<dist>.<arch>.rpm` for Fedora, RHEL and Amazon Linux,
 with the version the same way. RHEL 9 and its rebuilds have `lua-devel` in CRB: `sudo dnf config-manager --set-enabled crb`. openSUSE takes the same
-packages from `zypper` with `lua54-devel` and `gcc-PIE`, gives no tag of its own
+packages from `zypper` with `lua54-devel`, `sqlite3-devel` and `gcc-PIE`, gives no tag of its own
 and gets it by `make rpm DIST=tumbleweed` or `DIST=leap16`.
 
 ## Arch Linux package
 
 ```
-sudo pacman -S --needed base-devel cmake git pkgconf gpm curl lua54
+sudo pacman -S --needed base-devel cmake git pkgconf gpm curl sqlite lua54
 make arch
 ```
 
