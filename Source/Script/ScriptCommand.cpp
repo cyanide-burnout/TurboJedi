@@ -439,6 +439,12 @@ int Settings(lua_State* state)
     return Fail(state, "settings() takes a text after the name");
   }
 
+  if ((!lua_isnoneornil(state, 3)) &&
+      (lua_type(state, 3) != LUA_TTABLE))
+  {
+    return Fail(state, "settings() takes a table of options after the text");
+  }
+
   path = GetSettingsPath(name);
 
   if (lua_isnoneornil(state, 2))
@@ -460,7 +466,8 @@ int Settings(lua_State* state)
     return 1;
   }
 
-  if (!SaveSettings(path, text))
+  // { private = true }: the file of the user alone, 0600, a base of the bookmarks for one
+  if (!SaveSettings(path, text, GetFlag(state, 3, "private") ? 0600 : 0644))
   {
     lua_pushnil(state);
     lua_pushstring(state, path.empty() ? "there is no directory of settings, HOME is not set" : (path + " cannot be written").c_str());
@@ -468,6 +475,29 @@ int Settings(lua_State* state)
   }
 
   lua_pushboolean(state, true);
+  return 1;
+}
+
+// where(name): the path of the file of settings settings() reads and writes by that name, under sudo the one of the user
+// of sudo, nil without a directory of settings; for a plugin that keeps a file of its own another way, a base of SQLite
+int Where(lua_State* state)
+{
+  std::string name;
+  std::string path;
+
+  if ((!GetString(state, 1, name)) ||
+      (name.empty()) ||
+      (name[0] == '.') ||
+      (name.find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-") != std::string::npos))
+  {
+    return Fail(state, "where() takes the name of a file, letters, digits, dots, dashes and underscores");
+  }
+
+  path = GetSettingsPath(name);
+
+  if (path.empty()) lua_pushnil(state);
+  else              lua_pushlstring(state, path.data(), path.size());
+
   return 1;
 }
 

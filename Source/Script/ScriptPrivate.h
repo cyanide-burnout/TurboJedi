@@ -192,6 +192,7 @@ int ListServices(lua_State* state);
 int GetUniversal(lua_State* state);
 int Settings(lua_State* state);
 int GetSudoUser(lua_State* state);
+int Where(lua_State* state);
 int FormatDate(lua_State* state);
 int AddJournalWatch(lua_State* state);
 int FollowWatch(lua_State* state);

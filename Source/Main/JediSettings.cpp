@@ -114,7 +114,7 @@ FILE* OpenSettings(const std::string& path)
 
 // Into a file next to it first, then over it: a stop halfway leaves the old one whole. Allocates nothing, a child after
 // fork() calls it
-static bool WriteFile(const std::string& path, const std::string& temporary, const std::string& text, const std::vector<std::string>& folders)
+static bool WriteFile(const std::string& path, const std::string& temporary, const std::string& text, const std::vector<std::string>& folders, mode_t mode)
 {
   int handle;
   size_t offset;
@@ -126,7 +126,7 @@ static bool WriteFile(const std::string& path, const std::string& temporary, con
     mkdir(folder.c_str(), 0755);
   }
 
-  if ((handle = open(temporary.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_CLOEXEC, 0644)) < 0)
+  if ((handle = open(temporary.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_CLOEXEC, mode)) < 0)
   {
     return false;
   }
@@ -153,7 +153,7 @@ static bool WriteFile(const std::string& path, const std::string& temporary, con
   return true;
 }
 
-bool SaveSettings(const std::string& path, const std::string& text)
+bool SaveSettings(const std::string& path, const std::string& text, mode_t mode)
 {
   int status = -1;
   char* real;
@@ -190,7 +190,7 @@ bool SaveSettings(const std::string& path, const std::string& text)
 
   if (!drop)
   {
-    return WriteFile(target, temporary, text, folders);
+    return WriteFile(target, temporary, text, folders, mode);
   }
 
   if ((process = fork()) == 0)
@@ -204,7 +204,7 @@ bool SaveSettings(const std::string& path, const std::string& text)
       _exit(1);
     }
 
-    _exit(WriteFile(target, temporary, text, folders) ? 0 : 1);
+    _exit(WriteFile(target, temporary, text, folders, mode) ? 0 : 1);
   }
 
   if (process < 0)

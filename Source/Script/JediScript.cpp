@@ -712,6 +712,7 @@ static const luaL_Reg functions[] =
   { "utc",             Call<GetUniversal,    PHASE_ANY>    },
   { "sudo",            Call<GetSudoUser,     PHASE_ANY>    },
   { "settings",        Call<Settings,        PHASE_ANY>    },
+  { "where",           Call<Where,           PHASE_ANY>    },
   { "date",            Call<FormatDate,      PHASE_ANY>    },
   { "poll",            Call<AddWatch,        PHASE_WATCH>  },
   { "timeout",         Call<AddTimer,        PHASE_WATCH>  },

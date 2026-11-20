@@ -24,7 +24,8 @@ std::string GetSettingsPath(const std::string& name);
 // The file to read, nullptr without one: a regular file of its user, not a link
 FILE* OpenSettings(const std::string& path);
 
-// The text as the whole file, its directories made when they are not there, false when it cannot be written
-bool SaveSettings(const std::string& path, const std::string& text);
+// The text as the whole file, its directories made when they are not there, false when it cannot be written; a file
+// written anew takes the mode, 0600 for one of the user alone
+bool SaveSettings(const std::string& path, const std::string& text, mode_t mode = 0644);
 
 #endif
