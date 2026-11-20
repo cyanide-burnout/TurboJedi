@@ -81,7 +81,7 @@ const char* JournalWindow::getTitle(short size)
   caption += ' ';
   caption += title;
   name     = view->name();
-  order    = std::string(" ") + view->order();
+  order    = std::string(" ") + view->shows() + " " + view->order();
 
   if (*name != '\0')
   {
@@ -139,6 +139,15 @@ void JournalWindow::handleEvent(TEvent& event)
     {
       // ▲ or ▼, as Ctrl-R
       message(view, evCommand, cmJournalReverse, nullptr);
+      clearEvent(event);
+      return;
+    }
+
+    if ((x < span - strwidth(view->order()) - 1) &&
+        (x >= span - strwidth(view->order()) - 1 - strwidth(view->shows())))
+    {
+      // ◇ or ◆ in front of it, as Ctrl-D
+      message(view, evCommand, cmJournalMarked, nullptr);
       clearEvent(event);
       return;
     }

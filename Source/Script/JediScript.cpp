@@ -810,6 +810,8 @@ static void PushWindowContext(lua_State* state, JournalView* view)
   std::vector<std::vector<std::pair<std::string, std::string>>> records;
 
   PushContext(state, filter);
+  lua_pushboolean(state, view->markedOnly());
+  lua_setfield(state, -2, "marked_only");
   cursors = view->pickedCursors(MARKED_LIMIT, total);
 
   if (!cursors.empty())

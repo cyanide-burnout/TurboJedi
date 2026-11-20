@@ -105,6 +105,8 @@ class JournalView : public TScroller
     const char* name();
     const char* sign();  // Of the title: ► following, ‖ paused, with +N entries come meanwhile
     const char* order();  // At the end of the title: ▲ the newest at the bottom, ▼ the newest on top
+    const char* shows();  // In front of the order: ◇ all the lines, ◆ the marked ones only
+    bool markedOnly() const;  // The window shows its marked lines only, Ctrl-D
     std::string heading();
     void arrange();  // Shows or hides the heading as the columns say, the lines take its row
 
@@ -162,6 +164,7 @@ class JournalView : public TScroller
     bool marking;               // A stroke of M or Insert: the keys mark from where it has begun, Shift is kept by some terminals
     bool unmark;                // The stroke has begun on a marked line, it takes the marks off the lines it passes
     std::set<uint64_t> marks;
+    bool only;                  // Marked only: a line not marked takes no row, drawing, scrolling and the mouse pass it by
 
     // Places of the jumps as in a browser, in a ring from the tail, the oldest, to the head, past the newest: Back and
     // Forward move the step between them, a new jump drops the ones after the step and goes on from there, a full ring
@@ -188,8 +191,12 @@ class JournalView : public TScroller
     int span();
     void count();
     uint64_t total();
+    bool rowed();                    // Rows are counted per line: lines wrap, or the ones not marked take none
+    int height(size_t index);        // Rows of a line
     uint64_t rowOf(size_t index);
     size_t lineOf(uint64_t row);
+    size_t shown(size_t index);      // The line itself, or the nearest one shown when it is hidden by Marked only
+    void restrict();                 // Marked only on or off, Ctrl-D
     size_t focus();
     bool reversed();                 // The newest entries on top
     const JournalLine& edge(bool newest);  // The line at the newest or the oldest end, there has to be one

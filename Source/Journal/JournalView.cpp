@@ -142,6 +142,7 @@ JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar
   cursor   = NO_SELECTION;
   marking  = false;
   unmark   = false;
+  only     = false;
 
   open();
 }
@@ -177,6 +178,7 @@ JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar
   cursor      = source.cursor;
   marking     = source.marking;
   unmark      = source.unmark;
+  only        = source.only;
   marks       = source.marks;
   tail        = source.tail;
   head        = source.head;
@@ -424,6 +426,13 @@ void JournalView::draw()
         }
       }
     }
+    else if (only &&
+             (y == 0) &&
+             (total() == 0))
+    {
+      // Marked only with nothing marked would be an empty window that tells nothing
+      buffer.moveStr(1, "Nothing is marked: M, Insert or Ctrl+click marks, Ctrl-D shows all the lines again", stamp);
+    }
 
     writeLine(0, y, size.x, 1, buffer);
   }
@@ -432,6 +441,7 @@ void JournalView::draw()
 void JournalView::handleEvent(TEvent& event)
 {
   int64_t index;
+  uint64_t row;
   uint64_t count;
   uint64_t number;
   uint64_t unread;
@@ -498,6 +508,7 @@ void JournalView::handleEvent(TEvent& event)
       marking = false;
       unmark  = false;
       marks.clear();
+      layout  = 0;  // Marked only shows the lines of the marks
       refresh();
       clearEvent(event);
       return;
@@ -534,14 +545,34 @@ void JournalView::handleEvent(TEvent& event)
       // The cursor comes on the row of the window nearest to the newest end, the newest line while following
       index = (anchor == NO_SELECTION) ? (int64_t)latest() : (int64_t)((cursor > first) ? (cursor - first) : 0);
 
-      switch (event.keyDown.keyCode)
+      if (only)
       {
-        case kbUp:   index -= 1;                         break;
-        case kbDown: index += 1;                         break;
-        case kbPgUp: index -= size.y;                    break;
-        case kbPgDn: index += size.y;                    break;
-        case kbHome: index  = 0;                         break;
-        case kbEnd:  index  = (int64_t)lines.size() - 1; break;
+        // Marked only moves over the lines shown, by their rows: a hidden one has none
+        row = rowOf(shown(index));
+
+        switch (event.keyDown.keyCode)
+        {
+          case kbUp:   row = (row > 0) ? (row - 1) : 0;                                   break;
+          case kbDown: row = rowOf(shown(index) + 1);                                    break;
+          case kbPgUp: row = (row > (uint64_t)size.y) ? (row - size.y) : 0;             break;
+          case kbPgDn: row = row + size.y;                                               break;
+          case kbHome: row = 0;                                                          break;
+          case kbEnd:  row = (total() > 0) ? (total() - 1) : 0;                          break;
+        }
+
+        index = (total() > 0) ? (int64_t)lineOf(std::min<uint64_t>(row, total() - 1)) : index;
+      }
+      else
+      {
+        switch (event.keyDown.keyCode)
+        {
+          case kbUp:   index -= 1;                         break;
+          case kbDown: index += 1;                         break;
+          case kbPgUp: index -= size.y;                    break;
+          case kbPgDn: index += size.y;                    break;
+          case kbHome: index  = 0;                         break;
+          case kbEnd:  index  = (int64_t)lines.size() - 1; break;
+        }
       }
 
       walk(index, extend);
@@ -593,6 +624,7 @@ void JournalView::handleEvent(TEvent& event)
         marks.insert(cursor);
       }
 
+      layout = 0;
       refresh();
       clearEvent(event);
       return;
@@ -649,6 +681,10 @@ void JournalView::handleEvent(TEvent& event)
 
         case cmJournalReverse:
           reverse();
+          break;
+
+        case cmJournalMarked:
+          restrict();
           break;
 
         default:
@@ -1164,12 +1200,12 @@ void JournalView::push(std::vector<JournalLine>& parts)
       lines.push_back(std::move(parts[index]));
       line = &lines.back();
 
-      if ((filter.columns & JOURNAL_COLUMN_WRAP) &&
+      if (rowed() &&
           (layout == span()) &&
           (rows.size() == lines.size()))
       {
         // Counted rows go on without counting them all again
-        rows.push_back(rows.back() + std::max(1, (strwidth(line->text) + layout - 1) / layout));
+        rows.push_back(rows.back() + height(lines.size() - 1));
       }
       else
       {
@@ -1219,14 +1255,106 @@ void JournalView::count()
 
   for (index = 0; index < lines.size(); index ++)
   {
-    // Rows in front of every line, an empty message still takes one
-    rows[index + 1] = rows[index] + std::max(1, (strwidth(lines[index].text) + layout - 1) / layout);
+    // Rows in front of every line
+    rows[index + 1] = rows[index] + height(index);
   }
+}
+
+size_t JournalView::shown(size_t index)
+{
+  size_t step;
+
+  if ((!only) ||
+      (index >= lines.size()) ||
+      (marks.count(first + index) != 0))
+  {
+    return index;
+  }
+
+  for (step = 1; step < lines.size(); step ++)
+  {
+    // The nearest marked line, the later one first
+    if ((index + step < lines.size()) && (marks.count(first + index + step) != 0)) return index + step;
+    if ((index >= step) && (marks.count(first + index - step) != 0))             return index - step;
+  }
+
+  // Nothing is marked, the cursor stays where it is
+  return index;
+}
+
+void JournalView::restrict()
+{
+  uint64_t number;
+
+  if ((!only) &&
+      (ranging()) &&
+      !(marking && unmark))
+  {
+    // The selection becomes the marks it shows: a range of Shift or of a stroke goes to them as M would put it
+    for (number = std::min(anchor, cursor); number <= std::max(anchor, cursor); number ++)
+    {
+      marks.insert(number);
+    }
+  }
+
+  marking = false;
+  unmark  = false;
+  only    = !only;
+  layout  = 0;
+
+  if (only)
+  {
+    // What comes is counted as in a pause, the lines shown stay where they are
+    follow = false;
+  }
+
+  if (!lines.empty())
+  {
+    // The cursor on its line, on the nearest one shown when that one is hidden
+    select((anchor != NO_SELECTION) ? ((cursor > first) ? (cursor - first) : 0) : latest(), false);
+  }
+
+  refresh();
+
+  if (owner != nullptr)
+  {
+    // The title tells it by ◇ and ◆
+    static_cast<TWindow*>(owner)->frame->drawView();
+  }
+}
+
+bool JournalView::markedOnly() const
+{
+  return only;
+}
+
+const char* JournalView::shows()
+{
+  // A diamond as a mark, empty for all the lines, filled for the marked ones only
+  return only ? "\xe2\x97\x86" : "\xe2\x97\x87";
+}
+
+bool JournalView::rowed()
+{
+  return (filter.columns & JOURNAL_COLUMN_WRAP) || only;
+}
+
+int JournalView::height(size_t index)
+{
+  if (only &&
+      (marks.count(first + index) == 0))
+  {
+    // Marked only passes it by
+    return 0;
+  }
+
+  // An empty message still takes a row, a wrapped one as many as it needs
+  return (filter.columns & JOURNAL_COLUMN_WRAP) ? std::max(1, (strwidth(lines[index].text) + layout - 1) / layout) : 1;
 }
 
 uint64_t JournalView::total()
 {
-  if (!(filter.columns & JOURNAL_COLUMN_WRAP))
+  if (!rowed())
   {
     // A row per line
     return lines.size();
@@ -1244,12 +1372,12 @@ uint64_t JournalView::total()
 
 uint64_t JournalView::rowOf(size_t index)
 {
-  return (filter.columns & JOURNAL_COLUMN_WRAP) ? (total(), rows[std::min(index, lines.size())]) : index;
+  return rowed() ? (total(), rows[std::min(index, lines.size())]) : index;
 }
 
 size_t JournalView::lineOf(uint64_t row)
 {
-  return (filter.columns & JOURNAL_COLUMN_WRAP) ? (total(), (std::upper_bound(rows.begin(), rows.end(), row) - rows.begin() - 1)) : row;
+  return rowed() ? (total(), (std::upper_bound(rows.begin(), rows.end(), row) - rows.begin() - 1)) : row;
 }
 
 size_t JournalView::focus()
@@ -1550,8 +1678,9 @@ void JournalView::refresh()
       (anchor != NO_SELECTION) &&
       (!lines.empty()))
   {
-    // The cursor goes on with the tail, also when following has come back by Space or by scrolling to it
-    anchor = first + (reversed() ? 0 : (lines.size() - 1));
+    // The cursor goes on with the tail, also when following has come back by Space or by scrolling to it; Marked only
+    // keeps it on the newest line shown
+    anchor = first + shown(reversed() ? 0 : (lines.size() - 1));
     cursor = anchor;
   }
 
@@ -1606,12 +1735,12 @@ void JournalView::select(int64_t index, bool extend)
 {
   if (!lines.empty())
   {
-    index  = std::clamp<int64_t>(index, 0, (int64_t)lines.size() - 1);
+    index  = shown(std::clamp<int64_t>(index, 0, (int64_t)lines.size() - 1));
     cursor = first + index;
     anchor = (extend && (anchor != NO_SELECTION)) ? anchor : cursor;
 
     // The cursor on the newest line follows the tail, anywhere else or a selection of more lines does not run away with it
-    follow  = (anchor == cursor) && (index == (reversed() ? 0 : ((int64_t)lines.size() - 1)));
+    follow  = (anchor == cursor) && (index == (reversed() ? 0 : ((int64_t)lines.size() - 1))) && !only;
     unseen *= !follow;
     reveal(index);
     refresh();
@@ -1680,6 +1809,8 @@ void JournalView::mark()
       marks.insert(number);
     }
   }
+
+  layout = 0;
 
   // The first M begins a stroke on the cursor, the second one ends it and its lines stay marked, or unmarked when it has begun
   // on a marked line; marking pauses
@@ -2039,6 +2170,8 @@ size_t JournalView::markLoaded(const std::set<std::string>& cursors, bool clear)
     }
   }
 
+  layout = 0;
+
   refresh();
   return found.size();
 }
@@ -2334,7 +2467,7 @@ void JournalView::synchronize()
 
 const char* JournalView::describe()
 {
-  char buffer[96];
+  char buffer[128];
   int length;
 
   length = snprintf(buffer, sizeof(buffer), unseen ? "%s +%llu" : "%s", pending ? "LOADING" : (follow ? "FOLLOW" : "PAUSED"), (unsigned long long)unseen);
@@ -2349,6 +2482,12 @@ const char* JournalView::describe()
   {
     // Nothing else on the screen tells wrapped lines from long ones cut at the edge
     length += snprintf(buffer + length, sizeof(buffer) - length, " \xe2\x94\x82 WRAP");
+  }
+
+  if (only)
+  {
+    // The lines between the marked ones are there, not shown
+    length += snprintf(buffer + length, sizeof(buffer) - length, " \xe2\x94\x82 MARKED");
   }
 
   if (marking)

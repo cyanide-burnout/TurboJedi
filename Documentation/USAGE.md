@@ -81,6 +81,7 @@ Your shell puts in `$USER` and `$HOME` before `sudo` starts.
 | Ctrl-K | columns |
 | Ctrl-W | wrap long messages |
 | Ctrl-R | the newest entries on top or at the bottom; the title ends with ▲ when they are at the bottom, ▼ when on top, a click on it turns the order too |
+| Ctrl-D | Marked only: the marked lines alone, the ones between them hidden, every line of a marked message; the selection becomes marks first. The keys and the mouse go over the lines shown, a mark more shows its line, new entries are counted as in a pause. ◆ in front of ▲ or ▼ in the title, ◇ when all the lines are shown, a click on it turns it too; `MARKED` in the status line. Ctrl-D again shows all of them, the cursor on the same entry |
 | Ctrl-L | highlighting rules |
 | Ctrl-F, Ctrl-N, Ctrl-P | find, next, previous |
 | Ctrl-G | go to a time, the one of the line at hand in the zone the window shows |

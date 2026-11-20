@@ -183,6 +183,7 @@ TMenuBar* JediApplication::initMenuBar(TRect bounds)
       *new TMenuItem("Col~u~mns...",    cmJournalColumns,      kbCtrlK,   hcNoContext, "Ctrl-K") +
       *new TMenuItem("~W~rap lines",    cmJournalWrap,         kbCtrlW,   hcNoContext, "Ctrl-W") +
       *new TMenuItem("N~e~west on top", cmJournalReverse,      kbCtrlR,   hcNoContext, "Ctrl-R") +
+      *new TMenuItem("~M~arked only",   cmJournalMarked,       kbCtrlD,   hcNoContext, "Ctrl-D") +
       *new TMenuItem("~H~ighlight...",  cmJournalHighlight,    kbCtrlL,   hcNoContext, "Ctrl-L") +
       newLine() +
       *new TMenuItem("~F~ind...",       cmJournalFind,         kbCtrlF,   hcNoContext, "Ctrl-F") +
@@ -980,6 +981,8 @@ void JediApplication::showHelp()
     "  Ctrl-W          Wrap long messages",
     "  Ctrl-R          Newest entries on top or at the bottom, the lines of a message",
     "                  stay under it; also a click on \xe2\x96\xb2 or \xe2\x96\xbc at the end of the title",
+    "  Ctrl-D          Marked only: the marked lines alone, the ones between them hidden;",
+    "                  again, all of them; also a click on \xe2\x97\x87 or \xe2\x97\x86 in the title",
     "  Ctrl-L          Highlight rules: built-in, off or a rule file of grc",
     "  Space           Pause or follow the tail, also a click on \xe2\x96\xba or \xe2\x80\x96 in the title",
     "  Up, Down, PgUp, Move the cursor, it starts on the newest line of the screen;",

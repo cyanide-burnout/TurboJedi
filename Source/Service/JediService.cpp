@@ -853,6 +853,7 @@ static int ListWindows(sd_bus_message* message, void*, sd_bus_error* error)
       result = std::min(result, AppendFilter(reply, window->view->getFilter()));
 
       result = std::min(result, sd_bus_message_append(reply, "{sv}", "following", "b", (int)window->view->following()));
+      result = std::min(result, sd_bus_message_append(reply, "{sv}", "marked_only", "b", (int)window->view->markedOnly()));
       result = std::min(result, sd_bus_message_append(reply, "{sv}", "active", "b", (int)(window == front)));
       result = std::min(result, sd_bus_message_append(reply, "{sv}", "selected", "u", (uint32_t)total));
       result = std::min(result, sd_bus_message_close_container(reply));

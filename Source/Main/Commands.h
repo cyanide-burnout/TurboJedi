@@ -44,6 +44,7 @@ enum
   cmJournalClone,
   cmJournalWindows,
   cmJournalReverse,
+  cmJournalMarked,
   cmPageCopy,
   cmPageFilter,
   cmJournalPoll,
