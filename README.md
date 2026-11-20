@@ -11,8 +11,8 @@ on your screen, you act, see [MCP.md](Documentation/MCP.md). And it asks a langu
 entries you mark or the errors of a window, answers questions about them, by a model on your machine or a service of
 your choice, see [ARRAKIS.md](Documentation/ARRAKIS.md).
 
-Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd, PCRE2, Lua 5.4, libcurl and
-[lua-cjson](https://github.com/openresty/lua-cjson).
+Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd, PCRE2, Lua 5.4, libcurl, SQLite,
+[lua-cjson](https://github.com/openresty/lua-cjson) and [lsqlite3](https://lua.sqlite.org/home/index).
 
 ![Three windows: the whole journal following, its warnings and errors paused with marked lines and 7 entries come meanwhile, and their timeline in Braille dots; the Plugins menu open with the items of Arrakis, Watches and Console](screenshot.png)
 
@@ -129,9 +129,9 @@ reading the whole journal needs root or the `systemd-journal` group. F1 tells th
 | [USAGE.md](Documentation/USAGE.md) | options, keys, journals of other machines, layouts, highlighting |
 | [BUILD.md](Documentation/BUILD.md) | building from the sources and the packages of the distributions |
 | [PLUGINS.md](Documentation/PLUGINS.md) | the plugins of the package and the examples, where plugins are |
-| [LUA.md](Documentation/LUA.md) | the interface of Lua for plugins of your own |
 | [BOOKMARKS.md](Documentation/BOOKMARKS.md) | bookmarks of entries, their topics and the base they are kept in |
 | [ARRAKIS.md](Documentation/ARRAKIS.md) | entries explained by a language model |
 | [MCP.md](Documentation/MCP.md) | AI agents over the Model Context Protocol |
+| [LUA.md](Documentation/LUA.md) | the interface of Lua for plugins of your own |
 | [DBUS.md](Documentation/DBUS.md) | the interface on the system bus |
 | [CHANGELOG.md](CHANGELOG.md) | what every release has brought |
