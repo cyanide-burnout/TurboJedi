@@ -60,9 +60,9 @@ The plugins share the globals of Lua, and `Bookmarks.items` is a list a plugin a
 `{ title = ..., action = func }`. Chosen, it calls `func(bookmarks, what)` as an action: the bookmarks of the list,
 the oldest first, each `{ id, created, topic, comment, count, left_out, entries }`, `created` in microseconds, `count`
 the copies it keeps; `entries(limit, most)` reads the first `limit` of them from the base, all without it, as
-`query()` gives entries, every field as text. A copy past `most` bytes gives its message cut there, its time, cursor
-and host alone, never decoded, so that a list of hundreds of bookmarks of 1 MiB each is not read whole for a few
-entries of each.
+`query()` gives entries, every field as text. A copy past `most` bytes is never decoded: it gives its message cut to
+`most` characters, its time and cursor alone, not even its host, so that a list of hundreds of bookmarks of 1 MiB each
+is not read whole for a few entries of each.
 `what` names the list, `3 bookmarks all`. Whichever plugin loads first makes the table, so the order of the plugins
 does not matter:
 
