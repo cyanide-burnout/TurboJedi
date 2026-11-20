@@ -38,7 +38,7 @@ give that bookmark, so a comment changed is changed in it, not kept as a second 
 | Topics ▸ Remove... | a topic chosen in the list, its bookmarks kept without a topic or removed with it |
 | Find in bookmarks... | the bookmarks whose topic, comment or entries have the words |
 
-A list of bookmarks, the newest first, up to 500, has two items on top:
+A list of bookmarks, the newest first, up to 500, has two items on top, and after them the ones other plugins add:
 
 - **Show them in a watch**: a watch of F12, a line a bookmark, and Enter on a line shows the bookmark from the base, its
   comment and the copies of its entries, whether the journal has them still or not. The watch follows the changes of the
@@ -46,8 +46,31 @@ A list of bookmarks, the newest first, up to 500, has two items on top:
 - **Mark them in the window**: their entries marked in the window you are in, its history brought in down to the oldest,
   the window at it. Ctrl-D then shows them alone, the marked lines without the ones between them; Ctrl-D again shows all.
   An entry the journal of the window does not have, rotated or of another machine, is told: Show has its copy.
+- **Ask Arrakis about them**, when Arrakis is set up, see [ARRAKIS.md](ARRAKIS.md): the bookmarks with their times,
+  topics and comments, and the copies of their entries, rotated ones included, go to the model, which tells what they
+  have in common, whether what they have found comes back and when, and what to look at next.
 
 A bookmark chosen gives a popup menu of Mark in the window, Show, Comment, Topic, Copy and Remove bookmark.
+
+### Items of other plugins
+
+The plugins share the globals of Lua, and `Bookmarks.items` is a list a plugin adds an item of a list of bookmarks to,
+`{ title = ..., action = func }`. Chosen, it calls `func(bookmarks, what)` as an action: the bookmarks of the list,
+the oldest first, each `{ id, created, topic, comment, left_out, entries }`, `created` in microseconds, `entries` the
+copies as `query()` gives entries, every field as text; `what` names the list, `3 bookmarks all`. Whichever plugin
+loads first makes the table, so the order of the plugins does not matter:
+
+```lua
+Bookmarks = Bookmarks or { }
+Bookmarks.items = Bookmarks.items or { }
+table.insert(Bookmarks.items, { title = 'Copy their messages', action = function(bookmarks)
+  local lines = { }
+  for _, bookmark in ipairs(bookmarks) do
+    for _, entry in ipairs(bookmark.entries) do lines[#lines + 1] = entry.MESSAGE end
+  end
+  turbojedi.copy(table.concat(lines, '\n'))
+end })
+```
 
 ## For an agent
 

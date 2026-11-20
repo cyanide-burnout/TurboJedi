@@ -10,6 +10,11 @@ Without marking anything, Explain the errors of the window of arrakis in the Plu
 the window shows, its filter and its time, the newest when there are too many. Status of arrakis there tells the
 settings in effect and the files they come from, and sends a short request to see that the service answers.
 
+A list of bookmarks has Ask Arrakis about them, see [BOOKMARKS.md](BOOKMARKS.md): the bookmarks with their times,
+topics and comments and the copies of their entries, the model asked what they have in common, whether what they have
+found comes back and when, and what to look at next. A pile gathered over weeks is told at once, rotated entries
+included.
+
 Under the answer is a line for a question about it, what a number of an error means for one: Ask sends it with the
 entries, the answer and the questions before it, as a conversation of that job alone, waits for the answer in a
 window with the seconds so far and Cancel, and the answer comes the same way, with a line for the next question; Close

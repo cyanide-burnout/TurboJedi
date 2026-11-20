@@ -327,14 +327,25 @@ local function language(settings)
 end
 
 -- The first request of a job, the instructions and the entries it has been made of; focus is the number of the entry
--- chosen when the ones before it are only what has led to it
-local function request(settings, items, focus)
+-- chosen when the ones before it are only what has led to it. Another plugin may tell more: notes before the entries,
+-- within the budget as well, and the question after them
+local function request(settings, items, focus, extra)
   local tongue = language(settings)
   local system = (settings.instructions or INSTRUCTIONS):gsub('{language}', function() return tongue end)
   local user   = listing(settings, items)
+  local notes  = extra and extra.notes
+
+  if notes and (notes ~= '') then
+    if #notes > settings.budget then notes = notes:sub(1, settings.budget) .. '\n(the rest left out)' end
+    user = notes .. '\n\n' .. user
+  end
 
   if focus then
     user = user .. ('\n\nExplain entry [%d]. The entries before it are of the same unit or program, only what has led to it.'):format(focus)
+  end
+
+  if extra and extra.question then
+    user = user .. '\n\n' .. extra.question
   end
 
   user = user .. '\n\nAnswer in ' .. tongue .. '.'
@@ -503,7 +514,7 @@ converse = function(job, index)
 end
 
 -- A request of a job waits for its answer in a window with the seconds so far and Cancel, the windows go on meanwhile
-local function analyze(items, what, focus)
+local function analyze(items, what, focus, extra)
   local settings = chosen()
   if not settings then return end
 
@@ -523,7 +534,7 @@ local function analyze(items, what, focus)
   local title = ('Arrakis %d%s: %s'):format(number, settings.name and (' (' .. settings.name .. ')') or '', what or (#items .. ' entries'))
   local watch = turbojedi.watch({ title = title })
 
-  local query, system, user = request(settings, items, focus)
+  local query, system, user = request(settings, items, focus, extra)
   local job = { number = number, title = title, items = items, watch = watch, system = system, user = user,
                 settings = settings }
 
@@ -635,4 +646,25 @@ if engines then
 
   turbojedi.on('menu', 'Explain the errors of the window', errors)
   turbojedi.on('menu', 'Status', show)
+
+  -- An item of a list of bookmarks, which share the globals of Lua with Arrakis: the bookmarks of the list and their
+  -- entries, what each has found told before them, the model asked what they have in common
+  Bookmarks       = Bookmarks       or { }
+  Bookmarks.items = Bookmarks.items or { }
+  table.insert(Bookmarks.items, { title = 'Ask Arrakis about them', action = function(bookmarks, what)
+    local items, notes = { }, { 'These are bookmarks the user has kept over time, each with its comment and topic, and the entries it keeps:' }
+
+    for _, bookmark in ipairs(bookmarks) do
+      local from = #items + 1
+      for _, entry in ipairs(bookmark.entries) do items[#items + 1] = entry end
+      notes[#notes + 1] = ('- made %s%s: %s; entries %s%s'):format(turbojedi.date('%Y-%m-%d %H:%M:%S', bookmark.created // 1000000),
+        bookmark.topic and (', topic ' .. bookmark.topic) or '', bookmark.comment or '(no comment)',
+        (#items >= from) and (('[%d]'):format(from) .. ((#items > from) and ('-[%d]'):format(#items) or '')) or 'none',
+        (bookmark.left_out > 0) and (', %d more not kept'):format(bookmark.left_out) or '')
+    end
+
+    analyze(items, what, nil, { notes = table.concat(notes, '\n'),
+      question = 'Tell what these bookmarks have in common, whether what they have found comes back and when, what may be '
+              .. 'one cause behind several of them, and what to look at next.' })
+  end })
 end

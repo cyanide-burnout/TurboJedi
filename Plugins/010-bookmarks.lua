@@ -647,6 +647,34 @@ local function show(scope)
 end
 
 -- A list of bookmarks, Show and Mark of all of them first
+-- Other plugins add items to a list of bookmarks, they share the globals of Lua: an item of Bookmarks.items,
+-- { title = ..., action = func }, calls func(bookmarks, what) with the bookmarks of the list, the oldest first, each
+-- { id, created, topic, comment, left_out, entries }, its entries as query() gives them with every field as text, and
+-- what names the list. Arrakis adds Ask Arrakis about them. Made by whichever plugin comes first, read as a list opens
+Bookmarks       = Bookmarks       or { }
+Bookmarks.items = Bookmarks.items or { }
+
+local function collect(rows)
+  local bookmarks = { }
+
+  for number = #rows, 1, -1 do
+    local row     = rows[number]
+    local entries = { }
+
+    for _, entry in ipairs(query('SELECT cursor, time, fields FROM entries WHERE bookmark = ? ORDER BY time, id', row.id)) do
+      local item = { }
+      for name, value in pairs(cjson.decode(entry.fields)) do item[name] = told(value) end
+      item.__REALTIME_TIMESTAMP, item.__CURSOR = entry.time, entry.cursor
+      entries[#entries + 1] = item
+    end
+
+    bookmarks[#bookmarks + 1] = { id = row.id, created = row.created, topic = row.topic_name, comment = row.comment,
+                                  left_out = row.left_out, entries = entries }
+  end
+
+  return bookmarks
+end
+
 local function list(scope)
   local rows, total = pick(scope, LIST)
 
@@ -654,7 +682,17 @@ local function list(scope)
     return turbojedi.message('No bookmarks ' .. label(scope), 'Bookmarks')
   end
 
-  local names = { 'Show them in a watch', 'Mark them in the window' }
+  -- The items of the other plugins after the two of its own
+  local names, others = { 'Show them in a watch', 'Mark them in the window' }, { }
+
+  for _, item in ipairs(Bookmarks.items) do
+    if (type(item) == 'table') and (type(item.title) == 'string') and (type(item.action) == 'function') then
+      others[#others + 1] = item
+      names[#names + 1]   = item.title
+    end
+  end
+
+  local top = #names
 
   for _, row in ipairs(rows) do
     names[#names + 1] = ('%s  %s%s'):format(date('%F %T', row.created // 1000000), (scope.topic or not row.topic_name) and '' or ('[' .. row.topic_name .. '] '),
@@ -669,8 +707,10 @@ local function list(scope)
     local ids = { }
     for _, row in ipairs(rows) do ids[#ids + 1] = row.id end
     mark(ids)
+  elseif choice and (choice <= top) then
+    others[choice - 2].action(collect(rows), ('%d bookmarks %s'):format(#rows, label(scope)))
   elseif choice then
-    act(rows[choice - 2].id)
+    act(rows[choice - top].id)
   end
 end
 
