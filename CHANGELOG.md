@@ -3,6 +3,47 @@
 Every release has a theme of its own, the patch releases after it finish the same one. Packages of every release are on
 the [releases page](https://github.com/cyanide-burnout/TurboJedi/releases).
 
+## 0.18 — 2026-11-20
+
+Methods of plugins for agents, and bookmarks: what an investigation has found stays, with a comment and a topic.
+
+- Methods of plugins: `on('invoke', name, func, options)` tells what a method does and takes, `description`, `effect`
+  (`none`, `screen` or `system`) and `arguments`, and the bus checks the values by them; `ListMethods()` names the
+  methods a caller may call, `Invoke()` runs one, in the window of `_window` when it is given, and `left()` tells how
+  much of its 30 seconds a method has. Keys of the values beginning with `_` are of TurboJedi, a wrong value gives
+  `InvalidArgs`
+- `turbojedi-mcp.py`: `list_methods` and `invoke` give an agent the methods that read or change the screen, never one
+  of `system`; `list_instances` names the methods of each instance
+- A watch starts from an entry, `from`, and its plugin is told when the user removes it, `removed(watch)`
+- Bookmarks, `010-bookmarks.lua`: an entry or a selection kept with a comment and a topic, the copies of its entries
+  with it after the journal has rotated, in `~/.config/turbojedi/bookmarks.sqlite` of the user, under `sudo` too.
+  Actions tell the bookmark of an entry, Comment, Topic and Remove bookmark; the same selection again gives its bookmark
+  to change, selected entries are taken out of their bookmarks. The Plugins menu lists them, all, without a topic or
+  of a topic, finds them by words, and keeps the topics; a list shows them in a watch or marks them in the window. An
+  agent reads them, `topics`, `bookmarks` and `bookmark`; see `Documentation/BOOKMARKS.md`
+- Ask Arrakis about them, in a list of bookmarks: the model is told the bookmarks with their comments and the first
+  copies of their entries, rotated ones included, and asked what they have in common and whether it comes back and
+  when. A large list loses detail before time, down to a sample evenly over the time with how many there are by day,
+  and the model is told so. Other plugins add items to a list of bookmarks by `Bookmarks.items`
+- Ctrl-D shows the marked lines only, ◆ in the title and MARKED in the status line; a click on ◇ or ◆ turns it
+- Submenus: `menu:sub(title)` in Actions, a title of a list in `on('menu')` for the Plugins menu, Right opens one at
+  any depth; `popup(items, title)` asks for one of a few actions in a menu instead of a list. The addresses, the
+  devices, fail2ban and the objects of Asterisk have their actions in submenus, an item with a submenu names its plugin
+  before ►, and `ListActions()` tells the `path` of an item
+- Arrakis: several models in `arrakis.conf`, a `[name]` for each, Choose the model in the Plugins menu, the title of a
+  job names its model; Status in place of Settings; `budget` is 2000 at least
+- fail2ban: Status of an address tells the jails it is banned in now
+- The Asterisk example: the calls of a number and a call by its identifier in the Plugins menu and for an agent, a watch
+  of a call
+- SQLite for plugins: lsqlite3 0.9.6 is built into TurboJedi with the SQLite of the system, `require('lsqlite3')`; the
+  Makefile fetches it with curl and checks its SHA-256, `make prepare` does that alone. `where(name)` tells the path of
+  a file of settings, `settings(name, text, { private = true })` writes it 0600
+- The plugins of the package are numbered anew, `010-bookmarks.lua`, `020-arrakis.lua`, `030-systemd.lua`,
+  `040-network.lua`, `050-coredump.lua`, `060-fail2ban.lua`, and a later directory takes the place of a plugin by its
+  name whatever its number. `make install` removes the old names from its own directory; a copy of an older
+  `make install` in `/usr/local/share/turbojedi/plugins` beside a package, `050-arrakis.lua` of 0.16 for one, takes the
+  place of the one of the package and is to be removed by hand
+
 ## 0.17 — 2026-11-19
 
 One interface of plugins, and the Plugins menu: what plugins do without an entry, the watches and the console.
