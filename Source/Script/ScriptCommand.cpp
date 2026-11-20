@@ -413,9 +413,9 @@ int GetUniversal(lua_State* state)
   return 1;
 }
 
-// settings(name, text): a file of the plugin among the ones TurboJedi writes by itself, ~/.config/turbojedi/name, under
-// sudo the one of the user of sudo, read and written as that user. Without the text, its text or nil; with it, the file
-// replaced whole, true or nil and why
+// settings(name, text, options): a file of the plugin among the ones TurboJedi writes by itself, ~/.config/turbojedi/name,
+// with { data = true } ~/.local/share/turbojedi/name, under sudo the one of the user of sudo, read and written as that
+// user. Without the text, its text or nil; with it, the file replaced whole, true or nil and why
 int Settings(lua_State* state)
 {
   FILE* file;
@@ -445,7 +445,7 @@ int Settings(lua_State* state)
     return Fail(state, "settings() takes a table of options after the text");
   }
 
-  path = GetSettingsPath(name);
+  path = GetFlag(state, 3, "data") ? GetDataPath(name) : GetSettingsPath(name);
 
   if (lua_isnoneornil(state, 2))
   {
@@ -478,8 +478,8 @@ int Settings(lua_State* state)
   return 1;
 }
 
-// where(name): the path of the file of settings settings() reads and writes by that name, under sudo the one of the user
-// of sudo, nil without a directory of settings; for a plugin that keeps a file of its own another way, a base of SQLite
+// where(name, options): the path of the file settings() reads and writes by that name and options, under sudo the one of
+// the user of sudo, nil without a directory; for a plugin that keeps a file of its own another way, a base of SQLite
 int Where(lua_State* state)
 {
   std::string name;
@@ -493,7 +493,13 @@ int Where(lua_State* state)
     return Fail(state, "where() takes the name of a file, letters, digits, dots, dashes and underscores");
   }
 
-  path = GetSettingsPath(name);
+  if ((!lua_isnoneornil(state, 2)) &&
+      (lua_type(state, 2) != LUA_TTABLE))
+  {
+    return Fail(state, "where() takes a table of options after the name");
+  }
+
+  path = GetFlag(state, 2, "data") ? GetDataPath(name) : GetSettingsPath(name);
 
   if (path.empty()) lua_pushnil(state);
   else              lua_pushlstring(state, path.data(), path.size());

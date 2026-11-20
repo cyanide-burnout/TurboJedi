@@ -17,9 +17,14 @@
 // The user of sudo the files are of, 0 for the process itself; a user the system does not know leaves them unwritten
 void SetSettingsUser(uid_t user);
 
-// The directory of the files, ~/.config/turbojedi/ of the user, and a file of a name there; empty without a directory
-void SetSettingsDirectory(const std::string& directory);
+// The directories of the files, ~/.config/turbojedi/ of the user for settings and ~/.local/share/turbojedi/ for data
+// of the user, a base of bookmarks for one, and a file of a name there; empty without a directory
+void SetSettingsDirectory(const std::string& directory, const std::string& data);
 std::string GetSettingsPath(const std::string& name);
+
+// A file of data kept among the settings before, by TurboJedi 0.18, is moved to the directory of data as its user, not
+// while a journal of SQLite is beside it; where it is when it cannot be moved
+std::string GetDataPath(const std::string& name);
 
 // The file to read, nullptr without one: a regular file of its user, not a link
 FILE* OpenSettings(const std::string& path);

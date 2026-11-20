@@ -206,8 +206,9 @@ title = Context 41d48349-56d6-4e73-b2b9-bb45e9df0c97
 
 ### Last layout
 
-On exit the layout is kept in `$XDG_CONFIG_HOME/turbojedi/last.jedi` (`~/.config/turbojedi/last.jedi`)
-and opened on the next start, unless a layout or filter options are given.
+On exit the layout is kept in `$XDG_STATE_HOME/turbojedi/last.jedi` (`~/.local/state/turbojedi/last.jedi`)
+and opened on the next start, unless a layout or filter options are given. TurboJedi 0.18 has kept it in
+`~/.config/turbojedi/`, a later one moves it on its first start.
 
 ## Highlighting
 

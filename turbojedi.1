@@ -218,8 +218,9 @@ user.
 .BR sudo (8)
 the one of the user of sudo, its command run as that user, never as root.
 .TP
-.I $XDG_CONFIG_HOME/turbojedi/last.jedi
-The layout kept on exit, \fI~/.config/turbojedi/last.jedi\fR without XDG_CONFIG_HOME.
+.I $XDG_STATE_HOME/turbojedi/last.jedi
+The layout kept on exit, \fI~/.local/state/turbojedi/last.jedi\fR without XDG_STATE_HOME; moved there from
+\fI~/.config/turbojedi/\fR, where TurboJedi 0.18 has kept it.
 It is opened on the next start unless a layout or filter options are given.
 .TP
 .I $XDG_CONFIG_HOME/turbojedi/screen.conf

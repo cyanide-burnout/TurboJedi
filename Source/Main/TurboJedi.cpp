@@ -32,6 +32,9 @@
 
 #define DEFAULT_HISTORY  1000
 #define LAST_LAYOUT      "last.jedi"
+#define CONFIG_FOLDER    "/.config"       // Of the home, by XDG without XDG_CONFIG_HOME
+#define DATA_FOLDER      "/.local/share"  // Without XDG_DATA_HOME, the bookmarks of the user
+#define STATE_FOLDER     "/.local/state"  // Without XDG_STATE_HOME, the last layout
 #define UPDATE_SETTINGS  "update.conf"
 #define SCREEN_SETTINGS  "screen.conf"
 #define CLIPBOARD_FILE   "clipboard.conf"
@@ -123,8 +126,8 @@ static void RaiseFileLimit()
   }
 }
 
-// The user who has run TurboJedi as root by sudo and the file of theirs, false without sudo
-static bool GetSudoPath(const char* name, uid_t& user, std::string& path)
+// The user who has run TurboJedi as root by sudo and the file of theirs in a folder of the home, false without sudo
+static bool GetSudoPath(const char* folder, const char* name, uid_t& user, std::string& path)
 {
   char* end;
   char buffer[4096];
@@ -156,27 +159,58 @@ static bool GetSudoPath(const char* name, uid_t& user, std::string& path)
   }
 
   user = found->pw_uid;
-  path = std::string(found->pw_dir) + "/.config/turbojedi/" + name;
+  path = std::string(found->pw_dir) + folder + "/turbojedi/" + name;
   return true;
 }
 
-static std::string GetConfigPath(const char* name)
+// A file of the process in the directory of XDG by its variable, or in the folder of the home without it; the
+// directories made when asked
+static std::string GetHomePath(const char* variable, const char* folder, const char* name, bool make)
 {
   size_t position;
   const char* home;
   std::string path;
 
-  if ((home = getenv("XDG_CONFIG_HOME")) != nullptr) path = std::string(home) + "/turbojedi/";
-  else if ((home = getenv("HOME")) != nullptr)       path = std::string(home) + "/.config/turbojedi/";
-  else                                                 return std::string();
+  if ((home = getenv(variable)) != nullptr)    path = std::string(home) + "/turbojedi/";
+  else if ((home = getenv("HOME")) != nullptr) path = std::string(home) + folder + "/turbojedi/";
+  else                                          return std::string();
 
-  for (position = path.find('/', 1); position != std::string::npos; position = path.find('/', position + 1))
+  for (position = path.find('/', 1); make && (position != std::string::npos); position = path.find('/', position + 1))
   {
     // Like mkdir -p, existing ones fail harmlessly
     mkdir(path.substr(0, position).c_str(), 0755);
   }
 
   return path + name;
+}
+
+static std::string GetConfigPath(const char* name)
+{
+  return GetHomePath("XDG_CONFIG_HOME", CONFIG_FOLDER, name, true);
+}
+
+// The last layout in the directory of state, moved there from the one of settings, where TurboJedi 0.18 has kept it;
+// where it is when it cannot be moved, on another file system for one
+static std::string GetLastPath()
+{
+  std::string path;
+  std::string from;
+  struct stat status;
+
+  path = GetHomePath("XDG_STATE_HOME", STATE_FOLDER, LAST_LAYOUT, true);
+  from = GetHomePath("XDG_CONFIG_HOME", CONFIG_FOLDER, LAST_LAYOUT, false);
+
+  if ((!path.empty()) &&
+      (!from.empty()) &&
+      (lstat(path.c_str(), &status) != 0) &&
+      (errno == ENOENT) &&
+      (lstat(from.c_str(), &status) == 0) &&
+      (rename(from.c_str(), path.c_str()) != 0))
+  {
+    return from;
+  }
+
+  return path;
 }
 
 static void PrintUsage(const char* name)
@@ -208,7 +242,7 @@ static void PrintUsage(const char* name)
   printf("                        sudo takes of its user and runs as that user; the clipboard of the terminal takes them\n");
   printf("                        when the command fails or does not finish in 3 seconds\n");
   printf("\n");
-  printf("The layout of all windows is kept on exit in $XDG_CONFIG_HOME/turbojedi/%s and comes back on the next start\n", LAST_LAYOUT);
+  printf("The layout of all windows is kept on exit in $XDG_STATE_HOME/turbojedi/%s and comes back on the next start\n", LAST_LAYOUT);
   printf("without a layout and filter options\n");
   printf("\n");
   printf("FIELD=VALUE matches any journal field. Matches of the same field are joined by OR, of different fields by AND\n");
@@ -230,6 +264,7 @@ int main(int count, char* const* arguments)
   std::string layout;
   std::string clipboard;
   std::string path;
+  std::string data;
   std::string last;
   std::string screen;
   std::string update;
@@ -401,7 +436,7 @@ int main(int count, char* const* arguments)
     return EXIT_FAILURE;
   }
 
-  last   = GetConfigPath(LAST_LAYOUT);
+  last   = GetLastPath();
   layout = (layout.empty() && !custom) ? last : layout;
 
   SetTextLocale();
@@ -410,7 +445,7 @@ int main(int count, char* const* arguments)
   runner = 0;
 
   if ((!chosen) &&
-      (GetSudoPath(CLIPBOARD_FILE, runner, path)) &&
+      (GetSudoPath(CONFIG_FOLDER, CLIPBOARD_FILE, runner, path)) &&
       (ReadClipboardCommand(path, runner, clipboard)))
   {
     // The command of the user of sudo runs as that user, root never runs what a user has written
@@ -430,18 +465,19 @@ int main(int count, char* const* arguments)
 
   // What TurboJedi and its plugins write by themselves is of the user of sudo, root asks nothing that user has answered
   // already; known before the plugins load, settings() of theirs reads it then
-  if (GetSudoPath(SCREEN_SETTINGS, runner, screen) &&
-      GetSudoPath(UPDATE_SETTINGS, runner, update) &&
-      GetSudoPath("", runner, path))
+  if (GetSudoPath(CONFIG_FOLDER, SCREEN_SETTINGS, runner, screen) &&
+      GetSudoPath(CONFIG_FOLDER, UPDATE_SETTINGS, runner, update) &&
+      GetSudoPath(CONFIG_FOLDER, "", runner, path) &&
+      GetSudoPath(DATA_FOLDER, "", runner, data))
   {
     SetSettingsUser(runner);
-    SetSettingsDirectory(path);
+    SetSettingsDirectory(path, data);
   }
   else
   {
     screen = GetConfigPath(SCREEN_SETTINGS);
     update = GetConfigPath(UPDATE_SETTINGS);
-    SetSettingsDirectory(GetConfigPath(""));
+    SetSettingsDirectory(GetConfigPath(""), GetHomePath("XDG_DATA_HOME", DATA_FOLDER, "", false));
   }
 
   // Plugins are run before the windows, their problems are told once the windows are up

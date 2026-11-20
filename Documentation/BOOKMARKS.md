@@ -90,7 +90,9 @@ Over MCP, see [MCP.md](MCP.md), an agent reads the bookmarks, it never writes th
 
 ## The base
 
-`~/.config/turbojedi/bookmarks.sqlite`, under `sudo` the one of the user of sudo. It is yours and outlives the plugin, so its
+`~/.local/share/turbojedi/bookmarks.sqlite`, by `XDG_DATA_HOME`, under `sudo` the one of the user of sudo. TurboJedi 0.18 has kept
+it in `~/.config/turbojedi/`; the first start of a later one moves it here, unless a change of it is to be finished
+first, see Under sudo. It is yours and outlives the plugin, so its
 schema is told here, for `sqlite3` and anything else that reads it. `PRAGMA user_version` is its version; a later
 TurboJedi brings an older base up to its own and never changes what a column means.
 
@@ -130,7 +132,7 @@ by its first value when the entry has it many times, and `__LEFT_OUT` tells how 
 ends with "… (cut, N bytes)".
 
 ```
-sqlite3 ~/.config/turbojedi/bookmarks.sqlite "SELECT datetime(b.created / 1000000, 'unixepoch'), t.name, b.comment
+sqlite3 ~/.local/share/turbojedi/bookmarks.sqlite "SELECT datetime(b.created / 1000000, 'unixepoch'), t.name, b.comment
   FROM bookmarks b LEFT JOIN topics t ON t.id = b.topic ORDER BY b.created DESC LIMIT 20"
 ```
 

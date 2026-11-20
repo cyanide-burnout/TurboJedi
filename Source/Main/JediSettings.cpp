@@ -22,10 +22,12 @@ static uid_t uid;
 static gid_t gid;
 static std::vector<gid_t> groups;
 static std::string folder;
+static std::string data;
 
-void SetSettingsDirectory(const std::string& directory)
+void SetSettingsDirectory(const std::string& directory, const std::string& share)
 {
   folder = directory;
+  data   = share;
 }
 
 std::string GetSettingsPath(const std::string& name)
@@ -112,6 +114,55 @@ FILE* OpenSettings(const std::string& path)
   return file;
 }
 
+// The directories of a path, for mkdir -p, named before fork()
+static std::vector<std::string> GetFolders(const std::string& path)
+{
+  std::vector<std::string> folders;
+  std::string::size_type position;
+
+  for (position = path.find('/', 1); position != std::string::npos; position = path.find('/', position + 1))
+  {
+    folders.push_back(path.substr(0, position));
+  }
+
+  return folders;
+}
+
+// The action as the user of sudo in a child of theirs, the user writes into the home of their own and root writes
+// nothing there; by the process itself without sudo
+template <typename Action> static bool RunAsUser(Action action)
+{
+  int status = -1;
+  pid_t process;
+
+  if (!drop)
+  {
+    return action();
+  }
+
+  if ((process = fork()) == 0)
+  {
+    if ((setgroups(groups.size(), groups.data()) < 0) ||
+        (setgid(gid) < 0) ||
+        (setuid(uid) < 0) ||
+        (setuid(0) == 0))
+    {
+      _exit(1);
+    }
+
+    _exit(action() ? 0 : 1);
+  }
+
+  if (process < 0)
+  {
+    return false;
+  }
+
+  while ((waitpid(process, &status, 0) < 0) && (errno == EINTR));
+
+  return (status >= 0) && WIFEXITED(status) && (WEXITSTATUS(status) == 0);
+}
+
 // Into a file next to it first, then over it: a stop halfway leaves the old one whole. Allocates nothing, a child after
 // fork() calls it
 static bool WriteFile(const std::string& path, const std::string& temporary, const std::string& text, const std::vector<std::string>& folders, mode_t mode)
@@ -153,15 +204,23 @@ static bool WriteFile(const std::string& path, const std::string& temporary, con
   return true;
 }
 
+// Into its directory, made as by mkdir -p; on the same file system only. Allocates nothing, a child after fork() calls it
+static bool MoveFile(const std::string& from, const std::string& to, const std::vector<std::string>& folders)
+{
+  for (const std::string& folder : folders)
+  {
+    mkdir(folder.c_str(), 0755);
+  }
+
+  return rename(from.c_str(), to.c_str()) == 0;
+}
+
 bool SaveSettings(const std::string& path, const std::string& text, mode_t mode)
 {
-  int status = -1;
   char* real;
-  pid_t process;
   std::string target;
   std::string temporary;
   std::vector<std::string> folders;
-  std::string::size_type position;
 
   if ((path.empty()) ||
       (lost))
@@ -182,37 +241,51 @@ bool SaveSettings(const std::string& path, const std::string& text, mode_t mode)
   // Of this process: two TurboJedi saving at once replace the file one after the other, each with a whole one
   temporary = target + "." + std::to_string(getpid()) + ".new";
 
-  for (position = path.find('/', 1); position != std::string::npos; position = path.find('/', position + 1))
+  // The directories may not be there yet, removed while TurboJedi runs or of the user of sudo
+  folders = GetFolders(path);
+
+  return RunAsUser([&] () { return WriteFile(target, temporary, text, folders, mode); });
+}
+
+std::string GetDataPath(const std::string& name)
+{
+  std::string path;
+  std::string from;
+  struct stat status;
+  std::vector<std::string> folders;
+
+  if (data.empty())
   {
-    // The directories may not be there yet, removed while TurboJedi runs or of the user of sudo, named before fork()
-    folders.push_back(path.substr(0, position));
+    return std::string();
   }
 
-  if (!drop)
+  path = data + name;
+  from = GetSettingsPath(name);
+
+  if ((lost) ||
+      (from.empty()) ||
+      (lstat(path.c_str(), &status) == 0) ||
+      (errno != ENOENT) ||
+      (lstat(from.c_str(), &status) != 0))
   {
-    return WriteFile(target, temporary, text, folders, mode);
+    // There already, or nothing to move
+    return path;
   }
 
-  if ((process = fork()) == 0)
+  if ((lstat((from + "-journal").c_str(), &status) == 0) ||
+      (errno != ENOENT))
   {
-    // The user of sudo writes into the home of their own, root writes nothing there
-    if ((setgroups(groups.size(), groups.data()) < 0) ||
-        (setgid(gid) < 0) ||
-        (setuid(uid) < 0) ||
-        (setuid(0) == 0))
-    {
-      _exit(1);
-    }
-
-    _exit(WriteFile(target, temporary, text, folders, mode) ? 0 : 1);
+    // A change of SQLite to finish where it is first, under sudo by the next run that opens it
+    return from;
   }
 
-  if (process < 0)
+  folders = GetFolders(path);
+
+  if (RunAsUser([&] () { return MoveFile(from, path, folders); }))
   {
-    return false;
+    return path;
   }
 
-  while ((waitpid(process, &status, 0) < 0) && (errno == EINTR));
-
-  return (status >= 0) && WIFEXITED(status) && (WEXITSTATUS(status) == 0);
+  // On another file system for one, it stays and is used where it is
+  return from;
 }

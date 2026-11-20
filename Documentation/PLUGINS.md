@@ -90,7 +90,7 @@ of plugins to use it.
 
 ### Plugins and root
 
-The directory of the user is the one of the running process, by its `XDG_CONFIG_HOME` or `HOME`, as for `last.jedi`.
+The directory of the user is the one of the running process, by its `XDG_CONFIG_HOME` or `HOME`.
 Under `sudo` it is root's, never the one of `SUDO_USER`, for plugins and modules. A plugin may still read settings of
 the user of sudo, data and not code: `sudo()` tells that user and the home the system has for them, as Arrakis reads
 `~/.config/turbojedi/arrakis.conf` of the one who has run `sudo turbojedi`.

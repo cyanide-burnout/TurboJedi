@@ -30,10 +30,10 @@ local MAIN     = { '__CURSOR', '__REALTIME_TIMESTAMP', 'MESSAGE', 'PRIORITY', 'S
                    '_PID', '_COMM', '_BOOT_ID' }  -- The fields kept of an entry too large even then
 
 local date = turbojedi.date or os.date
-local path = turbojedi.where(NAME)
+local path = turbojedi.where(NAME, { data = true })
 
 if not path then
-  turbojedi.log('there is no directory of settings, HOME is not set: nothing to offer')
+  turbojedi.log('there is no directory of data, HOME is not set: nothing to offer')
   return
 end
 
@@ -165,7 +165,7 @@ local function open()
   if file then
     file:close()
   elseif code == ENOENT then
-    local made, why = turbojedi.settings(NAME, '', { private = true })
+    local made, why = turbojedi.settings(NAME, '', { private = true, data = true })
     if not made then
       failure = 'the base cannot be made: ' .. tostring(why)
       return nil, failure
