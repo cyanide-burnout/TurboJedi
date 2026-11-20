@@ -668,6 +668,7 @@ if engines then
   local COMMENT = 1000  -- Characters of a comment
   local SPARE   = 40    -- Characters of the numbers of the entries after a comment, of the line of an entry
   local HEAD    = 600   -- Characters of the lines that open the request and tell what it is made of
+  local LIGHT   = 16384 -- Bytes of a copy of an entry decoded whole, a larger one gives its message alone
 
   -- How many bookmarks there are by day, by week when they span more than two months, by month past two years, by year
   -- past that; coarser while the line is longer than most
@@ -751,7 +752,7 @@ if engines then
 
     if comments <= budget then
       for index, bookmark in ipairs(bookmarks) do
-        entries[index] = bookmark.entries(SHARE)
+        entries[index] = bookmark.entries(SHARE, LIGHT)
         for _, entry in ipairs(entries[index]) do entry.MESSAGE = clip(tostring(entry.MESSAGE or ''), SAID) end
       end
 

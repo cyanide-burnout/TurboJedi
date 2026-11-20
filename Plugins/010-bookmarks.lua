@@ -649,9 +649,10 @@ end
 -- A list of bookmarks, Show and Mark of all of them first
 -- Other plugins add items to a list of bookmarks, they share the globals of Lua: an item of Bookmarks.items,
 -- { title = ..., action = func }, calls func(bookmarks, what) with the bookmarks of the list, the oldest first, each
--- { id, created, topic, comment, count, left_out, entries }, and what names the list. entries(limit) reads the first
--- limit entries of the bookmark from the base, all of them without it, as query() gives them with every field as text:
--- a list of hundreds of bookmarks of 1 MiB each is not read whole for an item that takes a few entries of each. Arrakis
+-- { id, created, topic, comment, count, left_out, entries }, and what names the list. entries(limit, most) reads the
+-- first limit entries of the bookmark from the base, all of them without it, as query() gives them with every field as
+-- text; a copy past most bytes gives its message cut there, its time, cursor and host alone: a list of hundreds of
+-- bookmarks of 1 MiB each is not read whole for an item that takes a few entries of each. Arrakis
 -- adds Ask Arrakis about them. Made by whichever plugin comes first, read as a list opens
 Bookmarks       = Bookmarks       or { }
 Bookmarks.items = Bookmarks.items or { }
@@ -662,13 +663,26 @@ local function collect(rows)
   for number = #rows, 1, -1 do
     local row = rows[number]
 
-    local function entries(limit)
-      local list = { }
+    local function entries(limit, most)
+      local list  = { }
+      local count = math.max(0, math.tointeger(limit) or row.count)
+      local size  = math.tointeger(most)
 
-      for _, entry in ipairs(query(('SELECT cursor, time, fields FROM entries WHERE bookmark = ? ORDER BY time, id LIMIT %d'):format(
-                                     math.max(0, math.tointeger(limit) or row.count)), row.id)) do
+      -- A copy past most bytes is not decoded: its message cut there by SQLite, its time, cursor and the host of the
+      -- bookmark, the rest of its fields left in the base
+      local rows = size and query(('SELECT cursor, time, substr(message, 1, %d) AS message, CASE WHEN length(CAST(fields AS BLOB)) <= %d '
+                                   .. 'THEN fields END AS fields FROM entries WHERE bookmark = ? ORDER BY time, id LIMIT %d'):format(size, size, count), row.id)
+                        or query(('SELECT cursor, time, fields FROM entries WHERE bookmark = ? ORDER BY time, id LIMIT %d'):format(count), row.id)
+
+      for _, entry in ipairs(rows) do
         local item = { }
-        for name, value in pairs(cjson.decode(entry.fields)) do item[name] = told(value) end
+
+        if entry.fields then
+          for name, value in pairs(cjson.decode(entry.fields)) do item[name] = told(value) end
+        else
+          item.MESSAGE, item._HOSTNAME = entry.message, row.host
+        end
+
         item.__REALTIME_TIMESTAMP, item.__CURSOR = entry.time, entry.cursor
         list[#list + 1] = item
       end
