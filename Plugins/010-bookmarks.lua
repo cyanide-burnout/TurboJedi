@@ -23,6 +23,10 @@ local BOOKMARK = 1024 * 1024   -- Bytes of copies a bookmark is kept up to, the 
 local LIST     = 500           -- Bookmarks a list of the menu shows, the newest
 local TITLE    = 60            -- Characters of a comment in the title of an item of a menu
 local NOFOLLOW = 0x01000000    -- SQLITE_OPEN_NOFOLLOW: a link in the place of the base is refused
+local ENOENT   = 2             -- errno of a file that is not there, whatever language the system tells it in
+local SMALLEST = 256           -- Bytes a field of an entry larger than BOOKMARK is cut down to at most
+local MAIN     = { '__CURSOR', '__REALTIME_TIMESTAMP', 'MESSAGE', 'PRIORITY', 'SYSLOG_IDENTIFIER', '_SYSTEMD_UNIT', '_HOSTNAME',
+                   '_PID', '_COMM', '_BOOT_ID' }  -- The fields kept of an entry too large even then
 
 local date = turbojedi.date or os.date
 local path = turbojedi.where(NAME)
@@ -41,14 +45,14 @@ local recent     -- The topic chosen last, offered first
 -- A transaction of a run under sudo stopped in the middle leaves a -journal of root SQLite has to roll back: root does it
 -- by itself, a run of the user cannot read it, so the base is left alone and the user told what to do
 local function stuck()
-  local file, reason = io.open(path .. '-journal', 'rb')
+  local file, _, code = io.open(path .. '-journal', 'rb')
 
   if file then
     file:close()
     return nil
   end
 
-  if tostring(reason):find('No such file', 1, true) then
+  if code == ENOENT then
     return nil
   end
 
@@ -102,13 +106,14 @@ local function change(func, ...)
 
   local done, result = pcall(func, ...)
 
-  if done then
-    base:exec('COMMIT')
+  if done and (base:exec('COMMIT') == sqlite.OK) then
     return result or true
   end
 
+  -- A failure of the change or of its commit: nothing of it stays, the transaction does not stay open either
+  result = done and base:errmsg() or tostring(result)
   base:exec('ROLLBACK')
-  return nil, tostring(result)
+  return nil, result
 end
 
 local SCHEMA = [[
@@ -154,11 +159,11 @@ local function open()
     return nil, failure
   end
 
-  local file, reason = io.open(path, 'rb')
+  local file, _, code = io.open(path, 'rb')
 
   if file then
     file:close()
-  elseif tostring(reason):find('No such file', 1, true) then
+  elseif code == ENOENT then
     local made, why = turbojedi.settings(NAME, '', { private = true })
     if not made then
       failure = 'the base cannot be made: ' .. tostring(why)
@@ -223,26 +228,29 @@ local function base64(data)
   return table.concat(parts)
 end
 
--- A field as it is kept: its text, { base64 } when it is not text of UTF-8, and cut past FIELD with the bytes it has had
-local function keep(value)
+-- A field as it is kept: its text, { base64 } when it is not text of UTF-8, and cut past the limit, FIELD by default,
+-- with the bytes it has had
+local function keep(value, most)
   if type(value) ~= 'string' then
     return value
   end
 
   local size = #value
 
+  most = most or FIELD
+
   if utf8.len(value) then
-    if size <= FIELD then
+    if size <= most then
       return value
     end
 
     -- Cut by whole characters
-    local text = value:sub(1, FIELD)
+    local text = value:sub(1, most)
     while not utf8.len(text) do text = text:sub(1, -2) end
     return { text = text, cut = size }
   end
 
-  local limit = (FIELD // 4) * 3
+  local limit = (most // 4) * 3
 
   if size <= limit then
     return { base64 = base64(value) }
@@ -251,21 +259,46 @@ local function keep(value)
   return { base64 = base64(value:sub(1, limit)), cut = size }
 end
 
-local function fields(entry)
+local function fields(entry, most, only)
   local kept = { }
 
   for name, value in pairs(entry) do
-    if type(value) == 'table' then
-      -- A field the entry has more than once
-      local list = { }
-      for index, item in ipairs(value) do list[index] = keep(item) end
-      kept[name] = list
-    else
-      kept[name] = keep(value)
+    if (not only) or only[name] then
+      if type(value) == 'table' then
+        -- A field the entry has more than once
+        local list = { }
+        for index, item in ipairs(value) do list[index] = keep(item, most) end
+        kept[name] = list
+      else
+        kept[name] = keep(value, most)
+      end
     end
   end
 
-  return cjson.encode(kept)
+  return kept
+end
+
+-- The copy of an entry within BOOKMARK however large it is: its fields cut shorter, by halves down to SMALLEST; an entry
+-- of so many fields that this is not enough keeps its main ones, and says how many are left out
+local function copy(entry)
+  local most = FIELD
+  local json = cjson.encode(fields(entry))
+
+  while (#json > BOOKMARK) and (most > SMALLEST) do
+    most = math.max(SMALLEST, most // 2)
+    json = cjson.encode(fields(entry, most))
+  end
+
+  if #json > BOOKMARK then
+    local only, count, kept = { }, 0, nil
+    for _, name in ipairs(MAIN) do only[name] = true end
+    for name in pairs(entry) do count = count + ((only[name] and 0) or 1) end
+    kept = fields(entry, most, only)
+    kept.__LEFT_OUT = count
+    json = cjson.encode(kept)
+  end
+
+  return json
 end
 
 -- The text of a field as the user sees it, cut ones told so
@@ -387,7 +420,7 @@ local function create(entries, context, comment, name, beyond)
 
     for number = #entries, 1, -1 do
       local entry = entries[number]
-      local json  = fields(entry)
+      local json  = copy(entry)
 
       if (bytes + #json > BOOKMARK) and (#kept > 0) then
         left = left + number

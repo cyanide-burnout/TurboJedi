@@ -87,7 +87,10 @@ CREATE VIRTUAL TABLE texts USING fts5(topic, comment, entries);  -- rowid is the
 `fields` is an object of the fields of the entry. A field is its text; one that is not text of UTF-8 is
 `{ "base64": ... }`; a field past 64 KiB is cut and says so, `{ "text": ..., "cut": N }` or `{ "base64": ..., "cut": N }`,
 N the bytes it has had; a field the entry has more than once is a list of them. A bookmark keeps up to 1 MiB of copies:
-of a larger selection the newest entries are kept, `left_out` tells how many are not. What is shown to you of a cut field
+of a larger selection the newest entries are kept, `left_out` tells how many are not. One entry larger than that by
+itself has its fields cut shorter, by halves down to 256 bytes each, told by `cut` as above; an entry of so many fields
+that even this is too much keeps its main ones, `MESSAGE`, `PRIORITY`, its source and its place, and `__LEFT_OUT` tells
+how many of the others are not kept. What is shown to you of a cut field
 ends with "… (cut, N bytes)".
 
 ```
