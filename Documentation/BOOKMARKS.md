@@ -33,10 +33,10 @@ give that bookmark, so a comment changed is changed in it, not kept as a second 
 | Bookmarks ▸ All... | all of them |
 | Bookmarks ▸ Without a topic... | the ones without a topic |
 | Bookmarks ▸ Of a topic... | the ones of a topic, chosen in the list of the topics with how many bookmarks each has and the time of the last |
-| Find in bookmarks... | the bookmarks whose topic, comment or entries have the words |
 | Topics ▸ New topic... | a topic to choose for bookmarks later |
 | Topics ▸ Rename... | a topic chosen in the list, its new name typed |
 | Topics ▸ Remove... | a topic chosen in the list, its bookmarks kept without a topic or removed with it |
+| Find in bookmarks... | the bookmarks whose topic, comment or entries have the words |
 
 A list of bookmarks, the newest first, up to 500, has two items on top:
 

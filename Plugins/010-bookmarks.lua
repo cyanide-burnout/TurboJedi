@@ -963,10 +963,10 @@ turbojedi.on('actions', actions)
 turbojedi.on('menu', { 'Bookmarks', 'All...' }, all)
 turbojedi.on('menu', { 'Bookmarks', 'Without a topic...' }, untopical)
 turbojedi.on('menu', { 'Bookmarks', 'Of a topic...' }, ofTopic)
-turbojedi.on('menu', 'Find in bookmarks...', find)
 turbojedi.on('menu', { 'Topics', 'New topic...' }, newTopic)
 turbojedi.on('menu', { 'Topics', 'Rename...' }, renameTopic)
 turbojedi.on('menu', { 'Topics', 'Remove...' }, removeTopic)
+turbojedi.on('menu', 'Find in bookmarks...', find)
 turbojedi.on('restore', function(context) if open() then show(context) end end)
 
 if turbojedi.left then methods() end

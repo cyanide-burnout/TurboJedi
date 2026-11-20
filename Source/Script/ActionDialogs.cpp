@@ -543,10 +543,31 @@ void TranslateMenuKey(TEvent& event, TView* top)
 
 void ActionMenu::draw()
 {
+  int row;
+  size_t space;
   TDrawBuffer buffer;
   std::string text;
 
   TMenuBox::draw();
+
+  row = 1;
+
+  for (TMenuItem* item = menu->items; item != nullptr; item = item->next, row ++)
+  {
+    if ((item->name == nullptr) ||
+        (item->command != 0) ||
+        ((space = std::string(item->name).rfind("  ")) == std::string::npos))
+    {
+      continue;
+    }
+
+    // An item with a submenu has its plugin at the end of its title after two spaces or more, 9 columns short of the
+    // end of the box: ► goes before it, and it ends where the plugins of the other items end
+    text = item->name;
+    text = " \u25ba " + text.substr(text.find_first_not_of(' ', space));
+    buffer.moveCStr(0, text.c_str(), getColor((item == current) ? 0x0604 : 0x0301));
+    writeLine(size.x - 4 - strwidth(text) + 1, row, strwidth(text), 1, buffer);
+  }
 
   if (!title.empty())
   {
