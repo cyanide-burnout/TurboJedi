@@ -766,7 +766,8 @@ TOOLS = [
 
     ('list_actions', list_actions, True,
      'The items of the Actions menu of TurboJedi for an entry of a window, title and plugin: what the user can do with '
-     'it, such as the status of its unit or a ban of its address. The handlers of the plugins make the menu as opening '
+     'it, such as the status of its unit or a ban of its address. An item of a submenu has path, the titles of the '
+     'submenus it is in, outer first: the user goes there by them. The handlers of the plugins make the menu as opening '
      'it does, the items are not run from here: name the one that helps and the user runs it with Alt-F10 or A on the '
      'entry. Without window_id, the window the user has in front; without cursor, the entry under its cursor.',
      schema({'window_id': ACTIVE, 'cursor': CURSOR})),

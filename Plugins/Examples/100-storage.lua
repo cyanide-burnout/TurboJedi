@@ -35,11 +35,6 @@ end
 
 turbojedi.log('for a block device: ' .. table.concat(titles, ', ') .. ', the ones whose programs are installed')
 
-local function choose(name)
-  local _, index = turbojedi.choose('Device ' .. name, titles)
-  if index then functions[index](name) end
-end
-
 -- The items of the entry in Actions
 local function actions(entry, menu, context)
   -- Devices are of this machine, and of the kernel or smartd that tell about them
@@ -52,7 +47,8 @@ local function actions(entry, menu, context)
     if file then
       file:close()
       seen[name] = true
-      menu:add('Device ' .. name, choose, name)
+      local items = menu:sub('Device ' .. name)
+      for index, title in ipairs(titles) do items:add(title, functions[index], name) end
     end
   end
 end

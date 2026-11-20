@@ -205,9 +205,11 @@ local function actions(entry, menu, context)
 
     if (not seen[address]) and valid(address) and not (mine[address] or (address:find(':') and mine[expand(address)])) then
       seen[address] = true
-      menu:add('Status of ' .. address, check, address)
-      menu:add('Ban ' .. address, ban, address, jail)
-      menu:add('Unban ' .. address, unban, address)
+      -- A submenu shows ► where an item shows its plugin: its title names it, Address of network is another one
+      local items = menu:sub('fail2ban ' .. address)
+      items:add('Status', check, address)
+      items:add('Ban', ban, address, jail)
+      items:add('Unban', unban, address)
     end
   end
 end

@@ -120,7 +120,7 @@ These calls are answered at once, also while the user has a dialog open.
 | `GetMarked(id, limit)` | `uu → (aa{sv}u)` | the marked and selected entries of the window, the oldest first, up to `limit` (0 gives 1000), and how many there are in all, as `context.marked` of a plugin |
 | `GetEntry(id, cursor)` | `us → a{sv}` | the entry of a cursor in the journal of the window: of a line of a watch, of an answer of a query |
 | `Query(options)` | `a{sv} → (aa{sv}s)` | entries of the journal, as `turbojedi.query()`; see below |
-| `ListActions(id, cursor)` | `us → aa{sv}` | the items of the Actions menu for the entry: `title` s, `plugin` s, in the order of the menu |
+| `ListActions(id, cursor)` | `us → aa{sv}` | the items of the Actions menu for the entry: `title` s, `plugin` s, in the order of the menu; an item of a submenu has `path` as as well, the titles of the submenus it is in, the outer one first: `Show` of `["Context 2222"]` |
 | `ListWatches()` | `→ aa{sv}` | the watches of the plugins, see below |
 | `GetWatchLines(id)` | `u → aa{sv}` | the lines of a watch, the newest first, see below |
 | `ListMethods()` | `→ aa{sv}` | the methods of the plugins for `Invoke()` the caller may call, see Plugins below |

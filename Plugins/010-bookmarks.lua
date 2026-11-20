@@ -22,6 +22,7 @@ local FIELD    = 64 * 1024     -- Bytes a field is kept up to, cut beyond it wit
 local BOOKMARK = 1024 * 1024   -- Bytes of copies a bookmark is kept up to, the newest entries of a set first
 local LIST     = 500           -- Bookmarks a list of the menu shows, the newest
 local TITLE    = 60            -- Characters of a comment in the title of an item of a menu
+local OTHERS   = 10            -- Other bookmarks of an entry in its submenu of Actions, the rest in a list
 local NOFOLLOW = 0x01000000    -- SQLITE_OPEN_NOFOLLOW: a link in the place of the base is refused
 local ENOENT   = 2             -- errno of a file that is not there, whatever language the system tells it in
 local SMALLEST = 256           -- Bytes a field of an entry larger than BOOKMARK is cut down to at most
@@ -564,8 +565,8 @@ local function act(id)
     return turbojedi.message('The bookmark is not there anymore', 'Bookmarks')
   end
 
-  local _, choice = turbojedi.choose('Bookmark of ' .. date('%F %T', row.created // 1000000),
-    { 'Mark in the window', 'Show', 'Comment', 'Topic', 'Copy', 'Remove bookmark' })
+  local _, choice = turbojedi.popup({ 'Mark in the window', 'Show', 'Comment', 'Topic', 'Copy', 'Remove bookmark' },
+    'Bookmark of ' .. date('%F %T', row.created // 1000000))
 
   if choice == 1 then
     mark({ id })
@@ -732,7 +733,7 @@ local function manage()
   end
 
   local name    = list_of[choice - 1].name
-  local _, what = turbojedi.choose('Topic ' .. name, { 'Its bookmarks', 'Rename...', 'Remove...' })
+  local _, what = turbojedi.popup({ 'Its bookmarks', 'Rename...', 'Remove...' }, 'Topic ' .. name)
 
   if what == 1 then
     list({ topic = name })
@@ -745,7 +746,7 @@ local function manage()
       for _, row in ipairs(query('SELECT b.id FROM bookmarks b JOIN topics t ON t.id = b.topic WHERE t.name = ?', new)) do reindex(row.id) end
     end))
   elseif what == 3 then
-    local _, how = turbojedi.choose('Remove the topic ' .. name, { 'Keep its bookmarks without a topic', 'Remove its bookmarks as well' })
+    local _, how = turbojedi.popup({ 'Keep its bookmarks without a topic', 'Remove its bookmarks as well' }, 'Remove the topic ' .. name)
     if not how then return end
     reported(change(function()
       local ids = query('SELECT b.id FROM bookmarks b JOIN topics t ON t.id = b.topic WHERE t.name = ?', name)
@@ -882,12 +883,23 @@ local function actions(entry, menu, context)
   offer(menu, own[1], '', function(typed, name) return create({ entry }, context, typed, name) end)
 
   if #own > 1 then
-    menu:add(('%d more bookmarks of this entry...'):format(#own - 1), function()
-      local names = { }
-      for number = 2, #own do names[number - 1] = cut(own[number].comment or own[number].topic, 80) end
-      local _, choice = turbojedi.choose('Bookmarks of this entry', names)
-      if choice then act(own[choice + 1].id) end
-    end)
+    -- The others in a submenu, each with its own items; past OTHERS of them, the rest in a list
+    local others = menu:sub(('%d more bookmark%s of this entry'):format(#own - 1, (#own == 2) and '' or 's'))
+
+    for number = 2, math.min(#own, OTHERS + 1) do
+      local items = others:sub(cut(own[number].comment or own[number].topic, TITLE))
+      items:add('Show', function() turbojedi.message(describe(own[number].id) or 'The bookmark is not there anymore', 'Bookmark') end)
+      offer(items, own[number], '')
+    end
+
+    if #own > OTHERS + 1 then
+      others:add(('All %d of them...'):format(#own - 1), function()
+        local names = { }
+        for number = 2, #own do names[number - 1] = cut(own[number].comment or own[number].topic, 80) end
+        local _, choice = turbojedi.choose('Bookmarks of this entry', names)
+        if choice then act(own[choice + 1].id) end
+      end)
+    end
   end
 end
 

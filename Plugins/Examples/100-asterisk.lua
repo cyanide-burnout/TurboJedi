@@ -42,12 +42,18 @@ local function sure(question, command)
   if turbojedi.confirm(question) then run(command) end
 end
 
--- The actions of an object in a list, the chosen one is run
+-- The actions of an object in a popup menu, the chosen one is run
 local function offer(title, actions)
   local names = { }
   for index, action in ipairs(actions) do names[index] = action[1] end
-  local _, index = turbojedi.choose(title, names)
+  local _, index = turbojedi.popup(names, title)
   if index then actions[index][2]() end
+end
+
+-- The actions of an object in a submenu of Actions
+local function sub(menu, title, actions)
+  local items = menu:sub(title)
+  for _, action in ipairs(actions) do items:add(action[1], action[2]) end
 end
 
 -- Where else the journal tells about it, as the plugins of TetraPack and BrandMeister do
@@ -144,7 +150,7 @@ local function actions(entry, menu, context)
   for found in turbojedi.matches(text, CALL) do
     local id = found[1]
     if once('call', id) then
-      menu:add('Call ' .. id, offer, 'Call ' .. id, follows(entry, id))
+      sub(menu, 'Call ' .. id, follows(entry, id))
     end
   end
 
@@ -156,12 +162,12 @@ local function actions(entry, menu, context)
         { 'Show',    function() run('core show channel ' .. name) end },
         { 'Hang up', function() sure('Hang up channel ' .. name .. '?', 'channel request hangup ' .. name) end }
       } or { }
-      menu:add('Channel ' .. name, offer, 'Channel ' .. name, add(actions, trace(entry, name)))
+      sub(menu, 'Channel ' .. name, add(actions, trace(entry, name)))
     end
     -- PJSIP/2505-0000002b is of the endpoint 2505
     local endpoint = name:match('^PJSIP/([%w._+-]+)%-%x+')
     if here and endpoint and once('endpoint', endpoint) then
-      menu:add('Endpoint ' .. endpoint, offer, 'Endpoint ' .. endpoint,
+      sub(menu, 'Endpoint ' .. endpoint,
       {
         { 'Show',    function() run('pjsip show endpoint ' .. endpoint) end },
         { 'Qualify', function() run('pjsip qualify ' .. endpoint) end }
@@ -172,7 +178,7 @@ local function actions(entry, menu, context)
   for found in turbojedi.matches(text, ENDPOINT) do
     local endpoint = found[1]
     if here and once('endpoint', endpoint) then
-      menu:add('Endpoint ' .. endpoint, offer, 'Endpoint ' .. endpoint,
+      sub(menu, 'Endpoint ' .. endpoint,
       {
         { 'Show',    function() run('pjsip show endpoint ' .. endpoint) end },
         { 'Qualify', function() run('pjsip qualify ' .. endpoint) end }
@@ -184,7 +190,7 @@ local function actions(entry, menu, context)
   for found in turbojedi.matches(text, AOR) do
     local aor = found[1]
     if here and once('aor', aor) then
-      menu:add('AOR ' .. aor, offer, 'AOR ' .. aor, { { 'Show', function() run('pjsip show aor ' .. aor) end } })
+      sub(menu, 'AOR ' .. aor, { { 'Show', function() run('pjsip show aor ' .. aor) end } })
     end
   end
 
@@ -193,7 +199,7 @@ local function actions(entry, menu, context)
     for found in turbojedi.matches(text, MODULE) do
       local module = found[1]
       if once('module', module) then
-        menu:add('Module ' .. module, offer, 'Module ' .. module,
+        sub(menu, 'Module ' .. module,
         {
           { 'Show',   function() run('module show like ' .. module) end },
           { 'Load',   function() sure('Load module ' .. module .. '?', 'module load ' .. module .. '.so') end },
@@ -206,7 +212,7 @@ local function actions(entry, menu, context)
   for found in turbojedi.matches(text, STEP) do
     local step = found[1]
     if here and once('step', step) then
-      menu:add('Dialplan ' .. step, offer, 'Dialplan ' .. step, { { 'Show', function() run('dialplan show ' .. step) end } })
+      sub(menu, 'Dialplan ' .. step, { { 'Show', function() run('dialplan show ' .. step) end } })
     end
   end
 end

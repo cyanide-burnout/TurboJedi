@@ -23,12 +23,12 @@ The package brings these, in `/usr/share/turbojedi/plugins`:
   before it, explained by the model, and in the Plugins menu the errors of the window; see [ARRAKIS.md](ARRAKIS.md)
 - `030-systemd.lua`: the status of the unit of the entry in a window or to the clipboard, its state and since when
   told in the title of the item by systemd over D-Bus, its unit file, its process in htop, or in top without it
-- `040-network.lua`: an item for every address of the message, its route, lookup, whois, ping, path or a copy are chosen
-  there, the ones whose programs are installed
+- `040-network.lua`: a submenu for every address of the message, its route, lookup, whois, ping, path or a copy, the
+  ones whose programs are installed
 - `050-coredump.lua`: for an entry of systemd-coredump, what coredumpctl knows of that dump, a copy of it, its stack in
   gdb
-- `060-fail2ban.lua`, for root where fail2ban is installed: for an address of the entry, the jails it is banned in now;
-  Ban and Unban of it, after asking for the jail and a confirmation, never for an address of this machine
+- `060-fail2ban.lua`, for root where fail2ban is installed: a submenu for an address of the entry, the jails it is
+  banned in now, Ban and Unban of it, after asking for the jail and a confirmation, never for an address of this machine
 
 Plugins that change things, or that would come up by chance, are examples in `/usr/share/turbojedi/examples` and are not
 run by themselves: `100-ssh.lua`, a watch of the attacks on the SSH server of this machine while TurboJedi is open, an

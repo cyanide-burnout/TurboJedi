@@ -13,6 +13,10 @@
 #define Uses_TScrollBar
 #define Uses_TEvent
 #define Uses_TKeys
+#define Uses_TMenu
+#define Uses_TMenuItem
+#define Uses_TMenuPopup
+#define Uses_TDrawBuffer
 #include <tvision/tv.h>
 
 #include "ActionDialogs.h"
@@ -25,7 +29,8 @@
 
 #include <algorithm>
 
-#define INPUT_LENGTH  4096  // Bytes of a line to edit
+#define INPUT_LENGTH   4096  // Bytes of a line to edit
+#define cmActionPopup  1400  // The first item of a menu of popup(), one per item
 
 // Helpers
 
@@ -476,4 +481,169 @@ int AskActionChoice(const std::string& title, const std::vector<std::string>& it
 
   TObject::destroy(dialog);
   return ((result == cmOK) && (!items.empty())) ? chosen : -1;
+}
+
+// Menus
+
+class ActionMenu : public TMenuPopup
+{
+  public:
+
+    ActionMenu(const TRect& bounds, TMenu* menu, const std::string& title);
+
+    void draw() override;
+
+  private:
+
+    std::string title;
+};
+
+// What a box of a menu has under its cursor: Turbo Vision keeps it to the menus, a class of its own may name it
+class MenuCursor : public TMenuView
+{
+  public:
+
+    static TMenuItem* Of(TMenuView* view)
+    {
+      return view->*(&MenuCursor::current);
+    }
+};
+
+static int opened;  // Menus of ShowActionMenu() open, the ones in them included
+
+ActionMenu::ActionMenu(const TRect& bounds, TMenu* menu, const std::string& title) :
+  TMenuPopup(bounds, menu),
+  title(title)
+{
+}
+
+void TranslateActionMenuKey(TEvent& event, TView* top)
+{
+  TMenuBox* box;
+  TMenuItem* item;
+
+  if ((opened == 0) ||
+      (event.what != evKeyDown) ||
+      (event.keyDown.keyCode != kbRight) ||
+      ((box = dynamic_cast<TMenuBox*>(top)) == nullptr))
+  {
+    return;
+  }
+
+  item = MenuCursor::Of(box);
+
+  if ((item != nullptr) &&
+      (item->name != nullptr) &&
+      (item->command == 0) &&
+      (!item->disabled))
+  {
+    // A box of Turbo Vision opens a submenu by Enter only and goes back by Right as well as by Left, the submenus of a
+    // submenu are boxes of its own: Right goes into one as in the menus of a desktop, at any depth
+    event.keyDown.keyCode = kbEnter;
+  }
+}
+
+void ActionMenu::draw()
+{
+  TDrawBuffer buffer;
+  std::string text;
+
+  TMenuBox::draw();
+
+  if (!title.empty())
+  {
+    // As the frame of a window has its title, ~ shown as it is
+    text = " " + title + " ";
+    buffer.moveStr(0, text.c_str(), getColor(0x0301));
+    writeLine(2, 0, std::min<int>(strwidth(text), size.x - 4), 1, buffer);
+  }
+}
+
+unsigned short ShowActionMenu(TPoint where, TMenuItem& items, const std::string& title, bool keyboard)
+{
+  TPoint place;
+  TRect bounds;
+  TEvent event;
+  ActionMenu* menu;
+  TGroup* application;
+  unsigned short command;
+
+  application = TProgram::application;
+  place       = application->makeLocal(where);
+  menu        = new ActionMenu(TRect(place, place), new TMenu(items), title);
+  bounds      = menu->getBounds();
+
+  // Wide enough for its title, within the screen
+  bounds.b.x = bounds.a.x + std::min<int>(std::max<int>(menu->size.x, strwidth(title) + 6), application->size.x);
+
+  if (where.x < 0)
+  {
+    // In the middle, where the dialog before it has been
+    bounds.move((application->size.x - (bounds.b.x - bounds.a.x)) / 2 - bounds.a.x,
+                (application->size.y - (bounds.b.y - bounds.a.y)) / 2 - bounds.a.y);
+  }
+  else
+  {
+    // Under the point and within the screen, above it when there is no room below, as popupMenu() places it
+    bounds.move(std::min<int>(bounds.b.x - bounds.a.x, application->size.x - place.x),
+                std::min<int>(bounds.b.y - bounds.a.y + 1, application->size.y - place.y));
+
+    if ((bounds.contains(place)) &&
+        (bounds.b.y - bounds.a.y < place.y))
+    {
+      bounds.move(0, -(bounds.b.y - place.y));
+    }
+  }
+
+  menu->setBounds(bounds);
+
+  if (keyboard)
+  {
+    // A popup of Turbo Vision opens on no item, the first step down takes the first one
+    event                 = TEvent {};
+    event.what            = evKeyDown;
+    event.keyDown.keyCode = kbDown;
+    TProgram::application->putEvent(event);
+  }
+
+  opened ++;
+  command = application->execView(menu);
+  opened --;
+  TObject::destroy(menu);
+  return command;
+}
+
+int AskActionPopup(const std::string& title, const std::vector<std::string>& items)
+{
+  int index;
+  TMenuItem* first;
+  TMenuItem* last;
+  TMenuItem* item;
+  unsigned short command;
+
+  first = nullptr;
+  last  = nullptr;
+
+  for (index = 0; index < (int)items.size(); index ++)
+  {
+    item  = new TMenuItem(items[index].c_str(), cmActionPopup + index, kbNoKey, hcNoContext);
+    first = (first == nullptr) ? item : first;
+
+    if (last != nullptr)
+    {
+      last->next = item;
+    }
+
+    last = item;
+  }
+
+  if (first == nullptr)
+  {
+    return -1;
+  }
+
+  command = ShowActionMenu(TPoint { -1, -1 }, *first, title, true);
+
+  return ((command >= cmActionPopup) &&
+          (command < cmActionPopup + items.size())) ? command - cmActionPopup : -1;
 }

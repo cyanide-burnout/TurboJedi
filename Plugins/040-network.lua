@@ -50,11 +50,6 @@ end
 
 turbojedi.log('for an address: ' .. table.concat(titles, ', ') .. ', the ones whose programs are installed')
 
-local function choose(address)
-  local _, index = turbojedi.choose('Address ' .. address, titles)
-  if index then functions[index](address) end
-end
-
 -- The items of the entry in Actions
 local function actions(entry, menu)
   local seen = { }
@@ -62,7 +57,8 @@ local function actions(entry, menu)
     local address = found.address
     if (not seen[address]) and valid(address) then
       seen[address] = true
-      menu:add('Address ' .. address, choose, address)
+      local items = menu:sub('Address ' .. address)
+      for index, title in ipairs(titles) do items:add(title, functions[index], address) end
     end
   end
 end

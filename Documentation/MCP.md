@@ -121,7 +121,7 @@ The instances of other users do not answer: the agent is told how many there are
 | `get_marked` | the entries marked or selected in a window, of the one in front by default |
 | `get_entry` | an entry by its cursor, with every field |
 | `query_journal` | entries of the journal by fields, text, priority and time, of the journal of a window or of the machine |
-| `list_actions` | the items of the Actions menu for an entry, the one under the cursor of the window in front by default, to name the one that helps |
+| `list_actions` | the items of the Actions menu for an entry, the one under the cursor of the window in front by default, to name the one that helps; an item of a submenu with the titles that lead to it |
 | `list_watches` | the watches of the plugins, their status and unread lines |
 | `get_watch_lines` | the lines of a watch with their entries, of the one in front by default, and the line under your cursor |
 | `mark_entries` | marks entries in a window, as M does |

@@ -253,6 +253,7 @@ void JediApplication::getEvent(TEvent& event)
   uint64_t ticks;
 
   TApplication::getEvent(event);
+  TranslateActionMenuKey(event, TopView());
   ticks = THardwareInfo::getTickCountMs();
 
   if (event.what & (evMouseDown | evMouseMove | evMouseAuto)) held = event.mouse;

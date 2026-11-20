@@ -9,6 +9,7 @@
 #define QUERY_LIMIT        100     // Entries query() gives by default
 #define QUERY_SCAN         100000  // Entries it looks at by default
 #define QUERY_TIMEOUT      30      // Seconds it reads in an action by default
+#define POPUP_LIMIT        100     // Items of popup(), the commands of its menu
 
 // message(text, title, options): the text with OK; { input = prompt } puts a line to type a question into under it, the
 // line comes back by Ask, nil by Close or an empty line
@@ -140,6 +141,62 @@ int AskChoice(lua_State* state)
   }
 
   lua_pushlstring(state, items[chosen].data(), items[chosen].size());
+  lua_pushinteger(state, chosen + 1);
+  return 2;
+}
+
+int AskPopup(lua_State* state)
+{
+  int most;
+  int width;
+  int chosen;
+  std::string title;
+  std::string value;
+  std::vector<std::string> items;
+
+  if (lua_type(state, 1) != LUA_TTABLE)
+  {
+    return Fail(state, "popup() takes a list of items and a title");
+  }
+
+  if ((!lua_isnoneornil(state, 2)) &&
+      (!GetString(state, 2, title)))
+  {
+    return Fail(state, "the title of popup() is a string");
+  }
+
+  // A menu does not scroll: what it has fits the desktop, a longer list is for choose()
+  most  = std::min<int>(TProgram::deskTop->size.y - 2, POPUP_LIMIT);
+  width = TProgram::deskTop->size.x - 8;
+
+  for (lua_Integer number = 1; number <= (lua_Integer)lua_rawlen(state, 1); number ++)
+  {
+    lua_rawgeti(state, 1, number);
+
+    if (!GetString(state, -1, value))
+    {
+      lua_pop(state, 1);
+      return Fail(state, "items of popup() are strings");
+    }
+
+    items.push_back(Fit(value, width));
+    lua_pop(state, 1);
+  }
+
+  if ((int)items.size() > most)
+  {
+    return Fail(state, "popup() shows up to %d items here, choose() takes a longer list", most);
+  }
+
+  chosen = AskActionPopup(Fit(title, width - 4), items);
+
+  if (chosen < 0)
+  {
+    lua_pushnil(state);
+    return 1;
+  }
+
+  lua_rawgeti(state, 1, chosen + 1);
   lua_pushinteger(state, chosen + 1);
   return 2;
 }

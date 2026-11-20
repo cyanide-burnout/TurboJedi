@@ -96,8 +96,25 @@ Adds an item: the title, the function to call when it is chosen and the argument
 
 - `~` marks a hot key in the title as everywhere in Turbo Vision: `'~S~tatus'`. A title made of a value of the entry
   that has `~` in it gets a highlight instead of it.
-- A title is cut to fit the screen. A menu holds up to 100 items.
+- A title is cut to fit the screen. A menu holds up to 100 items, the ones of its submenus among them.
 - Called anywhere but in a handler, it is an error.
+
+### `menu:sub(title)`
+
+Adds an item that opens a submenu, and gives that submenu: `add` and `sub` of it add to it as to the menu. Right or
+Enter opens it, Left or Esc goes back. What can be done with one thing the entry names goes there, the address or the
+session with its actions, instead of a list behind one item; a submenu with no item is not shown, a submenu holds up to
+three levels of them. Since 0.18: a plugin for older versions as well asks `if menu.sub then`.
+
+```lua
+turbojedi.on('actions', function(entry, menu)
+  local address = tostring(entry.MESSAGE):match('from (%d+%.%d+%.%d+%.%d+)')
+  if not address then return end
+  local items = menu:sub('Address ' .. address)
+  items:add('Ping', function() turbojedi.execute({ 'ping', '-c', '4', address }, { mode = 'window' }) end)
+  items:add('Copy', turbojedi.copy, address)
+end)
+```
 
 ### The Plugins menu
 
@@ -135,6 +152,7 @@ argument whatever it holds, no shell sees it.
 | `confirm(text)` | action, callback | Yes or No: `true` or `false`. No is the default one, Esc is No |
 | `input(prompt, value)` | action, callback | a line to edit, starting with the value: the line, or `nil` when cancelled |
 | `choose(title, items, initial)` | action, callback | one of a list of strings: the item and its index, or `nil` when cancelled. `initial` is an item or an index to start on |
+| `popup(items, title)` | action, callback | one of a few strings in a popup menu in the middle of the screen, the title on its frame: the item and its index, or `nil` by Esc. What to do with what a list has given, the handful of actions of a bookmark chosen; as many as the screen has rows, a longer list is for `choose`; `~` marks a hot key as in `menu:add`. Since 0.18 |
 | `copy(text)` | action, callback | puts the text to the clipboard the way Ctrl-Ins does |
 | `open(options)` | action | a new window with a filter, like the one the menu has been opened in |
 | `find(text, options)` | action | the previous match in the window of the menu, as Find: `true` when found |
@@ -953,10 +971,10 @@ turbojedi.on('actions', actions)
 
 ### Addresses
 
-`040-network.lua` of the package gives one item to every address of the message, IPv4 or IPv6, and the actions are
-chosen in a list there: Route (`ip route get`), Lookup (`host`, or `getent hosts` without it), Whois, Ping (four of them), Trace path
-(`tracepath -n`) and Copy. Only the actions whose programs are installed are in the list, so the menu stays short when
-an entry has several addresses.
+`040-network.lua` of the package gives a submenu to every address of the message, IPv4 or IPv6, with its actions:
+Route (`ip route get`), Lookup (`host`, or `getent hosts` without it), Whois, Ping (four of them), Trace path
+(`tracepath -n`) and Copy. Only the actions whose programs are installed are there, so the menu stays short when an
+entry has several addresses.
 
 ### Core dumps
 
@@ -967,8 +985,8 @@ file is.
 
 ### fail2ban
 
-`060-fail2ban.lua` of the package, for root where `fail2ban-client` is installed, offers the status, Ban and Unban for
-every address in the message. The status tells the jails the address is banned in now, by the list `fail2ban-client
+`060-fail2ban.lua` of the package, for root where `fail2ban-client` is installed, gives a submenu of Status, Ban and
+Unban to every address in the message, `fail2ban 203.0.113.5`. The status tells the jails the address is banned in now, by the list `fail2ban-client
 status` gives of each, an IPv6 address in either form. Ban asks for the jail, starting on `sshd` for an entry of sshd, `sshd-session` or `sshd-auth`, and for a
 confirmation, which warns when the address is the one of your own SSH session: a ban of the wrong address locks its
 user out. An address of this machine itself, such as the one sshd tells as `to`, gets no items. `fail2ban-client`
@@ -1019,14 +1037,14 @@ behind by a removed package is told about at start. A build installed by `make i
 ### Block devices
 
 `/usr/share/turbojedi/examples/100-storage.lua` gives an item to every block device an entry of the kernel or smartd
-names, `[sda]`, `dev nvme0n1`, `(sda1)`, when the system has it: Device (`lsblk`), Mounts (`findmnt`), udev
+names, `[sda]`, `dev nvme0n1`, `(sda1)`, when the system has it, a submenu of Device (`lsblk`), Mounts (`findmnt`), udev
 (`udevadm info`), SMART (`smartctl -a` of the disk, root) and Copy. It is an example since a name of a device comes up
 in messages that tell nothing about it.
 
 ### Asterisk
 
-`/usr/share/turbojedi/examples/100-asterisk.lua` gives an item to every object an entry of Asterisk names, with its
-actions chosen in a list there:
+`/usr/share/turbojedi/examples/100-asterisk.lua` gives a submenu to every object an entry of Asterisk names, with its
+actions:
 
 | Object | As the entry has it | Actions |
 |---|---|---|

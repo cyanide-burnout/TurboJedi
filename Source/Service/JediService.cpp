@@ -1528,7 +1528,7 @@ static bool Step(Operation& operation, bool paused, int64_t now)
   JournalWindow* window;
   JournalWindowRequest request;
   const PluginMethod* described;
-  std::vector<std::pair<std::string, std::string>> actions;
+  std::vector<PluginAction> actions;
 
   if (operation.kind == DO_QUERY)
   {
@@ -1667,11 +1667,25 @@ static bool Step(Operation& operation, bool paused, int64_t now)
 
       result = std::min(0, sd_bus_message_open_container(reply, 'a', "a{sv}"));
 
-      for (const std::pair<std::string, std::string>& action : actions)
+      for (const PluginAction& action : actions)
       {
         result = std::min(result, sd_bus_message_open_container(reply, 'a', "{sv}"));
-        result = std::min(result, AppendString(reply, "title", IsText(action.first) ? action.first : ""));
-        result = std::min(result, AppendString(reply, "plugin", action.second));
+        result = std::min(result, AppendString(reply, "title", IsText(action.title) ? action.title : ""));
+        result = std::min(result, AppendString(reply, "plugin", action.plugin));
+
+        if (!action.path.empty())
+        {
+          // The submenus it is in, the outer one first
+          std::vector<std::string> path;
+
+          for (const std::string& title : action.path)
+          {
+            path.push_back(IsText(title) ? title : "");
+          }
+
+          result = std::min(result, AppendStrings(reply, "path", path));
+        }
+
         result = std::min(result, sd_bus_message_close_container(reply));
       }
 

@@ -88,9 +88,17 @@ const PluginMethod* FindPluginMethod(const std::string& name, const std::string&
 #define PLUGIN_METHOD_FAILED  2
 int InvokePluginMethod(const std::string& name, const std::string& method, sd_bus_message* call, sd_bus_message* reply, JournalView* view, int64_t deadline, std::string& error);
 
-// The items of the Actions menu of the entry of a cursor in a window, title and plugin in the order of the menu, nothing
-// run; false when Lua is busy or the entry is gone
-bool ListPluginActions(JournalView* view, const std::string& cursor, std::vector<std::pair<std::string, std::string>>& actions);
+// An action of the Actions menu: its title, its plugin, and the titles of the submenus it is in, the outer one first
+struct PluginAction
+{
+  std::string title;
+  std::string plugin;
+  std::vector<std::string> path;
+};
+
+// The actions of the Actions menu of the entry of a cursor in a window in the order of the menu, nothing run; false when
+// Lua is busy or the entry is gone
+bool ListPluginActions(JournalView* view, const std::string& cursor, std::vector<PluginAction>& actions);
 
 // A window is closed, the watches that have gone to their entries in it open another one next time
 void ForgetPluginWindow(JournalView* view);

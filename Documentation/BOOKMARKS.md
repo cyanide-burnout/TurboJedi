@@ -20,7 +20,7 @@ The Actions menu of an entry, Alt-F10, A, F11 or a right click, tells its bookma
 | Bookmark 7 selected entries | with entries selected or marked: the topic, then the comment, one new bookmark of all of them |
 | Comment of the 7 selected: ... | the selection is just the entries of a bookmark: its Comment, Topic and Remove bookmark, no new one |
 | Remove 3 selected entries from bookmarks | some of the selected entries are in bookmarks: they are taken out of them, after a question; a bookmark left with no entry goes |
-| 2 more bookmarks of this entry... | an entry in several bookmarks: the others, one of them chosen gives its actions |
+| 2 more bookmarks of this entry | an entry in several bookmarks: a submenu of the others by their comments, each with Show, Comment, Topic and Remove bookmark; past 10 of them, All N of them... lists the rest |
 
 A bookmark is there while it has a comment or a topic. Select with the mouse or Shift and the keys, or mark with M,
 Insert or Ctrl+click, then right click, Bookmark: what the selection has found is kept. Selected again, the same entries
@@ -43,7 +43,8 @@ A list of bookmarks, the newest first, up to 500, has two items on top:
   the window at it. Ctrl-D then shows them alone, the marked lines without the ones between them; Ctrl-D again shows all.
   An entry the journal of the window does not have, rotated or of another machine, is told: Show has its copy.
 
-A bookmark chosen gives Mark in the window, Show, Comment, Topic, Copy and Remove bookmark.
+A bookmark chosen gives a popup menu of Mark in the window, Show, Comment, Topic, Copy and Remove bookmark, as a topic
+chosen in Topics... gives one of its own.
 
 ## For an agent
 

@@ -11,6 +11,7 @@
 #define Uses_TProgram
 #define Uses_TDeskTop
 #define Uses_TMenuItem
+#define Uses_TMenu
 #define Uses_TKeys
 #define Uses_TEvent
 #include <tvision/tv.h>
@@ -156,6 +157,7 @@ int ShowMessage(lua_State* state);
 int AskConfirm(lua_State* state);
 int AskInput(lua_State* state);
 int AskChoice(lua_State* state);
+int AskPopup(lua_State* state);
 int Copy(lua_State* state);
 int Execute(lua_State* state);
 bool GetOption(lua_State* state, int index, const char* name, std::string& value);
