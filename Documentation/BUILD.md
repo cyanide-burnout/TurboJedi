@@ -4,7 +4,7 @@ From the sources, and the packages of the distributions. Ready packages: [README
 
 ## Dependencies
 
-Debian packages: `build-essential cmake pkg-config libsystemd-dev libncurses-dev libpcre2-dev liblua5.4-dev libcurl4-openssl-dev`,
+Debian packages: `build-essential cmake pkg-config libsystemd-dev libncurses-dev libpcre2-dev liblua5.4-dev libcurl4-openssl-dev libsqlite3-dev curl`,
 `libgpm-dev` for the mouse in the Linux console, and `grc` for its rule files if they are wanted
 
 ```
@@ -23,10 +23,14 @@ make
 
 `make` builds tvision in `Import/tvision/build` first, and again what has changed in it after the submodule has
 moved; lua-cjson of `Import/lua-cjson` is built with TurboJedi. A clone that lacks a submodule gets it at the first
-`make`. `make install` puts the executable to `/usr/local/bin`, the manual page to `/usr/local/share/man/man1` and the
+`make`. lsqlite3 0.9.6, SQLite for the plugins, is kept in Fossil and not in git: every `make` but `make clean` that does
+not find `Import/lsqlite3/lsqlite3.c` fetches it with curl from lua.sqlite.org by the address of its content and checks
+its SHA-256, the file is never in the repository. `make prepare` fetches it and the submodules alone, for a tree to build
+offline afterwards. `make install` puts the executable to `/usr/local/bin`, the manual page to `/usr/local/share/man/man1` and the
 plugins to `/usr/local/share/turbojedi`, `PREFIX` and `DESTDIR` move them. Without libgpm the build goes on, with the mouse in terminal emulators only; the mouse
 of the Linux console needs the `gpm` service running.
-libcurl serves Check for updates and the requests of plugins. Lua 5.4 is needed; distributions name its pkg-config module in
+libcurl serves Check for updates and the requests of plugins, the SQLite of the system the bases of plugins, the
+bookmarks first. Lua 5.4 is needed; distributions name its pkg-config module in
 their own ways, `lua5.4`, `lua54` or `lua`, any of them of version 5.4 is taken.
 
 About, `--help` and Check for updates link to the repository on GitHub the clone comes from, its `origin`, so a fork links
@@ -50,13 +54,13 @@ that architecture in place:
 ```
 sudo dpkg --add-architecture amd64
 sudo apt update
-sudo apt install crossbuild-essential-amd64 libsystemd-dev:amd64 libncurses-dev:amd64 libpcre2-dev:amd64 libgpm-dev:amd64 libcurl4-openssl-dev:amd64 liblua5.4-dev:amd64
+sudo apt install crossbuild-essential-amd64 libsystemd-dev:amd64 libncurses-dev:amd64 libpcre2-dev:amd64 libgpm-dev:amd64 libcurl4-openssl-dev:amd64 libsqlite3-dev:amd64 liblua5.4-dev:amd64
 ```
 
 ## RPM package
 
 ```
-sudo dnf install rpm-build gcc-c++ make cmake systemd-devel ncurses-devel pcre2-devel gpm-devel libcurl-devel lua-devel
+sudo dnf install rpm-build gcc-c++ make cmake curl systemd-devel ncurses-devel pcre2-devel gpm-devel libcurl-devel sqlite-devel lua-devel
 make rpm
 ```
 

@@ -128,7 +128,7 @@ argument whatever it holds, no shell sees it.
 | Function | When | |
 |---|---|---|
 | `on(event, ...)` | loading | what the plugin is called for: `on('actions', func)` a handler of the Actions menu, `func(entry, menu, context)`; `on('menu', title, func, ...)` an item of the Plugins menu, `func(context, ...)`; `on('restore', func)` gets back the watches of the plugin a layout has kept, `func(context, position)` for each; `on('invoke', name, func, options)` a method for `Invoke()` of D-Bus, `func(values, context)` with the values of the caller as a table, the table it returns is the answer, the options tell what it does; see below |
-| `settings(name, text)` | any time | a file of the plugin of its own among the settings TurboJedi writes, `~/.config/turbojedi/name`, under `sudo` the one of the user of sudo, read and written as that user. Without the text, its text or `nil`; with it, the file replaced whole: `true`, or `nil` and why. A name of letters, digits, dots, dashes and underscores; `update.conf`, `screen.conf`, `clipboard.conf`, `allow.conf` and `last.jedi` are the ones of TurboJedi itself, so a plugin names its file after itself, and a file several plugins share after what they share. For what a plugin remembers of the user, the addresses Arrakis may send to for one |
+| `settings(name, text)` | any time | a file of the plugin of its own among the settings TurboJedi writes, `~/.config/turbojedi/name`, under `sudo` the one of the user of sudo, read and written as that user. Without the text, its text or `nil`; with it, the file replaced whole: `true`, or `nil` and why; `{ private = true }` after the text makes it 0600, of the user alone. A name of letters, digits, dots, dashes and underscores; `update.conf`, `screen.conf`, `clipboard.conf`, `allow.conf` and `last.jedi` are the ones of TurboJedi itself, so a plugin names its file after itself, and a file several plugins share after what they share. For what a plugin remembers of the user, the addresses Arrakis may send to for one |
 | `append(path, text)` | any time | the text at the end of a file of the process alone: made with 0600, never through a link, refused when it is another's or open to others; `true`, or `nil` and why. For what a plugin keeps of the journal |
 | `log(text, options)` | any time | a line of the console, Plugins → Console, with the name of the plugin; `{ problem = true }` leaves it unread, the status line tells it. `print()` writes there too, as a quiet line |
 | `message(text, title, options)` | action, callback | a text with OK, a long one in a window to scroll; the title is "Message" without one. `{ input = prompt }` puts a line to type into under the text, with Ask, Copy and Close: the line typed, or `nil` by Close, Esc or an empty line. Up, Down, PgUp and PgDn scroll the text while the line has the cursor, Copy puts the whole text to the clipboard as it has been given |
@@ -154,6 +154,7 @@ argument whatever it holds, no shell sees it.
 | `matches(text, pattern, flags)` | any time | an iterator over every match |
 | `which(name)` | any time | the path of a program in `PATH`, or `nil` |
 | `left()` | any time | the milliseconds a method of `Invoke()` has left of the 30 seconds of its call, `nil` outside one: its queries take what is left on their own, a method weighs the rest of its work by it |
+| `where(name)` | any time | the path of the file `settings(name)` reads and writes, under `sudo` the one of the user of sudo, `nil` without a directory of settings: for a file a plugin keeps another way, a base of SQLite for one. It is written by root under `sudo`: made first by `settings(name, '', { private = true })` it is of the user, 0600, and opened without following a link, see `010-bookmarks.lua` |
 | `sudo()` | any time | the user who has run TurboJedi as root by `sudo`: `{ name = ..., uid = ..., home = ... }`, `nil` otherwise; for a file of settings of that user, see Plugins and root |
 | `utc()` | any time | `true` when the user wants the times of the watches in UTC, `false` for the local zone |
 | `date(format, time)` | any time | `os.date()` in the zone the user has chosen for the watches: put it in its place for the times a watch shows. `!` in front of the format forces UTC as in `os.date()`, `*t` is left to `os.date()` |
@@ -535,6 +536,12 @@ menu:add('Who is ' .. address, function()
   turbojedi.message(('%s: %s, %s'):format(address, info.org or '?', info.country or '?'))
 end)
 ```
+
+**SQLite.** lsqlite3 is built in as lua-cjson is: `require('lsqlite3')` gives every plugin SQLite of the system,
+whatever Lua modules the distribution has, with full-text search by FTS5. A base of a plugin belongs among the settings
+of the user: `where(name)` tells its path, `settings(name, '', { private = true })` makes it as the user, 0600, and it is
+opened with `SQLITE_OPEN_NOFOLLOW` (`0x01000000`) and the rollback journal, so that under `sudo` root writes into a file
+of the user and leaves nothing of its own beside it. `010-bookmarks.lua` is the example to follow.
 
 **Do not wait.** With a function after the request, `fetch` returns at once and the answer comes to the function
 later, with the same values. Nothing is shown meanwhile, the user goes on; the function may use the dialogs as an action

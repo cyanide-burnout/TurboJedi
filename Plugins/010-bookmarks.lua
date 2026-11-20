@@ -1,0 +1,835 @@
+-- TurboJedi, Turbo Journald Interface
+-- https://github.com/cyanide-burnout/TurboJedi
+-- Artem Prilutskiy, 2026
+
+-- Bookmarks: an entry, or the selected ones, kept with a comment and a topic in a base of SQLite of the user, a copy of
+-- every entry along, so that they are there after the journal has rotated. The Actions menu tells and changes the
+-- bookmark of the entry under the cursor, the Plugins menu looks them up, marks them in the window, shows them in a
+-- watch and keeps the topics; an agent reads them. It only keeps what the user says, nothing on the system changes.
+-- The schema of the base is in BOOKMARKS.md, for anything else that reads it
+
+local cjson = require('cjson')
+local loaded, sqlite = pcall(require, 'lsqlite3')
+
+if not loaded then
+  turbojedi.log('lsqlite3 is not there, nothing to offer: ' .. tostring(sqlite), { problem = true })
+  return
+end
+
+local NAME     = 'bookmarks.sqlite'
+local VERSION  = 1             -- Of the schema, PRAGMA user_version
+local FIELD    = 64 * 1024     -- Bytes a field is kept up to, cut beyond it with the bytes it has had
+local BOOKMARK = 1024 * 1024   -- Bytes of copies a bookmark is kept up to, the newest entries of a set first
+local LIST     = 500           -- Bookmarks a list of the menu shows, the newest
+local TITLE    = 60            -- Characters of a comment in the title of an item of a menu
+local NOFOLLOW = 0x01000000    -- SQLITE_OPEN_NOFOLLOW: a link in the place of the base is refused
+
+local date = turbojedi.date or os.date
+local path = turbojedi.where(NAME)
+
+if not path then
+  turbojedi.log('there is no directory of settings, HOME is not set: nothing to offer')
+  return
+end
+
+-- The base
+
+local base       -- Open once it is needed, nil when it cannot be
+local failure    -- Why it cannot be
+local recent     -- The topic chosen last, offered first
+
+-- A transaction of a run under sudo stopped in the middle leaves a -journal of root SQLite has to roll back: root does it
+-- by itself, a run of the user cannot read it, so the base is left alone and the user told what to do
+local function stuck()
+  local file, reason = io.open(path .. '-journal', 'rb')
+
+  if file then
+    file:close()
+    return nil
+  end
+
+  if tostring(reason):find('No such file', 1, true) then
+    return nil
+  end
+
+  return 'a run of TurboJedi under sudo has been stopped in the middle of a change of the bookmarks: start it under ' ..
+         'sudo once to finish that change, or remove ' .. path .. '-journal and lose it'
+end
+
+local function prepare(text, ...)
+  local statement = base:prepare(text)
+
+  if not statement then
+    error(base:errmsg(), 0)
+  end
+
+  if select('#', ...) > 0 then
+    statement:bind_values(...)
+  end
+
+  return statement
+end
+
+-- The rows of a query as tables by the names of the columns
+local function query(text, ...)
+  local rows      = { }
+  local statement = prepare(text, ...)
+
+  for row in statement:nrows() do
+    rows[#rows + 1] = row
+  end
+
+  statement:finalize()
+  return rows
+end
+
+local function run(text, ...)
+  local statement = prepare(text, ...)
+  local result    = statement:step()
+
+  statement:finalize()
+
+  if (result ~= sqlite.DONE) and (result ~= sqlite.ROW) then
+    error(base:errmsg(), 0)
+  end
+end
+
+-- A change is one transaction: two instances of one user wait for each other, neither loses its change
+local function change(func, ...)
+  if base:exec('BEGIN IMMEDIATE') ~= sqlite.OK then
+    return nil, base:errmsg()
+  end
+
+  local done, result = pcall(func, ...)
+
+  if done then
+    base:exec('COMMIT')
+    return result or true
+  end
+
+  base:exec('ROLLBACK')
+  return nil, tostring(result)
+end
+
+local SCHEMA = [[
+CREATE TABLE IF NOT EXISTS topics (
+  id      INTEGER PRIMARY KEY,
+  name    TEXT NOT NULL UNIQUE,
+  created INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS bookmarks (
+  id        INTEGER PRIMARY KEY,
+  created   INTEGER NOT NULL,
+  changed   INTEGER NOT NULL,
+  topic     INTEGER REFERENCES topics(id) ON DELETE SET NULL,
+  comment   TEXT,
+  source    TEXT NOT NULL,
+  directory TEXT,
+  host      TEXT,
+  left_out  INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS entries (
+  id       INTEGER PRIMARY KEY,
+  bookmark INTEGER NOT NULL REFERENCES bookmarks(id) ON DELETE CASCADE,
+  cursor   TEXT NOT NULL,
+  time     INTEGER NOT NULL,
+  message  TEXT,
+  fields   TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS entries_cursor ON entries(cursor);
+CREATE INDEX IF NOT EXISTS entries_bookmark ON entries(bookmark);
+CREATE INDEX IF NOT EXISTS bookmarks_topic ON bookmarks(topic);
+CREATE INDEX IF NOT EXISTS bookmarks_created ON bookmarks(created);
+CREATE VIRTUAL TABLE IF NOT EXISTS texts USING fts5(topic, comment, entries);
+]]
+
+-- The base of the user: made by settings() as that user, never through a link; opened without following one, with the
+-- journal of rollback and not WAL, so that no file of root stays beside it under sudo
+local function open()
+  if base or failure then
+    return base, failure
+  end
+
+  failure = stuck()
+
+  if failure then
+    turbojedi.log(failure, { problem = true })
+    return nil, failure
+  end
+
+  local file, reason = io.open(path, 'rb')
+
+  if file then
+    file:close()
+  elseif tostring(reason):find('No such file', 1, true) then
+    local made, why = turbojedi.settings(NAME, '', { private = true })
+    if not made then
+      failure = 'the base cannot be made: ' .. tostring(why)
+      return nil, failure
+    end
+  end
+
+  local handle, code, message = sqlite.open(path, sqlite.OPEN_READWRITE + NOFOLLOW)
+
+  if not handle then
+    failure = ('the base %s cannot be opened: %s'):format(path, tostring(message or code))
+    turbojedi.log(failure, { problem = true })
+    return nil, failure
+  end
+
+  base = handle
+  base:busy_timeout(3000)
+
+  local version = query('PRAGMA user_version')[1]
+
+  if (base:exec('PRAGMA foreign_keys = ON; PRAGMA journal_mode = DELETE;') ~= sqlite.OK) or
+     ((version.user_version < VERSION) and (base:exec(SCHEMA .. ('PRAGMA user_version = %d;'):format(VERSION)) ~= sqlite.OK)) then
+    failure = ('the base %s cannot be made ready: %s'):format(path, base:errmsg())
+    base:close()
+    base = nil
+    turbojedi.log(failure, { problem = true })
+    return nil, failure
+  end
+
+  if version.user_version > VERSION then
+    failure = ('the base %s is of a newer TurboJedi, version %d of the schema'):format(path, version.user_version)
+    base:close()
+    base = nil
+    return nil, failure
+  end
+
+  return base
+end
+
+-- Copies of the entries
+
+local ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+
+local function base64(data)
+  local parts = { }
+
+  for index = 1, #data, 3 do
+    local a, b, c = data:byte(index, index + 2)
+    local number  = a * 65536 + (b or 0) * 256 + (c or 0)
+    local four    = { }
+
+    for place = 1, 4 do
+      local digit = (number >> (6 * (4 - place))) & 63
+      four[place] = ALPHABET:sub(digit + 1, digit + 1)
+    end
+
+    if not b then four[3] = '=' end
+    if not c then four[4] = '=' end
+    parts[#parts + 1] = table.concat(four)
+  end
+
+  return table.concat(parts)
+end
+
+-- A field as it is kept: its text, { base64 } when it is not text of UTF-8, and cut past FIELD with the bytes it has had
+local function keep(value)
+  if type(value) ~= 'string' then
+    return value
+  end
+
+  local size = #value
+
+  if utf8.len(value) then
+    if size <= FIELD then
+      return value
+    end
+
+    -- Cut by whole characters
+    local text = value:sub(1, FIELD)
+    while not utf8.len(text) do text = text:sub(1, -2) end
+    return { text = text, cut = size }
+  end
+
+  local limit = (FIELD // 4) * 3
+
+  if size <= limit then
+    return { base64 = base64(value) }
+  end
+
+  return { base64 = base64(value:sub(1, limit)), cut = size }
+end
+
+local function fields(entry)
+  local kept = { }
+
+  for name, value in pairs(entry) do
+    if type(value) == 'table' then
+      -- A field the entry has more than once
+      local list = { }
+      for index, item in ipairs(value) do list[index] = keep(item) end
+      kept[name] = list
+    else
+      kept[name] = keep(value)
+    end
+  end
+
+  return cjson.encode(kept)
+end
+
+-- The text of a field as the user sees it, cut ones told so
+local function told(value)
+  if type(value) ~= 'table' then
+    return tostring(value)
+  end
+
+  if value.base64 then
+    return ('(binary, base64) %s%s'):format(value.base64, value.cut and (' … (cut, %d bytes)'):format(value.cut) or '')
+  end
+
+  if value.text then
+    return value.text .. (value.cut and (' … (cut, %d bytes)'):format(value.cut) or '')
+  end
+
+  local list = { }
+  for index, item in ipairs(value) do list[index] = told(item) end
+  return table.concat(list, ' | ')
+end
+
+local function microseconds()
+  return os.time() * 1000000
+end
+
+-- Titles of items cut to a width by whole characters
+local function cut(text, width)
+  text = tostring(text or ''):gsub('%s+', ' ')
+
+  if utf8.len(text) and (utf8.len(text) > width) then
+    return text:sub(1, utf8.offset(text, width) - 1) .. '…'
+  end
+
+  return text
+end
+
+-- Topics
+
+local function topics()
+  return query([[SELECT t.id, t.name, COUNT(b.id) AS count, MAX(b.created) AS last FROM topics t
+                 LEFT JOIN bookmarks b ON b.topic = t.id GROUP BY t.id ORDER BY MAX(b.created) DESC, t.name]])
+end
+
+-- The id of a topic of that name, made when it is not there; nil for none
+local function topic(name)
+  if (not name) or (name == '') then
+    return nil
+  end
+
+  run('INSERT OR IGNORE INTO topics(name, created) VALUES (?, ?)', name, microseconds())
+  return query('SELECT id FROM topics WHERE name = ?', name)[1].id
+end
+
+-- A topic chosen: one there is, the last one first, a new one typed, or none. false when cancelled, '' for none
+local function choose(current)
+  local list    = topics()
+  local names   = { 'No topic', 'New topic...' }
+  local initial = 1
+
+  for index, item in ipairs(list) do
+    names[index + 2] = item.name
+    if item.name == (current or recent) then initial = index + 2 end
+  end
+
+  local _, index = turbojedi.choose('Topic', names, initial)
+
+  if not index then return false end
+  if index == 1 then return '' end
+
+  if index == 2 then
+    local name = turbojedi.input('New topic', '')
+    name = name and name:match('^%s*(.-)%s*$')
+    if (not name) or (name == '') then return false end
+    recent = name
+    return name
+  end
+
+  recent = names[index]
+  return names[index]
+end
+
+-- Bookmarks
+
+local showing = { }  -- Watches of Show by their keys, to fill anew when the bookmarks change
+local fill           -- Of a watch of Show, below
+
+local function refresh()
+  for _, item in pairs(showing) do
+    item.watch:clear()
+    fill(item.watch, item.scope)
+  end
+end
+
+-- The text the full-text index has of a bookmark: its topic, its comment, and the messages and the sources of its entries
+local function reindex(id)
+  local row = query([[SELECT b.comment, t.name AS topic FROM bookmarks b LEFT JOIN topics t ON t.id = b.topic
+                      WHERE b.id = ?]], id)[1]
+  local parts = { }
+
+  for _, entry in ipairs(query('SELECT message, fields FROM entries WHERE bookmark = ?', id)) do
+    local kept = cjson.decode(entry.fields)
+    parts[#parts + 1] = table.concat({ told(kept.SYSLOG_IDENTIFIER or ''), told(kept._SYSTEMD_UNIT or ''), told(kept._HOSTNAME or ''),
+                                       entry.message or '' }, ' ')
+  end
+
+  run('DELETE FROM texts WHERE rowid = ?', id)
+  run('INSERT INTO texts(rowid, topic, comment, entries) VALUES (?, ?, ?, ?)', id, row.topic or '', row.comment or '',
+      table.concat(parts, '\n'))
+end
+
+-- A new bookmark of the entries, the oldest first as the window gives them; past BOOKMARK the newest are kept, the rest
+-- told by left_out along with the ones the window has not given
+local function create(entries, context, comment, name, beyond)
+  return change(function()
+    local now   = microseconds()
+    local kept  = { }
+    local bytes = 0
+    local left  = beyond or 0
+
+    for number = #entries, 1, -1 do
+      local entry = entries[number]
+      local json  = fields(entry)
+
+      if (bytes + #json > BOOKMARK) and (#kept > 0) then
+        left = left + number
+        break
+      end
+
+      bytes = bytes + #json
+      table.insert(kept, 1, { entry = entry, json = json })
+    end
+
+    run([[INSERT INTO bookmarks(created, changed, topic, comment, source, directory, host, left_out)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)]], now, now, topic(name), (comment ~= '') and comment or nil,
+        context.source or 'local', context.directory, kept[1] and kept[1].entry._HOSTNAME, left)
+
+    local id = base:last_insert_rowid()
+
+    for _, item in ipairs(kept) do
+      run('INSERT INTO entries(bookmark, cursor, time, message, fields) VALUES (?, ?, ?, ?, ?)', id,
+          tostring(item.entry.__CURSOR), tonumber(item.entry.__REALTIME_TIMESTAMP) or 0,
+          told(keep(tostring(item.entry.MESSAGE or ''))), item.json)
+    end
+
+    reindex(id)
+    return id
+  end)
+end
+
+-- A bookmark is there while it has a comment or a topic
+local function settle(id)
+  local row = query('SELECT comment, topic FROM bookmarks WHERE id = ?', id)[1]
+
+  if row and (not row.comment) and (not row.topic) then
+    run('DELETE FROM texts WHERE rowid = ?', id)
+    run('DELETE FROM bookmarks WHERE id = ?', id)
+  end
+end
+
+local function comment(id, text)
+  return change(function()
+    run('UPDATE bookmarks SET comment = ?, changed = ? WHERE id = ?', (text ~= '') and text or nil, microseconds(), id)
+    reindex(id)
+    settle(id)
+  end)
+end
+
+local function retopic(id, name)
+  return change(function()
+    run('UPDATE bookmarks SET topic = ?, changed = ? WHERE id = ?', topic(name), microseconds(), id)
+    reindex(id)
+    settle(id)
+  end)
+end
+
+local function remove(id)
+  return change(function()
+    run('DELETE FROM texts WHERE rowid = ?', id)
+    run('DELETE FROM bookmarks WHERE id = ?', id)
+  end)
+end
+
+local function reported(done, reason)
+  if not done then turbojedi.message('The bookmark is not kept: ' .. tostring(reason), 'Bookmarks') end
+  refresh()
+  return done
+end
+
+-- A bookmark as text: its comment, its topic, and the copies of its entries
+local function describe(id)
+  local row = query([[SELECT b.*, t.name AS topic_name FROM bookmarks b LEFT JOIN topics t ON t.id = b.topic
+                      WHERE b.id = ?]], id)[1]
+
+  if not row then
+    return nil
+  end
+
+  local lines = { ('Bookmark of %s%s'):format(date('%F %T', row.created // 1000000), row.topic_name and (', ' .. row.topic_name) or ''),
+                  row.comment or '(no comment)', '' }
+
+  for _, entry in ipairs(query('SELECT * FROM entries WHERE bookmark = ? ORDER BY time, id', id)) do
+    local kept = cjson.decode(entry.fields)
+    lines[#lines + 1] = ('%s %s %s: %s'):format(date('%F %T', entry.time // 1000000), told(kept._HOSTNAME or ''),
+      told(kept.SYSLOG_IDENTIFIER or kept._COMM or ''), told(kept.MESSAGE or ''))
+  end
+
+  if row.left_out > 0 then
+    lines[#lines + 1] = ('… %d entries of the set are not kept, a bookmark keeps up to 1 MiB of copies'):format(row.left_out)
+  end
+
+  return table.concat(lines, '\n'), row
+end
+
+-- The entries of bookmarks marked in the window of the menu and the window at the oldest of them; told when the journal
+-- of the window has not all of them
+local function mark(ids)
+  local cursors, oldest = { }, nil
+
+  for _, id in ipairs(ids) do
+    for _, entry in ipairs(query('SELECT cursor, time FROM entries WHERE bookmark = ?', id)) do
+      cursors[#cursors + 1] = entry.cursor
+      oldest = math.min(oldest or entry.time, entry.time)
+    end
+  end
+
+  if #cursors == 0 then
+    return turbojedi.message('These bookmarks have no entries', 'Bookmarks')
+  end
+
+  local count, reason = turbojedi.mark(cursors, { clear = true })
+
+  if not count then
+    return turbojedi.message(reason, 'Bookmarks')
+  end
+
+  if count > 0 then
+    turbojedi.seek(oldest)
+  end
+
+  if count < #cursors then
+    turbojedi.message(('%d of %d entries are in the journal of this window, the rest are copies in the bookmarks: ' ..
+                       'Show tells them'):format(count, #cursors), 'Bookmarks')
+  end
+end
+
+-- The actions of a bookmark found in the Plugins menu
+local function act(id)
+  local text, row = describe(id)
+
+  if not text then
+    return turbojedi.message('The bookmark is not there anymore', 'Bookmarks')
+  end
+
+  local _, choice = turbojedi.choose('Bookmark of ' .. date('%F %T', row.created // 1000000),
+    { 'Mark in the window', 'Show', 'Comment', 'Topic', 'Copy', 'Remove bookmark' })
+
+  if choice == 1 then
+    mark({ id })
+  elseif choice == 2 then
+    turbojedi.message(text, 'Bookmark')
+  elseif choice == 3 then
+    local typed = turbojedi.input('Comment', row.comment or '')
+    if typed then reported(comment(id, typed:match('^%s*(.-)%s*$'))) end
+  elseif choice == 4 then
+    local name = choose(row.topic_name)
+    if name then reported(retopic(id, name)) end
+  elseif choice == 5 then
+    turbojedi.copy(text .. '\n')
+  elseif (choice == 6) and turbojedi.confirm('Remove this bookmark?\n\n' .. cut(row.comment or text, 200)) then
+    reported(remove(id))
+  end
+end
+
+-- What a scope of bookmarks is: all, without a topic, a topic, the ones a text finds
+local function pick(scope, limit, offset)
+  local where, values = '1 = 1', { }
+
+  if scope.topic then
+    where, values = 'b.topic = (SELECT id FROM topics WHERE name = ?)', { scope.topic }
+  elseif scope.none then
+    where = 'b.topic IS NULL'
+  elseif scope.text then
+    -- A phrase of FTS5, its quotes doubled
+    where, values = 'b.id IN (SELECT rowid FROM texts WHERE texts MATCH ?)', { '"' .. scope.text:gsub('"', '""') .. '"' }
+  end
+
+  if scope.since then where = where .. (' AND b.created >= %d'):format(scope.since) end
+  if scope.till then where = where .. (' AND b.created <= %d'):format(scope.till) end
+
+  local total = query('SELECT COUNT(*) AS count FROM bookmarks b WHERE ' .. where, table.unpack(values))[1].count
+  local rows  = query(([[SELECT b.*, t.name AS topic_name, (SELECT COUNT(*) FROM entries e WHERE e.bookmark = b.id) AS count,
+                                (SELECT message FROM entries e WHERE e.bookmark = b.id ORDER BY time, id LIMIT 1) AS message
+                         FROM bookmarks b LEFT JOIN topics t ON t.id = b.topic WHERE %s
+                         ORDER BY b.created DESC LIMIT %d OFFSET %d]]):format(where, limit or LIST, offset or 0), table.unpack(values))
+  return rows, total
+end
+
+local function label(scope)
+  if scope.topic then return scope.topic end
+  if scope.none then return 'without a topic' end
+  if scope.text then return 'of "' .. scope.text .. '"' end
+  return 'all'
+end
+
+-- A watch of Show: a line a bookmark, the newest on top, Enter shows the bookmark from the base
+fill = function(watch, scope)
+  local rows, total = pick(scope, LIST)
+
+  for number = #rows, 1, -1 do
+    local row = rows[number]
+    watch:add(('%s  %s%s'):format(date('%F %T', row.created // 1000000), row.topic_name and ('[' .. row.topic_name .. '] ') or '',
+      cut(row.comment or row.message, 120)), nil, { quiet = true, action = function()
+        local text = describe(row.id)
+        turbojedi.message(text or 'The bookmark is not there anymore', 'Bookmark')
+      end })
+  end
+
+  watch:status(('%d bookmark%s%s'):format(total, (total == 1) and '' or 's', (total > #rows) and (', the newest ' .. #rows .. ' shown') or ''))
+end
+
+local function show(scope)
+  local key = 'bookmarks:' .. (scope.topic and ('topic:' .. scope.topic) or scope.none and 'none' or scope.text and ('text:' .. scope.text) or 'all')
+
+  if showing[key] then
+    return turbojedi.message('They are shown already: F12, Bookmarks ' .. label(scope), 'Bookmarks')
+  end
+
+  local watch = turbojedi.watch({ title = 'Bookmarks ' .. label(scope), key = key, context = scope, window = 'new',
+    removed = function() showing[key] = nil end })
+
+  showing[key] = { watch = watch, scope = scope }
+  fill(watch, scope)
+end
+
+-- A list of bookmarks, Show and Mark of all of them first
+local function list(scope)
+  local rows, total = pick(scope, LIST)
+
+  if total == 0 then
+    return turbojedi.message('No bookmarks ' .. label(scope), 'Bookmarks')
+  end
+
+  local names = { 'Show them in a watch', 'Mark them in the window' }
+
+  for _, row in ipairs(rows) do
+    names[#names + 1] = ('%s  %s%s'):format(date('%F %T', row.created // 1000000), (scope.topic or not row.topic_name) and '' or ('[' .. row.topic_name .. '] '),
+      cut(row.comment or row.message, 80))
+  end
+
+  local _, choice = turbojedi.choose(('Bookmarks %s: %d%s'):format(label(scope), total, (total > #rows) and (', the newest ' .. #rows) or ''), names)
+
+  if choice == 1 then
+    show(scope)
+  elseif choice == 2 then
+    local ids = { }
+    for _, row in ipairs(rows) do ids[#ids + 1] = row.id end
+    mark(ids)
+  elseif choice then
+    act(rows[choice - 2].id)
+  end
+end
+
+-- The Plugins menu
+
+local function unavailable()
+  local _, reason = open()
+  turbojedi.message('The bookmarks cannot be used: ' .. tostring(reason), 'Bookmarks')
+end
+
+local function browse()
+  if not open() then return unavailable() end
+
+  local all  = query('SELECT COUNT(*) AS count FROM bookmarks')[1].count
+  local none = query('SELECT COUNT(*) AS count FROM bookmarks WHERE topic IS NULL')[1].count
+  local list_of = topics()
+  local names = { ('All bookmarks (%d)'):format(all), ('Without a topic (%d)'):format(none) }
+
+  for _, item in ipairs(list_of) do
+    names[#names + 1] = ('%s (%d%s)'):format(item.name, item.count, item.last and (', last ' .. date('%F %T', item.last // 1000000)) or '')
+  end
+
+  local _, choice = turbojedi.choose('Bookmarks', names)
+
+  if choice == 1 then list({ })
+  elseif choice == 2 then list({ none = true })
+  elseif choice then list({ topic = list_of[choice - 2].name }) end
+end
+
+local function find()
+  if not open() then return unavailable() end
+  local text = turbojedi.input('Find in bookmarks', '')
+  text = text and text:match('^%s*(.-)%s*$')
+  if text and (text ~= '') then list({ text = text }) end
+end
+
+local function manage()
+  if not open() then return unavailable() end
+
+  local _, choice = turbojedi.choose('Topics', { 'New topic...', 'Rename a topic...', 'Remove a topic...' })
+  local names = { }
+  for index, item in ipairs(topics()) do names[index] = item.name end
+
+  if choice == 1 then
+    local name = turbojedi.input('New topic', '')
+    name = name and name:match('^%s*(.-)%s*$')
+    if name and (name ~= '') then reported(change(topic, name)) end
+  elseif (choice == 2) or (choice == 3) then
+    if #names == 0 then return turbojedi.message('There are no topics', 'Bookmarks') end
+    local name = turbojedi.choose((choice == 2) and 'Rename the topic' or 'Remove the topic', names)
+    if not name then return end
+
+    if choice == 2 then
+      local new = turbojedi.input('Rename ' .. name .. ' to', name)
+      new = new and new:match('^%s*(.-)%s*$')
+      if (not new) or (new == '') or (new == name) then return end
+      reported(change(function()
+        run('UPDATE topics SET name = ? WHERE name = ?', new, name)
+        for _, row in ipairs(query('SELECT b.id FROM bookmarks b JOIN topics t ON t.id = b.topic WHERE t.name = ?', new)) do reindex(row.id) end
+      end))
+    else
+      local _, how = turbojedi.choose('Remove the topic ' .. name, { 'Keep its bookmarks without a topic', 'Remove its bookmarks as well' })
+      if not how then return end
+      reported(change(function()
+        local ids = query('SELECT b.id FROM bookmarks b JOIN topics t ON t.id = b.topic WHERE t.name = ?', name)
+        if how == 2 then
+          for _, row in ipairs(ids) do
+            run('DELETE FROM texts WHERE rowid = ?', row.id)
+            run('DELETE FROM bookmarks WHERE id = ?', row.id)
+          end
+        end
+        run('DELETE FROM topics WHERE name = ?', name)
+        if how == 1 then
+          for _, row in ipairs(ids) do reindex(row.id) settle(row.id) end
+        end
+      end))
+    end
+  end
+end
+
+-- The Actions menu: the bookmark of the entry under the cursor, its comment, its topic and its removal; and a bookmark
+-- of the selection when there is one
+
+local function set(entries, context, beyond)
+  local name = choose()
+  if name == false then return end
+  local typed = turbojedi.input('Comment', '')
+  if not typed then return end
+  typed = typed:match('^%s*(.-)%s*$')
+  if (typed == '') and (name == '') then return end
+  reported(create(entries, context, typed, name, beyond))
+end
+
+local function actions(entry, menu, context)
+  if not open() then return end
+
+  local own = (type(entry.__CURSOR) == 'string') and query([[SELECT b.id, b.comment, t.name AS topic FROM entries e
+    JOIN bookmarks b ON b.id = e.bookmark LEFT JOIN topics t ON t.id = b.topic WHERE e.cursor = ? ORDER BY b.created DESC]],
+    entry.__CURSOR) or { }
+  local mine = own[1]
+
+  if context.marked and (#context.marked > 0) then
+    menu:add(('Bookmark %d selected entr%s'):format(context.selected or #context.marked, ((context.selected or #context.marked) == 1) and 'y' or 'ies'),
+      set, context.marked, context, math.max(0, (context.selected or 0) - #context.marked))
+  end
+
+  if mine then
+    menu:add(mine.comment and ('Comment: ' .. cut(mine.comment, TITLE)) or 'Comment', function()
+      local typed = turbojedi.input('Comment', mine.comment or '')
+      if typed then reported(comment(mine.id, typed:match('^%s*(.-)%s*$'))) end
+    end)
+    menu:add(mine.topic and ('Topic: ' .. cut(mine.topic, TITLE)) or 'Set topic', function()
+      local name = choose(mine.topic)
+      if name then reported(retopic(mine.id, name)) end
+    end)
+    menu:add('Remove bookmark', function()
+      if turbojedi.confirm('Remove the bookmark of this entry?\n\n' .. cut(mine.comment or mine.topic, 200)) then reported(remove(mine.id)) end
+    end)
+  else
+    menu:add('Comment', function()
+      local typed = turbojedi.input('Comment', '')
+      typed = typed and typed:match('^%s*(.-)%s*$')
+      if typed and (typed ~= '') then reported(create({ entry }, context, typed, nil)) end
+    end)
+    menu:add('Set topic', function()
+      local name = choose()
+      if name and (name ~= '') then reported(create({ entry }, context, '', name)) end
+    end)
+  end
+
+  if #own > 1 then
+    menu:add(('%d more bookmarks of this entry...'):format(#own - 1), function()
+      local names = { }
+      for number = 2, #own do names[number - 1] = cut(own[number].comment or own[number].topic, 80) end
+      local _, choice = turbojedi.choose('Bookmarks of this entry', names)
+      if choice then act(own[choice + 1].id) end
+    end)
+  end
+end
+
+-- Methods for an agent: the bookmarks read, never written
+
+local function methods()
+  turbojedi.on('invoke', 'topics', function()
+    if not open() then return { error = failure } end
+    local list_of = { }
+    for index, item in ipairs(topics()) do list_of[index] = { name = item.name, count = item.count, last = item.last or 0 } end
+    return { topics = { type = 'aa{sv}', value = list_of },
+             none = query('SELECT COUNT(*) AS count FROM bookmarks WHERE topic IS NULL')[1].count }
+  end, { description = 'The topics of the bookmarks of the user, with how many bookmarks each has and the time of the last one; '
+           .. 'none tells how many have no topic', effect = 'none', arguments = { } })
+
+  turbojedi.on('invoke', 'bookmarks', function(values)
+    if not open() then return { error = failure } end
+    local rows, total = pick({ topic = values.topic, text = values.text, since = values.since, till = values['until'] },
+                               math.min(values.limit or 50, LIST), values.offset or 0)
+    local list_of = { }
+    for index, row in ipairs(rows) do
+      list_of[index] = { id = row.id, created = row.created, topic = row.topic_name or '', comment = row.comment or '',
+                         host = row.host or '', source = row.source, count = row.count, left_out = row.left_out, message = row.message or '' }
+    end
+    return { bookmarks = { type = 'aa{sv}', value = list_of }, total = total }
+  end, { description = 'The bookmarks of the user, the newest first: id, created (microseconds), topic, comment, host, source of '
+           .. 'the window it has been made in, count of entries, left_out (entries of the set not kept) and the first message. '
+           .. 'The user keeps here what earlier investigations have found: look here whether something has happened before '
+           .. 'and what has been found then. total tells how many there are',
+         effect = 'none', arguments = {
+           topic  = { type = 's', description = 'only the bookmarks of this topic' },
+           text   = { type = 's', description = 'only the ones whose topic, comment or entries have these words' },
+           since  = { type = 't', description = 'made at this time or later, microseconds since the epoch' },
+           ['until'] = { type = 't', description = 'made at this time or before, microseconds since the epoch' },
+           limit  = { type = 'u', description = 'bookmarks given, 50 by default, 500 at most' },
+           offset = { type = 'u', description = 'bookmarks skipped first' } } })
+
+  turbojedi.on('invoke', 'bookmark', function(values)
+    if not open() then return { error = failure } end
+    local row = query('SELECT b.*, t.name AS topic_name FROM bookmarks b LEFT JOIN topics t ON t.id = b.topic WHERE b.id = ?', values.id)[1]
+    if not row then return { error = 'There is no bookmark ' .. tostring(values.id) } end
+    local total   = query('SELECT COUNT(*) AS count FROM entries WHERE bookmark = ?', values.id)[1].count
+    local entries = { }
+    for index, entry in ipairs(query(('SELECT cursor, time, message, fields FROM entries WHERE bookmark = ? ORDER BY time, id LIMIT %d OFFSET %d'):format(
+                                       math.min(values.limit or 20, 100), values.offset or 0), values.id)) do
+      entries[index] = { cursor = entry.cursor, time = entry.time, message = entry.message or '', fields = entry.fields }
+    end
+    return { id = row.id, created = row.created, changed = row.changed, topic = row.topic_name or '', comment = row.comment or '',
+             source = row.source, directory = row.directory or '', host = row.host or '', left_out = row.left_out, total = total,
+             entries = { type = 'aa{sv}', value = entries } }
+  end, { description = 'A bookmark whole: its comment and topic, and its entries, the oldest first, each with its cursor and time to '
+           .. 'try in a window with get_entry or go_to_entry, its message, and fields, every field of the entry as JSON; a field '
+           .. 'cut past 64 KiB is { "text" or "base64", "cut": its bytes }, one not of UTF-8 { "base64" }. total tells how many '
+           .. 'entries it has, limit and offset take a part of them',
+         effect = 'none', arguments = {
+           id     = { type = 't', description = 'the id of the bookmark, from bookmarks', required = true },
+           limit  = { type = 'u', description = 'entries given, 20 by default, 100 at most' },
+           offset = { type = 'u', description = 'entries skipped first' } } })
+end
+
+-- What the plugin offers: Actions, the Plugins menu, the watches of Show a layout has kept, the methods for an agent
+
+turbojedi.on('actions', actions)
+turbojedi.on('menu', 'Bookmarks...', browse)
+turbojedi.on('menu', 'Find in bookmarks...', find)
+turbojedi.on('menu', 'Topics...', manage)
+turbojedi.on('restore', function(context) if open() then show(context) end end)
+
+if turbojedi.left then methods() end
+
+turbojedi.log('bookmarks in ' .. path)

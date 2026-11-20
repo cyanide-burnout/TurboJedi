@@ -158,6 +158,11 @@ The plugins of BrandMeister and TetraPack offer:
 | `context` | none | the card of a context as the core has it now, for a window of this machine |
 | `watch` | screen | the watch of a context from its first mention on, its sessions a line each; of a session as well in TetraPack |
 
+The bookmarks of the package offer an agent what earlier investigations have found, see [BOOKMARKS.md](BOOKMARKS.md):
+`topics`, `bookmarks` by topic, words and time, and `bookmark` whole, with the copies of its entries after the journal has
+rotated. They are read, never written by an agent. Ask "look at this error and check my bookmarks: has it happened
+before, and what did I find then?".
+
 The example of Asterisk, `/usr/share/turbojedi/examples/100-asterisk.lua`, offers the same for calls: `calls` of a
 number, made or taken, `call`, its channels and the steps of its dialplan, and `watch` of a call. Whether a call still
 goes on is not told: the journal has no sure sign of its end, the agent judges by its last steps. Ask "find the calls of

@@ -40,9 +40,10 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd, PC
 - Go to a time, and every other window to the time of the selected line: what happened elsewhere at that moment
 - Details of an entry with all its fields, a field there opens a window narrowed to it
 - Actions of an entry by plugins in Lua 5.4: Alt-F10, A, F11, Shift-F10 or a right click opens the menu of what the
-  plugins offer for it, Alt-P the Plugins menu of what they do without one. The plugins of the package: the unit and
-  the process of an entry, addresses, core dumps, fail2ban, and [Arrakis](Documentation/ARRAKIS.md), a language model
-  of your choice that explains the entries; more of them are examples. See [plugins](Documentation/PLUGINS.md) and how
+  plugins offer for it, Alt-P the Plugins menu of what they do without one. The plugins of the package:
+  [bookmarks](Documentation/BOOKMARKS.md), an entry or a selection kept with a comment and a topic after the journal
+  has rotated; [Arrakis](Documentation/ARRAKIS.md), a language model of your choice that explains the entries; the unit
+  and the process of an entry, addresses, core dumps, fail2ban; more of them are examples. See [plugins](Documentation/PLUGINS.md) and how
   to write one, [LUA.md](Documentation/LUA.md)
 - Watches of plugins: entries of a filter as they come, a status and lines of each in a list, F12; Watch 1/3 * in the
   status line tells about new ones, an important one brings the list up with a bell
@@ -50,7 +51,8 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd, PC
   as Claude Code or Codex over SSH. The agent points, the user acts; plugins may offer it methods of their own, a
   search or a watch the user follows. See [MCP.md](Documentation/MCP.md), the interface itself in
   [DBUS.md](Documentation/DBUS.md)
-- Selection with the keyboard or the mouse, copy to the clipboard (OSC 52 over SSH), export to a file
+- Selection with the keyboard or the mouse, copy to the clipboard (OSC 52 over SSH), export to a file; Ctrl-D shows
+  the marked lines alone
 - Timeline: entries of the filter of a window by intervals of time, errors, warnings and the rest stacked
   in a column per interval; a column takes every journal window to its time
 - Layouts: all windows with their filters, columns and places, saved to and opened from INI files;
@@ -113,6 +115,7 @@ reading the whole journal needs root or the `systemd-journal` group. F1 tells th
 | Space | pause or follow |
 | Enter | details of the entry |
 | M | mark lines |
+| Ctrl-D | the marked lines only, or all of them |
 | Alt-F10, A | actions of the plugins for the entry |
 | Alt-P | the Plugins menu, the watches and the console |
 | Alt-T | timeline |
@@ -127,6 +130,7 @@ reading the whole journal needs root or the `systemd-journal` group. F1 tells th
 | [BUILD.md](Documentation/BUILD.md) | building from the sources and the packages of the distributions |
 | [PLUGINS.md](Documentation/PLUGINS.md) | the plugins of the package and the examples, where plugins are |
 | [LUA.md](Documentation/LUA.md) | the interface of Lua for plugins of your own |
+| [BOOKMARKS.md](Documentation/BOOKMARKS.md) | bookmarks of entries, their topics and the base they are kept in |
 | [ARRAKIS.md](Documentation/ARRAKIS.md) | entries explained by a language model |
 | [MCP.md](Documentation/MCP.md) | AI agents over the Model Context Protocol |
 | [DBUS.md](Documentation/DBUS.md) | the interface on the system bus |
