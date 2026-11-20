@@ -281,8 +281,11 @@ std::string GetDataPath(const std::string& name)
 
   folders = GetFolders(path);
 
-  if (RunAsUser([&] () { return MoveFile(from, path, folders); }))
+  if ((RunAsUser([&] () { return MoveFile(from, path, folders); })) ||
+      (lstat(path.c_str(), &status) == 0) ||
+      (lstat(from.c_str(), &status) != 0))
   {
+    // Moved, by another TurboJedi starting at the same time for one, which then has it there
     return path;
   }
 

@@ -205,8 +205,11 @@ static std::string GetLastPath()
       (lstat(path.c_str(), &status) != 0) &&
       (errno == ENOENT) &&
       (lstat(from.c_str(), &status) == 0) &&
-      (rename(from.c_str(), path.c_str()) != 0))
+      (rename(from.c_str(), path.c_str()) != 0) &&
+      (lstat(path.c_str(), &status) != 0) &&
+      (lstat(from.c_str(), &status) == 0))
   {
+    // Not moved, and not by another TurboJedi starting at the same time either
     return from;
   }
 
