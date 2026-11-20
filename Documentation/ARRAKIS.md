@@ -43,7 +43,7 @@ format   = openai
 key      = ...
 # of the answers, the one of the locale without it
 language = ru
-# characters of entries a request takes, the newest kept
+# characters of entries a request takes, the newest kept, 2000 at least
 budget   = 12000
 # seconds a request may take, 0 for no limit
 timeout  = 600

@@ -24,7 +24,7 @@
 --
 -- format is openai or anthropic, which /v1/messages in the url tells as well; key a token for a service that wants one,
 -- chmod 600 the file then; language of the answers, the one of the locale without it; budget characters of entries a
--- request takes at most; timeout seconds a request may take, 0 for no limit; tokens of an answer at most, the service
+-- request takes at most, 2000 at least; timeout seconds a request may take, 0 for no limit; tokens of an answer at most, the service
 -- decides without it (2048 for Anthropic, which wants it said). prompt is a file of instructions instead of the ones
 -- built in, {language} there the language of the answers: a model taught on instructions of its own gets them. record
 -- is a file every answer goes to as a line of JSON with its request, for teaching a model of one's own on them: the
@@ -50,6 +50,8 @@
 local SYSTEM  = '/etc/turbojedi/arrakis.conf'
 local CONTEXT = 30      -- Entries before a single one, of its unit or identifier, to tell the model what has led to it
 local TOKENS  = 2048    -- Of an answer, Anthropic wants it said: a few sentences of Cyrillic take a thousand
+
+local BUDGET = 2000  -- Characters of entries a request takes at least, whatever arrakis.conf says
 
 local LEVELS = { [0] = 'EMERG', 'ALERT', 'CRIT', 'ERR', 'WARNING', 'NOTICE', 'INFO', 'DEBUG' }
 
@@ -96,7 +98,9 @@ local function engine(common, section, name, files, user)
   settings.files = files
 
   settings.format  = settings.format or (settings.url and settings.url:match('/v1/messages$') and 'anthropic') or 'openai'
-  settings.budget  = tonumber(settings.budget) or 12000
+  -- Room for the lines that tell what a request is made of and for a few entries, the bookmarks for their oldest and
+  -- newest and how many there are over time: a smaller budget is taken as the least
+  settings.budget  = math.max(BUDGET, tonumber(settings.budget) or 12000)
   settings.timeout = tonumber(settings.timeout) or 600
   settings.tokens  = tonumber(settings.tokens)
 
