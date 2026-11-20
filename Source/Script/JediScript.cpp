@@ -1353,9 +1353,8 @@ static void WalkActions(int list, int flat, const std::string& owner, int depth,
 // The items of the menu, the command of an action the first one and its index, a line between the items of two plugins
 // on top, the plugin standing where a menu has the key of an item; in a submenu the plugin is the one of the item it
 // opens from. A box of Turbo Vision shows ► in the place of the plugin of an item with a submenu, so on top the plugin
-// goes into its title after two spaces: drawn, ShowActionMenu() shows it after ► where the plugins of the others end;
-// in a box of the menu bar the plugins of the others leave room for the ► after it
-static TMenuItem* MakeActionItems(const std::vector<ActionNode>& nodes, int width, bool top, ushort command, bool drawn)
+// goes into its title, its end where the plugins of the other items end, and theirs leave room for ► after them
+static TMenuItem* MakeActionItems(const std::vector<ActionNode>& nodes, int width, bool top, ushort command)
 {
   int room;
   TMenuItem* first;
@@ -1375,9 +1374,9 @@ static TMenuItem* MakeActionItems(const std::vector<ActionNode>& nodes, int widt
 
     if (top)
     {
-      // An item: its title, 2 columns, its plugin, 3 more for ► in a box of the menu bar, and 6 of the box; one with a
-      // submenu: its title, at least 2 columns, its plugin and 9 of the box
-      room = std::max<int>(room, cstrlen(titles.back()) + strwidth(node.plugin) + (((node.leaf > 0) && drawn) ? 8 : 11));
+      // An item: its title, 2 columns, its plugin and 3 more, and 6 of the box; one with a submenu: its title, at
+      // least 2 columns, its plugin and 9 of the box
+      room = std::max<int>(room, cstrlen(titles.back()) + strwidth(node.plugin) + 11);
     }
   }
 
@@ -1395,7 +1394,8 @@ static TMenuItem* MakeActionItems(const std::vector<ActionNode>& nodes, int widt
 
     if (node.leaf > 0)
     {
-      title = top ? (drawn ? node.plugin : node.plugin + "   ") : std::string();
+      // The plugin 3 columns short of where a menu ends a key, where ► stands
+      title = top ? node.plugin + "   " : std::string();
       item  = new TMenuItem(titles[index].c_str(), command + node.leaf - 1, kbNoKey, hcNoContext, top ? title.c_str() : nullptr);
     }
     else
@@ -1408,7 +1408,7 @@ static TMenuItem* MakeActionItems(const std::vector<ActionNode>& nodes, int widt
         title += std::string(std::max<int>(2, room - 9 - cstrlen(titles[index]) - strwidth(node.plugin)), ' ') + node.plugin;
       }
 
-      item = new TMenuItem(title.c_str(), kbNoKey, new TMenu(*MakeActionItems(node.children, width, false, command, drawn)), hcNoContext);
+      item = new TMenuItem(title.c_str(), kbNoKey, new TMenu(*MakeActionItems(node.children, width, false, command)), hcNoContext);
     }
 
     first    = (first == nullptr) ? item : first;
@@ -1475,7 +1475,7 @@ void ShowActions(JournalView* view, const std::string& cursor, TPoint where, boo
     return;
   }
 
-  command = ShowActionMenu(where, *MakeActionItems(nodes, TProgram::deskTop->size.x - 8, true, cmJournalAction, true), "", keyboard);
+  command = ShowActionMenu(where, *MakeActionItems(nodes, TProgram::deskTop->size.x - 8, true, cmJournalAction), "", keyboard);
 
   if ((command >= cmJournalAction) &&
       (command < cmJournalAction + count))
@@ -1571,7 +1571,7 @@ TMenuItem* MakePluginMenu(int width)
   }
 
   lua_settop(state, top);
-  return nodes.empty() ? nullptr : MakeActionItems(nodes, width, true, cmJournalMenu, false);
+  return nodes.empty() ? nullptr : MakeActionItems(nodes, width, true, cmJournalMenu);
 }
 
 void RunPluginMenu(int index, JournalView* view, const JournalFilter& filter)
