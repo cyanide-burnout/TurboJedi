@@ -776,42 +776,110 @@ local function set(entries, context, beyond)
   reported(create(entries, context, typed, name, beyond))
 end
 
-local function actions(entry, menu, context)
-  if not open() then return end
-
-  local own = (type(entry.__CURSOR) == 'string') and query([[SELECT b.id, b.comment, t.name AS topic FROM entries e
-    JOIN bookmarks b ON b.id = e.bookmark LEFT JOIN topics t ON t.id = b.topic WHERE e.cursor = ? ORDER BY b.created DESC, b.id DESC]],
-    entry.__CURSOR) or { }
-  local mine = own[1]
-
-  if context.marked and (#context.marked > 0) then
-    menu:add(('Bookmark %d selected entr%s'):format(context.selected or #context.marked, ((context.selected or #context.marked) == 1) and 'y' or 'ies'),
-      set, context.marked, context, math.max(0, (context.selected or 0) - #context.marked))
-  end
-
+-- The items of a bookmark in Actions, of the entry under the cursor or of the selection: its comment, its topic and its
+-- removal; without one, a comment or a topic makes it
+local function offer(menu, mine, whose, make)
   if mine then
-    menu:add(mine.comment and ('Comment: ' .. cut(mine.comment, TITLE)) or 'Comment', function()
+    menu:add((mine.comment and ('Comment%s: %s'):format(whose, cut(mine.comment, TITLE))) or ('Comment' .. whose), function()
       local typed = turbojedi.input('Comment', mine.comment or '')
       if typed then reported(comment(mine.id, typed:match('^%s*(.-)%s*$'))) end
     end)
-    menu:add(mine.topic and ('Topic: ' .. cut(mine.topic, TITLE)) or 'Set topic', function()
+    menu:add((mine.topic and ('Topic%s: %s'):format(whose, cut(mine.topic, TITLE))) or ('Set topic' .. whose), function()
       local name = choose(mine.topic)
       if name then reported(retopic(mine.id, name)) end
     end)
-    menu:add('Remove bookmark', function()
-      if turbojedi.confirm('Remove the bookmark of this entry?\n\n' .. cut(mine.comment or mine.topic, 200)) then reported(remove(mine.id)) end
+    menu:add('Remove bookmark' .. whose, function()
+      if turbojedi.confirm(('Remove the bookmark%s?\n\n%s'):format(whose, cut(mine.comment or mine.topic, 200))) then reported(remove(mine.id)) end
     end)
-  else
-    menu:add('Comment', function()
-      local typed = turbojedi.input('Comment', '')
-      typed = typed and typed:match('^%s*(.-)%s*$')
-      if typed and (typed ~= '') then reported(create({ entry }, context, typed, nil)) end
-    end)
-    menu:add('Set topic', function()
-      local name = choose()
-      if name and (name ~= '') then reported(create({ entry }, context, '', name)) end
-    end)
+    return
   end
+
+  menu:add('Comment' .. whose, function()
+    local typed = turbojedi.input('Comment', '')
+    typed = typed and typed:match('^%s*(.-)%s*$')
+    if typed and (typed ~= '') then reported(make(typed, '')) end
+  end)
+  menu:add('Set topic' .. whose, function()
+    local name = choose()
+    if name and (name ~= '') then reported(make('', name)) end
+  end)
+end
+
+local function bookmark(id)
+  return query('SELECT b.id, b.comment, t.name AS topic FROM bookmarks b LEFT JOIN topics t ON t.id = b.topic WHERE b.id = ?', id)[1]
+end
+
+-- The entries of the cursors taken out of every bookmark they are in; a bookmark left without entries goes
+local function unbookmark(cursors)
+  local places = ('?,'):rep(#cursors):sub(1, -2)
+
+  return change(function()
+    local ids = query('SELECT DISTINCT bookmark FROM entries WHERE cursor IN (' .. places .. ')', table.unpack(cursors))
+
+    run('DELETE FROM entries WHERE cursor IN (' .. places .. ')', table.unpack(cursors))
+
+    for _, row in ipairs(ids) do
+      if query('SELECT COUNT(*) AS count FROM entries WHERE bookmark = ?', row.bookmark)[1].count == 0 then
+        run('DELETE FROM texts WHERE rowid = ?', row.bookmark)
+        run('DELETE FROM bookmarks WHERE id = ?', row.bookmark)
+      else
+        reindex(row.bookmark)
+      end
+    end
+  end)
+end
+
+local function actions(entry, menu, context)
+  if not open() then return end
+
+  if context.marked and (#context.marked > 0) then
+    -- The selection: the bookmark of just these entries when there is one, so that a second comment changes it and
+    -- makes no other; a new one otherwise, and the entries of it taken out of their bookmarks
+    local count   = context.selected or #context.marked
+    local whole   = (count == #context.marked)
+    local cursors = { }
+
+    for _, item in ipairs(context.marked) do
+      if type(item.__CURSOR) == 'string' then cursors[#cursors + 1] = item.__CURSOR end
+    end
+
+    local places = ('?,'):rep(#cursors):sub(1, -2)
+    local same, kept = nil, 0
+
+    if #cursors > 0 then
+      for _, row in ipairs(query(('SELECT e.bookmark AS id, COUNT(*) AS hit, (SELECT COUNT(*) FROM entries x WHERE x.bookmark = e.bookmark) AS size '
+                                  .. 'FROM entries e WHERE e.cursor IN (%s) GROUP BY e.bookmark ORDER BY e.bookmark DESC'):format(places), table.unpack(cursors))) do
+        if whole and (not same) and (row.hit == #cursors) and (row.size == #cursors) then same = row.id end
+      end
+
+      kept = query(('SELECT COUNT(DISTINCT cursor) AS count FROM entries WHERE cursor IN (%s)'):format(places), table.unpack(cursors))[1].count
+    end
+
+    local whose = (' of the %d selected'):format(count)
+
+    if same then
+      offer(menu, bookmark(same), whose)
+    else
+      menu:add(('Bookmark %d selected entr%s'):format(count, (count == 1) and 'y' or 'ies'), set, context.marked, context, math.max(0, count - #context.marked))
+    end
+
+    if (kept > 0) and not same then
+      menu:add(('Remove %d selected entr%s from bookmarks'):format(kept, (kept == 1) and 'y' or 'ies'), function()
+        if turbojedi.confirm(('Take %d entr%s out of their bookmarks? A bookmark left without entries goes.'):format(kept, (kept == 1) and 'y' or 'ies')) then
+          reported(unbookmark(cursors))
+        end
+      end)
+    end
+
+    return
+  end
+
+  -- The entry under the cursor: the newest bookmark it is in, a new one of it otherwise
+  local own = (type(entry.__CURSOR) == 'string') and query([[SELECT b.id, b.comment, t.name AS topic FROM entries e
+    JOIN bookmarks b ON b.id = e.bookmark LEFT JOIN topics t ON t.id = b.topic WHERE e.cursor = ? ORDER BY b.created DESC, b.id DESC]],
+    entry.__CURSOR) or { }
+
+  offer(menu, own[1], '', function(typed, name) return create({ entry }, context, typed, name) end)
 
   if #own > 1 then
     menu:add(('%d more bookmarks of this entry...'):format(#own - 1), function()

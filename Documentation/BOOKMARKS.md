@@ -18,10 +18,13 @@ The Actions menu of an entry, Alt-F10, A, F11 or a right click, tells its bookma
 | Topic: backups | the topic of its bookmark, to change or to take off |
 | Remove bookmark | the bookmark goes, its comment, its topic and the copies of its entries, after a question |
 | Bookmark 7 selected entries | with entries selected or marked: the topic, then the comment, one new bookmark of all of them |
+| Comment of the 7 selected: ... | the selection is just the entries of a bookmark: its Comment, Topic and Remove bookmark, no new one |
+| Remove 3 selected entries from bookmarks | some of the selected entries are in bookmarks: they are taken out of them, after a question; a bookmark left with no entry goes |
 | 2 more bookmarks of this entry... | an entry in several bookmarks: the others, one of them chosen gives its actions |
 
 A bookmark is there while it has a comment or a topic. Select with the mouse or Shift and the keys, or mark with M,
-Insert or Ctrl+click, then right click, Bookmark: what the selection has found is kept.
+Insert or Ctrl+click, then right click, Bookmark: what the selection has found is kept. Selected again, the same entries
+give that bookmark, so a comment changed is changed in it, not kept as a second one.
 
 ## In the Plugins menu
 
