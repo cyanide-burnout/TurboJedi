@@ -252,7 +252,7 @@ what only it knows: a service that has analyzed entries, a script of cron, an ag
 
 | Method | Signature | |
 |---|---|---|
-| `Invoke(plugin, method, values)` | `ssa{sv} → a{sv}` | calls the method of the plugin with the values as a table, the table it returns is the answer, empty without one. `plugin` is the name of its file without the number and `.lua`, `fail2ban` of `040-fail2ban.lua`, as `ListActions()` and `ListWatches()` tell it |
+| `Invoke(plugin, method, values)` | `ssa{sv} → a{sv}` | calls the method of the plugin with the values as a table, the table it returns is the answer, empty without one. `plugin` is the name of its file without the number and `.lua`, `fail2ban` of `060-fail2ban.lua`, as `ListActions()` and `ListWatches()` tell it |
 
 The method runs as an action of a window does: it waits while a dialog is open or Lua runs something else, as the
 calls of the screen do, and may open a dialog itself, a question to the user. Then the answer comes once the user has

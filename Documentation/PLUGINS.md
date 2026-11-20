@@ -17,16 +17,18 @@ menu bar, Alt-P, see [The Plugins menu](LUA.md#the-plugins-menu).
 
 The package brings these, in `/usr/share/turbojedi/plugins`:
 
-- `010-systemd.lua`: the status of the unit of the entry in a window or to the clipboard, its state and since when
-  told in the title of the item by systemd over D-Bus, its unit file, its process in htop, or in top without it
-- `020-network.lua`: an item for every address of the message, its route, lookup, whois, ping, path or a copy are chosen
-  there, the ones whose programs are installed
-- `030-coredump.lua`: for an entry of systemd-coredump, what coredumpctl knows of that dump, a copy of it, its stack in
-  gdb
-- `040-fail2ban.lua`, for root where fail2ban is installed: for an address of the entry, the jails it is banned in now;
-  Ban and Unban of it, after asking for the jail and a confirmation, never for an address of this machine
-- `050-arrakis.lua`, where `arrakis.conf` tells a language model: the marked entries, or the entry and what has come
+- `010-bookmarks.lua`: bookmarks of entries with a comment and a topic, kept with copies of the entries after the
+  journal has rotated, looked up and shown from the Plugins menu, read by an agent; see [BOOKMARKS.md](BOOKMARKS.md)
+- `020-arrakis.lua`, where `arrakis.conf` tells a language model: the marked entries, or the entry and what has come
   before it, explained by the model, and in the Plugins menu the errors of the window; see [ARRAKIS.md](ARRAKIS.md)
+- `030-systemd.lua`: the status of the unit of the entry in a window or to the clipboard, its state and since when
+  told in the title of the item by systemd over D-Bus, its unit file, its process in htop, or in top without it
+- `040-network.lua`: an item for every address of the message, its route, lookup, whois, ping, path or a copy are chosen
+  there, the ones whose programs are installed
+- `050-coredump.lua`: for an entry of systemd-coredump, what coredumpctl knows of that dump, a copy of it, its stack in
+  gdb
+- `060-fail2ban.lua`, for root where fail2ban is installed: for an address of the entry, the jails it is banned in now;
+  Ban and Unban of it, after asking for the jail and a confirmation, never for an address of this machine
 
 Plugins that change things, or that would come up by chance, are examples in `/usr/share/turbojedi/examples` and are not
 run by themselves: `100-ssh.lua`, a watch of the attacks on the SSH server of this machine while TurboJedi is open, an
@@ -68,13 +70,16 @@ behind by a removed package is told about at start. A build installed by `make i
 All three are read whatever way TurboJedi is built and installed. There are no plugins in `/etc`: it is for settings,
 not for code.
 
-- Every `*.lua` file of them is run once at start, in the order of the names: `010-systemd.lua` before
-  `040-fail2ban.lua`. The name of a plugin is the name of its file without the number and `.lua`: `fail2ban`.
-- A file of the same name in a directory lower in the table takes the place of the one above: the user's file of the
-  package, the machine's one of the package.
+- Every `*.lua` file of them is run once at start, in the order of the names: `030-systemd.lua` before
+  `060-fail2ban.lua`, and their items come in that order in the menus. The name of a plugin is the name of its file
+  without the number and `.lua`: `fail2ban`.
+- A file of a plugin in a directory lower in the table takes the place of the plugin of that name above, whatever the
+  numbers: `050-fail2ban.lua` of the user takes the place of `060-fail2ban.lua` of the package. The numbers of the
+  package may change, as they have in 0.18, and a version or a mask of the user keeps working. Two files of one plugin
+  in one directory are told at the start, the later one by name is taken.
 - A plugin may be a link to a file elsewhere, an example of the package among them; under root the file it points to
-  is the one checked. An empty file, or a link to `/dev/null`, of the same name leaves the plugin out, the way a unit of
-  systemd is masked. A link to a file that is gone is told about.
+  is the one checked. An empty file, or a link to `/dev/null`, of a plugin leaves it out, the way a unit of systemd is
+  masked. A link to a file that is gone is told about.
 - `lib/` of the directories holds modules for `require`, looked for in the same order: `require('net')` finds
   `lib/net.lua` of the user first, `require('net.address')` finds `lib/net/address.lua`. Paths relative to the current
   directory are taken out of `package.path` and `package.cpath`.

@@ -636,7 +636,7 @@ dialog: the calls of all handlers share the 200 ms of the menu, and the time ove
 the title of an item is quick enough for it:
 
 ```lua
-local function status(unit) ... end  -- the action, as in 010-systemd.lua
+local function status(unit) ... end  -- the action, as in 030-systemd.lua
 
 turbojedi.on('actions', function(entry, menu, context)
   local unit = entry._SYSTEMD_UNIT
@@ -904,7 +904,7 @@ end)
 
 ### The unit and the process of an entry
 
-`010-systemd.lua` of the package only looks, nothing is changed. For an entry of this machine:
+`030-systemd.lua` of the package only looks, nothing is changed. For an entry of this machine:
 
 - Status of the unit, `systemctl status`, in a window
 - Copy status of the unit, the same text put to the clipboard
@@ -946,21 +946,21 @@ turbojedi.on('actions', actions)
 
 ### Addresses
 
-`020-network.lua` of the package gives one item to every address of the message, IPv4 or IPv6, and the actions are
+`040-network.lua` of the package gives one item to every address of the message, IPv4 or IPv6, and the actions are
 chosen in a list there: Route (`ip route get`), Lookup (`host`, or `getent hosts` without it), Whois, Ping (four of them), Trace path
 (`tracepath -n`) and Copy. Only the actions whose programs are installed are in the list, so the menu stays short when
 an entry has several addresses.
 
 ### Core dumps
 
-`030-coredump.lua` of the package acts on an entry of systemd-coredump. The PID and the time of the dump pick that dump
+`050-coredump.lua` of the package acts on an entry of systemd-coredump. The PID and the time of the dump pick that dump
 alone, a PID alone may stand for several: Core dump shows `coredumpctl info` in a window, Copy puts it to the clipboard,
 Debug runs `coredumpctl debug` on the terminal when gdb is installed and the journal is of this machine, where the core
 file is.
 
 ### fail2ban
 
-`040-fail2ban.lua` of the package, for root where `fail2ban-client` is installed, offers the status, Ban and Unban for
+`060-fail2ban.lua` of the package, for root where `fail2ban-client` is installed, offers the status, Ban and Unban for
 every address in the message. The status tells the jails the address is banned in now, by the list `fail2ban-client
 status` gives of each, an IPv6 address in either form. Ban asks for the jail, starting on `sshd` for an entry of sshd, `sshd-session` or `sshd-auth`, and for a
 confirmation, which warns when the address is the one of your own SSH session: a ban of the wrong address locks its
@@ -969,7 +969,7 @@ answers nobody but root, so a TurboJedi of another user has no items of it.
 
 ### Arrakis
 
-`050-arrakis.lua` of the package explains the marked entries, or the entry and what has come before it, by a language
+`020-arrakis.lua` of the package explains the marked entries, or the entry and what has come before it, by a language
 model behind the HTTP API of OpenAI or Anthropic that `arrakis.conf` tells; see [ARRAKIS.md](ARRAKIS.md). In the Plugins menu it explains
 the errors of the window by `query { window = true, priority = 'err' }`, and tells its settings.
 Without the file it sends nothing. A plugin of `fetch()`, `query()`, a watch whose lines are the job and `message(text, title)`, the way a plugin

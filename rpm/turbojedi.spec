@@ -11,9 +11,11 @@ Summary:        Turbo Vision viewer of the systemd journal
 License:        MIT
 URL:            https://github.com/cyanide-burnout/TurboJedi
 
-# Turbo Vision of magiblot and lua-cjson of OpenResty are linked in statically from the submodules
+# Turbo Vision of magiblot and lua-cjson of OpenResty are linked in statically from the submodules, lsqlite3 from the
+# file the Makefile fetches
 Provides:       bundled(tvision) = %{turbojedi_tvision}
 Provides:       bundled(lua-cjson) = 2.1.0.20
+Provides:       bundled(lsqlite3) = 0.9.6
 
 # turbojedi-mcp.py gives the D-Bus interface to AI agents, TurboJedi itself needs no Python: the interpreter its line #!
 # names is not required
@@ -33,6 +35,14 @@ BuildRequires:  systemd-devel
 BuildRequires:  ncurses-devel
 BuildRequires:  pcre2-devel
 BuildRequires:  libcurl-devel
+BuildRequires:  curl
+
+# SQLite for the plugins, under its own name in openSUSE
+%if 0%{?suse_version}
+BuildRequires:  sqlite3-devel
+%else
+BuildRequires:  sqlite-devel
+%endif
 
 # Plugins of the Actions menu, Lua 5.4 under its own name in openSUSE
 %if 0%{?suse_version}
@@ -68,6 +78,7 @@ cp -p "%{turbojedi_tree}/LICENSE" "%{turbojedi_tree}/README.md" "%{turbojedi_tre
 cp -pr "%{turbojedi_tree}/Documentation" .
 cp -p "%{turbojedi_tree}/Import/tvision/COPYRIGHT" tvision-COPYRIGHT
 cp -p "%{turbojedi_tree}/Import/lua-cjson/LICENSE" lua-cjson-LICENSE
+cp -p "%{turbojedi_tree}/Import/lsqlite3/LICENSE" lsqlite3-LICENSE
 
 %build
 # Newer rpm builds in a directory of its own, the tree is where make rpm has been called
@@ -84,7 +95,7 @@ cd "%{turbojedi_tree}"
 make install PREFIX=%{buildroot}%{_prefix}
 
 %files
-%license LICENSE tvision-COPYRIGHT lua-cjson-LICENSE
+%license LICENSE tvision-COPYRIGHT lua-cjson-LICENSE lsqlite3-LICENSE
 %doc README.md CHANGELOG.md Documentation
 %{_bindir}/turbojedi
 %{_bindir}/turbojedi-mcp.py

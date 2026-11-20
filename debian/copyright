@@ -19,6 +19,12 @@ License: MIT
  lua-cjson of OpenResty, built in for the plugins in Lua: its license is in
  /usr/share/doc/turbojedi/lua-cjson-LICENSE.
 
+Files: Import/lsqlite3/*
+Copyright: 2002-2016 Tiago Dionizio, Doug Currie
+License: MIT
+ lsqlite3 0.9.6, fetched by the Makefile from lua.sqlite.org and built in for the
+ plugins in Lua: its license is in /usr/share/doc/turbojedi/lsqlite3-LICENSE.
+
 License: MIT
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this software and associated documentation files (the "Software"), to deal

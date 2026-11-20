@@ -2,6 +2,7 @@ EXECUTABLE  := turbojedi
 SOURCE      := Source
 TURBOVISION := Import/tvision
 LUACJSON    := Import/lua-cjson
+LSQLITE3    := Import/lsqlite3
 PREFIX      := $(DESTDIR)/usr/local
 
 # Components of the sources, each in a folder of its own: a header is included by its name alone from any of them
@@ -16,6 +17,24 @@ $(error $(TURBOVISION) and $(LUACJSON) are needed: a clone made with --recursive
 endif
 ifneq ($(shell git submodule update --init >&2 && echo done),done)
 $(error git submodule update --init has failed: $(TURBOVISION) and $(LUACJSON) are needed to build)
+endif
+endif
+endif
+
+# SQLite for the plugins, require('lsqlite3') of every one of them whatever the distribution has: lsqlite3 0.9.6 of
+# Tiago Dionizio and Doug Currie, kept in Fossil and not in git, so fetched by the address of its content and checked,
+# never kept in the repository; its license is the head of the file. make prepare fetches it and the submodules alone
+LSQLITE3_ADDRESS := https://lua.sqlite.org/home/raw/5bf7301fd0a0d8d6f7dc30f05b29e9316089db5c
+LSQLITE3_SUM     := a3de0d56dcdd7df85e334174cd46e70451f996bc843e735ab1d8a8e8804f9486
+
+ifeq ($(wildcard $(LSQLITE3)/lsqlite3.c),)
+ifneq ($(filter-out clean,$(or $(MAKECMDGOALS),all)),)
+ifneq ($(shell mkdir -p $(LSQLITE3) && \
+               curl -fsSL --retry 3 -o $(LSQLITE3)/lsqlite3.c.part $(LSQLITE3_ADDRESS) >&2 && \
+               echo '$(LSQLITE3_SUM)  $(LSQLITE3)/lsqlite3.c.part' | sha256sum -c --quiet - >&2 && \
+               sed -n '1,/^\*\{10,\}\/$$/p' $(LSQLITE3)/lsqlite3.c.part > $(LSQLITE3)/LICENSE && \
+               mv $(LSQLITE3)/lsqlite3.c.part $(LSQLITE3)/lsqlite3.c && echo done),done)
+$(error lsqlite3 cannot be fetched from $(LSQLITE3_ADDRESS) or is not the one expected: curl and sha256sum are needed)
 endif
 endif
 endif
@@ -61,6 +80,9 @@ endif
 ifneq ($(shell $(PKG_CONFIG) --exists libcurl && echo yes), yes)
 $(error libcurl is needed: libcurl4-openssl-dev, libcurl-devel or curl of the distribution)
 endif
+ifneq ($(shell $(PKG_CONFIG) --exists sqlite3 && echo yes), yes)
+$(error SQLite is needed: libsqlite3-dev, sqlite-devel, sqlite3-devel or sqlite of the distribution)
+endif
 endif
 
 LIBRARIES := \
@@ -70,6 +92,7 @@ DEPENDENCIES := \
 	libsystemd \
 	libpcre2-8 \
 	libcurl \
+	sqlite3 \
 	$(LUA)
 
 OBJECTS := \
@@ -131,6 +154,10 @@ endif
 # built with TurboJedi for its Lua
 OBJECTS += $(LUACJSON)/lua_cjson.o $(LUACJSON)/strbuf.o $(LUACJSON)/fpconv.o
 
+# SQLite for the plugins, the library of the system under it
+OBJECTS += $(LSQLITE3)/lsqlite3.o
+$(LSQLITE3)/lsqlite3.o: CFLAGS += -DLSQLITE_VERSION='"0.9.6"'
+
 # The linker takes from an archive only what the objects in front of it need, it goes after all of them
 OBJECTS += $(TURBOVISION)/build/libtvision.a
 
@@ -151,6 +178,9 @@ CFLAGS   += $(FLAGS)
 EXTRA = $(if $(shell grep -s '^GPM:FILEPATH=/' $(TURBOVISION)/build/CMakeCache.txt),-lgpm)
 
 all: build
+
+# The submodules and lsqlite3, fetched as every make but clean does, and nothing built: a tree to build offline later
+prepare:
 
 # Configured once, built by its own make every time: it knows what a move of the submodule has changed and does nothing
 # otherwise
@@ -182,7 +212,12 @@ POLICY ?= $(if $(filter %/usr,$(PREFIX)),$(PREFIX)/share/dbus-1/system.d,$(DESTD
 DBUS_VERSION := $(shell dbus-daemon --version 2> /dev/null | sed -n '1s/.* \([0-9][0-9.]*\)$$/\1/p')
 POLICY_FILE  ?= $(if $(and $(DBUS_VERSION),$(shell printf '%s\n1.13.11\n' '$(DBUS_VERSION)' | sort -V -C && echo old)),me.burnaway.TurboJedi.compat.conf,me.burnaway.TurboJedi.conf)
 
+# The names of the plugins of the package before 0.18 go first: an install over an older one would leave two files of a
+# plugin side by side
+RENAMED := 010-systemd.lua 020-network.lua 030-coredump.lua 040-fail2ban.lua 050-arrakis.lua
+
 install:
+	rm -f $(addprefix $(PREFIX)/share/$(EXECUTABLE)/plugins/,$(RENAMED))
 	install -D -m 755 $(EXECUTABLE) $(PREFIX)/bin/$(EXECUTABLE)
 	install -D -m 644 $(EXECUTABLE).1 $(PREFIX)/share/man/man1/$(EXECUTABLE).1
 	install -D -m 644 -t $(PREFIX)/share/$(EXECUTABLE)/plugins Plugins/*.lua
@@ -221,4 +256,4 @@ $(SOURCE)/%.h: ;
 
 -include $(wildcard $(filter %.d,$(OBJECTS:.o=.d)))
 
-.PHONY: all build install deb rpm arch clean FORCE
+.PHONY: all prepare build install deb rpm arch clean FORCE

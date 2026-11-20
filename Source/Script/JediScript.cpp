@@ -915,7 +915,10 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
   std::string reason;
   struct dirent* item;
   struct stat status;
+  std::vector<std::string> names;
+  std::map<std::string, std::string> here;
   std::map<std::string, std::string> files;
+  std::map<std::string, std::pair<std::string, std::string>> chosen;
 
   OpenConsole();
 
@@ -937,12 +940,15 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
 
   luaL_openlibs(state);
 
-  // JSON of lua-cjson built in, the module a plugin requires is this one whether the distribution has one or not
+  // JSON of lua-cjson and SQLite of lsqlite3 built in, the modules a plugin requires are these whether the distribution
+  // has them or not
   luaL_getsubtable(state, LUA_REGISTRYINDEX, LUA_PRELOAD_TABLE);
   lua_pushcfunction(state, luaopen_cjson);
   lua_setfield(state, -2, "cjson");
   lua_pushcfunction(state, luaopen_cjson_safe);
   lua_setfield(state, -2, "cjson.safe");
+  lua_pushcfunction(state, luaopen_lsqlite3);
+  lua_setfield(state, -2, "lsqlite3");
   lua_pop(state, 1);
 
   // print() of the plugins goes to the console, the screen belongs to Turbo Vision
@@ -1044,6 +1050,9 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
       continue;
     }
 
+    names.clear();
+    here.clear();
+
     while ((item = readdir(folder)) != nullptr)
     {
       length = strlen(item->d_name);
@@ -1052,12 +1061,35 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
           (strcmp(item->d_name + length - 4, ".lua") == 0) &&
           (item->d_name[0] != '.'))
       {
-        // A later directory takes the place of the name
-        files[item->d_name] = place + "/" + item->d_name;
+        names.push_back(item->d_name);
       }
     }
 
     closedir(folder);
+    std::sort(names.begin(), names.end());
+
+    for (const std::string& name : names)
+    {
+      plugin = GetPluginName(name);
+
+      if (here.count(plugin) != 0)
+      {
+        // Two numbers of one plugin side by side, an install over an older one that has left the old name: the later
+        // one by name is taken
+        errors.push_back(place + ": " + here[plugin] + " and " + name + " are both the plugin " + plugin + ", " + name + " is taken");
+      }
+
+      // A later directory takes the place of the plugin of that name, whatever its number: the own version of a user or
+      // an empty file that leaves it out holds when the package numbers its plugins anew
+      here[plugin]   = name;
+      chosen[plugin] = { name, place + "/" + name };
+    }
+  }
+
+  // In the order of the names of their files, the numbers tell it
+  for (const std::pair<const std::string, std::pair<std::string, std::string>>& taken : chosen)
+  {
+    files[taken.second.first] = taken.second.second;
   }
 
   phase = PHASE_LOAD;
