@@ -13,8 +13,11 @@ settings in effect and the files they come from, and sends a short request to se
 A list of bookmarks has Ask Arrakis about them, see [BOOKMARKS.md](BOOKMARKS.md): the bookmarks with their times,
 topics and comments and the copies of their entries, the model asked what they have in common, whether what they have
 found comes back and when, and what to look at next. A pile gathered over weeks is told at once, rotated entries
-included: each bookmark with its comment and its first three entries, the newest bookmarks first as far as `budget`
-goes, the older ones it has no room for told by their number.
+included. A comment is what an investigation has found, so when `budget` has no room for all, the detail goes first,
+never the time the list spans: all bookmarks with their first three entries, then with their first entry, then their
+comments alone, and past that the comments of a sample evenly over their time, the oldest and the newest among them,
+with how many bookmarks there are by day, week or month for all of them. The request tells the model which, and not
+to take a sample for the whole history.
 
 Under the answer is a line for a question about it, what a number of an error means for one: Ask sends it with the
 entries, the answer and the questions before it, as a conversation of that job alone, waits for the answer in a

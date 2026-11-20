@@ -48,9 +48,9 @@ A list of bookmarks, the newest first, up to 500, has two items on top, and afte
   An entry the journal of the window does not have, rotated or of another machine, is told: Show has its copy.
 - **Ask Arrakis about them**, when Arrakis is set up, see [ARRAKIS.md](ARRAKIS.md): the bookmarks with their times,
   topics and comments, and the first three copies of their entries, rotated ones included, go to the model, which
-  tells what they have in common, whether what they have found comes back and when, and what to look at next. The
-  budget of the request goes to whole bookmarks from the newest back, a comment with its entries; the older ones it
-  has no room for are told by their number.
+  tells what they have in common, whether what they have found comes back and when, and what to look at next. A large
+  list loses detail before time: the entries go before the comments, and past that a sample of the comments evenly
+  over the whole time of the list, with how many there are by day, week or month.
 
 A bookmark chosen gives a popup menu of Mark in the window, Show, Comment, Topic, Copy and Remove bookmark.
 
