@@ -663,22 +663,63 @@ if engines then
   local SAID    = 300   -- Characters of a message of them
   local COMMENT = 1000  -- Characters of a comment
   local SPARE   = 40    -- Characters of the numbers of the entries after a comment, of the line of an entry
+  local HEAD    = 600   -- Characters of the lines that open the request and tell what it is made of
 
-  -- How many bookmarks there are by day, by week when they span more than two months, by month past two years
-  local function spread(bookmarks)
-    local span   = (bookmarks[#bookmarks].created - bookmarks[1].created) // 1000000
-    local format = (span <= 62 * 86400) and '%Y-%m-%d' or (span <= 2 * 366 * 86400) and '%G-W%V' or '%Y-%m'
-    local unit   = (format == '%Y-%m-%d') and 'day' or (format == '%G-W%V') and 'week' or 'month'
-    local counts, order = { }, { }
+  -- How many bookmarks there are by day, by week when they span more than two months, by month past two years, by year
+  -- past that; coarser while the line is longer than most
+  local UNITS = { { '%Y-%m-%d', 'day' }, { '%G-W%V', 'week' }, { '%Y-%m', 'month' }, { '%Y', 'year' } }
 
-    for _, bookmark in ipairs(bookmarks) do
-      local key = turbojedi.date(format, bookmark.created // 1000000)
-      if not counts[key] then order[#order + 1] = key end
-      counts[key] = (counts[key] or 0) + 1
+  local function spread(bookmarks, most)
+    local span = (bookmarks[#bookmarks].created - bookmarks[1].created) // 1000000
+    local unit = (span <= 62 * 86400) and 1 or (span <= 2 * 366 * 86400) and 2 or 3
+    local line
+
+    repeat
+      local format, counts, order = UNITS[unit][1], { }, { }
+
+      for _, bookmark in ipairs(bookmarks) do
+        local key = turbojedi.date(format, bookmark.created // 1000000)
+        if not counts[key] then order[#order + 1] = key end
+        counts[key] = (counts[key] or 0) + 1
+      end
+
+      for index, key in ipairs(order) do order[index] = key .. ' ' .. counts[key] end
+      line = ('How many bookmarks of the list there are by %s, all %d of them: %s.'):format(UNITS[unit][2], #bookmarks, table.concat(order, ', '))
+      unit = unit + 1
+    until (#line <= most) or (unit > #UNITS)
+
+    return (#line <= most) and line or clip(line, most)
+  end
+
+  -- The indices of a sample of count of the bookmarks, the oldest first: the oldest and the newest, then the ones nearest
+  -- to points evenly over their time, so that a burst does not take the sample; the points a burst leaves on one
+  -- bookmark are made up evenly by their order
+  local function sample(bookmarks, count)
+    local total, picked, seen = #bookmarks, { }, { }
+    local first, last, cursor = bookmarks[1].created, bookmarks[#bookmarks].created, 1
+
+    local function take(index)
+      if not seen[index] then seen[index], picked[#picked + 1] = true, index end
     end
 
-    for index, key in ipairs(order) do order[index] = key .. ' ' .. counts[key] end
-    return ('How many bookmarks of the list there are by %s, all %d of them: %s.'):format(unit, #bookmarks, table.concat(order, ', '))
+    take(1)
+    take(total)
+
+    for step = 1, count - 2 do
+      local target = first + (last - first) * step // (count - 1)
+      while (cursor < total) and (bookmarks[cursor + 1].created <= target) do cursor = cursor + 1 end
+      local index = cursor
+      if (cursor < total) and (bookmarks[cursor + 1].created - target < target - bookmarks[cursor].created) then index = cursor + 1 end
+      take(index)
+    end
+
+    for step = 1, count - 2 do
+      if #picked >= count then break end
+      take(1 + ((step * (total - 1) + (count - 1) // 2) // (count - 1)))
+    end
+
+    table.sort(picked)
+    return picked
   end
 
   Bookmarks       = Bookmarks       or { }
@@ -687,12 +728,17 @@ if engines then
     local settings = chosen()
     if (not settings) or (#bookmarks == 0) then return end
 
-    local budget, total = settings.budget, #bookmarks
+    -- The lines that open the request and tell what it is made of take their room first
+    local budget, total = settings.budget - HEAD, #bookmarks
     local notes, comments = { }, 0
 
+    local function note(bookmark, most)
+      return ('- made %s%s: %s'):format(turbojedi.date('%Y-%m-%d %H:%M:%S', bookmark.created // 1000000),
+               bookmark.topic and (', topic ' .. bookmark.topic) or '', clip(bookmark.comment or '(no comment)', most))
+    end
+
     for index, bookmark in ipairs(bookmarks) do
-      notes[index] = ('- made %s%s: %s'):format(turbojedi.date('%Y-%m-%d %H:%M:%S', bookmark.created // 1000000),
-                       bookmark.topic and (', topic ' .. bookmark.topic) or '', clip(bookmark.comment or '(no comment)', COMMENT))
+      notes[index] = note(bookmark, COMMENT)
       comments = comments + #notes[index] + SPARE
     end
 
@@ -718,24 +764,28 @@ if engines then
     local taken, stats = { }, nil
 
     if comments > budget then
-      stats = spread(bookmarks)
-      local room, count = budget - #stats, total
+      -- The room of the statistics and of the oldest and the newest comes first, the comments of these two shortened
+      -- when they have no room whole: the time the list spans is never lost
+      stats = spread(bookmarks, budget // 3)
+      local room  = budget - #stats - 1
+      local most  = COMMENT
+
+      while (#notes[1] + #notes[total] + 2 * SPARE > room) and (most > 20) do
+        most = most * 3 // 4
+        notes[1], notes[total] = note(bookmarks[1], most), note(bookmarks[total], most)
+      end
+
+      local count = total
 
       while count > 2 do
-        local size, last = 0, nil
-        for step = 0, count - 1 do
-          local index = 1 + ((step * (total - 1) + (count - 1) // 2) // (count - 1))
-          if index ~= last then size, last = size + #notes[index] + SPARE, index end
-        end
+        local size = 0
+        taken = sample(bookmarks, count)
+        for _, index in ipairs(taken) do size = size + #notes[index] + SPARE end
         if size <= room then break end
         count = math.max(2, math.min(count - 1, count * room // size))
       end
 
-      local last = nil
-      for step = 0, math.max(1, count - 1) do
-        local index = (count > 1) and (1 + ((step * (total - 1) + (count - 1) // 2) // (count - 1))) or total
-        if (index ~= last) and (index <= total) then taken[#taken + 1], last = index, index end
-      end
+      taken = sample(bookmarks, math.max(2, count))
     else
       for index = 1, total do taken[index] = index end
     end
