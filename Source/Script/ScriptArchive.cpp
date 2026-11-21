@@ -11,8 +11,9 @@
 // A file of the archive read by Lua as it compiles it, a piece at a time
 struct ArchiveChunk
 {
-  int status;                 // Of the last read, negative when it has failed
+  int status;                 // Of the last read, negative when it has failed, -2 past the bytes left
   zip_file_t* file;           // Opened to be compiled, closed once Lua has compiled it
+  zip_int64_t* left;          // Bytes the archive may yet unpack to, nullptr without a limit
   char buffer[CHUNK_LENGTH];  // The piece Lua is given, on the stack of the one that compiles it
 };
 
@@ -35,11 +36,20 @@ static const char* ReadArchiveChunk(lua_State* state, void* data, size_t* size)
     return nullptr;
   }
 
+  if ((chunk->left != nullptr) &&
+      ((*chunk->left -= length) < 0))
+  {
+    // More than the archive may unpack to, whatever it says of the sizes of its files
+    chunk->status = -2;
+    *size         = 0;
+    return nullptr;
+  }
+
   *size = static_cast<size_t>(length);
   return chunk->buffer;
 }
 
-int LoadArchiveFile(lua_State* state, zip_t* archive, zip_int64_t index, const std::string& place)
+int LoadArchiveFile(lua_State* state, zip_t* archive, zip_int64_t index, const std::string& place, zip_int64_t* left)
 {
   int result;
   const char* name;
@@ -57,6 +67,7 @@ int LoadArchiveFile(lua_State* state, zip_t* archive, zip_int64_t index, const s
 
   // Errors of Lua tell the archive and the file in it as the place, place:file:line
   chunk.status = 0;
+  chunk.left   = left;
   source       = "@" + place + ":" + ((name != nullptr) ? name : "?");
   result       = lua_load(state, ReadArchiveChunk, &chunk, source.c_str(), nullptr);
 
@@ -64,7 +75,7 @@ int LoadArchiveFile(lua_State* state, zip_t* archive, zip_int64_t index, const s
   {
     // libzip tells a failure to read by the file, which goes with it: what Lua has made of a part of the file is not taken
     lua_pop(state, 1);
-    lua_pushfstring(state, "%s: %s", source.c_str() + 1, zip_file_strerror(chunk.file));
+    lua_pushfstring(state, "%s: %s", source.c_str() + 1, (chunk.status == -2) ? "the archive unpacks to more than a plugin is taken of" : zip_file_strerror(chunk.file));
     result = LUA_ERRFILE;
   }
 
@@ -79,9 +90,9 @@ static int RaiseArchiveError(lua_State* state)
 }
 
 // The loader of a file of the archive on the stack: the file compiled, or a function that tells why it is not
-static void LoadArchiveModule(lua_State* state, zip_t* archive, zip_int64_t index, const std::string& place, const std::string& module)
+static void LoadArchiveModule(lua_State* state, zip_t* archive, zip_int64_t index, const std::string& place, const std::string& module, zip_int64_t* left)
 {
-  if (LoadArchiveFile(state, archive, index, place) != LUA_OK)
+  if (LoadArchiveFile(state, archive, index, place, left) != LUA_OK)
   {
     lua_pushfstring(state, "error loading module '%s' from %s:%s:\n\t%s", module.c_str(), place.c_str(), zip_get_name(archive, index, 0), lua_tostring(state, -1));
     lua_remove(state, -2);
@@ -147,7 +158,7 @@ static size_t MatchArchivePath(const char* file, const char* path)
   return shortest;
 }
 
-void LoadArchiveModules(lua_State* state, zip_t* archive, const char* path, const std::string& prefix, const std::string& place)
+void LoadArchiveModules(lua_State* state, zip_t* archive, const char* path, const std::string& prefix, const std::string& place, zip_int64_t* left)
 {
   const char* end;
   const char* mark;
@@ -193,7 +204,7 @@ void LoadArchiveModules(lua_State* state, zip_t* archive, const char* path, cons
         if (lua_isnil(state, -1))
         {
           // The file compiled now: the archive is closed once the plugin has been loaded
-          LoadArchiveModule(state, archive, index, place, module);
+          LoadArchiveModule(state, archive, index, place, module, left);
           lua_setfield(state, -4, module.c_str());
           lua_pushboolean(state, 1);
           lua_setfield(state, -3, module.c_str());

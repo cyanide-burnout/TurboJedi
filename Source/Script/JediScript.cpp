@@ -1169,6 +1169,7 @@ static int LoadPluginArchive(const std::string& path, const std::string& name)
   zip_int64_t index;
   zip_int64_t count;
   zip_int64_t number;
+  zip_int64_t left;
   zip_uint64_t total;
   zip_stat_t status;
 
@@ -1208,8 +1209,18 @@ static int LoadPluginArchive(const std::string& path, const std::string& name)
     return LUA_ERRFILE;
   }
 
-  LoadArchiveModules(state, archive, "?.lua;?/init.lua", name + ".", path);
-  result = LoadArchiveFile(state, archive, index, path);
+  // The sizes an archive tells may be wrong: the bytes read are counted as well, past the limit the plugin is left out
+  left = ARCHIVE_LIMIT;
+  LoadArchiveModules(state, archive, "?.lua;?/init.lua", name + ".", path, &left);
+
+  if (left < 0)
+  {
+    lua_pushfstring(state, "%s: an archive of a plugin unpacks to more than the 64 MiB taken, the plugin is left out", path.c_str());
+    zip_discard(archive);
+    return LUA_ERRFILE;
+  }
+
+  result = LoadArchiveFile(state, archive, index, path, &left);
 
   // Only read, nothing to write back
   zip_discard(archive);
