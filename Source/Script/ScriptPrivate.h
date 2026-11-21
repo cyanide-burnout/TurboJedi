@@ -88,6 +88,11 @@ extern "C" int luaopen_lsqlite3(lua_State* state);
 #define FETCH     "TurboJedi.fetch"
 #define DBUS      "TurboJedi.dbus"
 
+#define HANDLERS  "TurboJedi.handlers"  // Functions of on('actions')
+#define NAMES     "TurboJedi.names"     // Of the plugin of every handler, by the same index
+#define METHODS   "TurboJedi.methods"   // Tables of the functions of on('invoke') by the names of their plugins
+#define MENU      "TurboJedi.menu"      // The metatable of the menu a handler gets
+#define MENUS     "TurboJedi.menus"     // Items of the Plugins menu by on('menu'): the title, the plugin, the function and its values
 #define RESTORERS "TurboJedi.restorers" // Functions of on('restore') by the names of their plugins
 
 #define ACTIONS   "TurboJedi.actions"   // Tables of the actions of the lines of a watch by its number, by the numbers of the lines
@@ -145,6 +150,7 @@ extern bool universal;    // Times of the watches and of date() are of UTC, not 
 extern bool changed;      // Watches have changed, their windows and the status line are told
 extern int serial;
 extern std::map<std::string, JournalExpression> expressions;
+extern std::map<std::pair<std::string, std::string>, PluginMethod> descriptions;  // Of on('invoke') by plugin and name
 
 int Fail(lua_State* state, const char* format, ...);
 int Trace(lua_State* state);
@@ -206,6 +212,16 @@ int ClearWatchLines(lua_State* state);
 int RemoveJournalWatch(lua_State* state);
 void CollectJournalWatches();
 void PushEntry(lua_State* state, const std::vector<std::pair<std::string, std::string>>& fields);
+void PushContext(lua_State* state, const JournalFilter& filter);
+void PushWindowContext(lua_State* state, JournalView* view);
+int OnActions(lua_State* state);
+int OnMenu(lua_State* state);
+int AddItem(lua_State* state);
+int AddSubmenu(lua_State* state);
+int OnInvoke(lua_State* state);
+void ForgetPluginMethods(const std::string& name);
+int GetResource(lua_State* state);
+void LoadPluginFiles(const std::string& directory, std::vector<std::string>& errors);
 std::string Fit(std::string title, int width);
 void ShowErrors(const std::vector<std::string>& errors);
 void OpenConsole();

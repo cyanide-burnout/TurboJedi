@@ -133,6 +133,9 @@ OBJECTS := \
 	$(SOURCE)/Dialog/JournalsDialog.o \
 	$(SOURCE)/Dialog/DirectoryDialog.o \
 	$(SOURCE)/Script/JediScript.o \
+	$(SOURCE)/Script/ScriptLoader.o \
+	$(SOURCE)/Script/ScriptMethod.o \
+	$(SOURCE)/Script/ScriptMenu.o \
 	$(SOURCE)/Script/ScriptArchive.o \
 	$(SOURCE)/Script/ScriptDBus.o \
 	$(SOURCE)/Script/ScriptWatch.o \
