@@ -778,9 +778,21 @@ static bool ReadResourceFile(const std::string& path, std::string& text, std::st
     return false;
   }
 
-  while ((length = fread(buffer, 1, sizeof(buffer), file)) > 0)
+  // A file that grows while it is read stops at the limit as well
+  while (((length = fread(buffer, 1, sizeof(buffer), file)) > 0) &&
+         (text.size() + length <= RESOURCE_LIMIT))
   {
     text.append(buffer, length);
+  }
+
+  if ((length > 0) ||
+      (ferror(file)))
+  {
+    // Larger than the limit by now, or a failure to read: nothing of it is given as if it were whole
+    reason = path + ((length > 0) ? std::string(" is larger than resource() gives, 16 MiB") : (": " + std::string(strerror(errno))));
+    text.clear();
+    fclose(file);
+    return false;
   }
 
   fclose(file);
