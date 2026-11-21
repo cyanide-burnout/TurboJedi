@@ -15,6 +15,7 @@
 #define MENU_TIME          200     // Milliseconds the queries of all handlers of a menu may take together
 #define MENU_SCAN          10000   // Entries they may look at together
 #define MARKED_LIMIT       1000    // Entries of the selection a handler gets in context.marked
+#define RESOURCE_LIMIT     (16 * 1024 * 1024)  // Bytes of a file resource() gives
 
 #define HANDLERS  "TurboJedi.handlers"
 
@@ -38,6 +39,7 @@ int64_t invoked;     // Milliseconds of CLOCK_MONOTONIC a method of Invoke() has
 
 static std::vector<std::string> directories;  // In the order a file of the same name takes the place: the user last
 static std::map<std::string, std::string> folders;  // Of the plugins of a folder by their names, require() finds their modules there
+static std::map<std::string, std::string> archives;  // Of the plugins of an archive by their names, for resource()
 static std::map<std::pair<std::string, std::string>, PluginMethod> descriptions;  // Of on('invoke') by plugin and name
 static const JournalFilter machine = { };     // The journal of this machine, of a method called without a window
 
@@ -722,6 +724,200 @@ static int Search(lua_State* state)
   return 1;
 }
 
+// A name of a file in a plugin: relative, its parts neither empty nor . or .., so that it stays inside
+static bool CheckResourceName(const std::string& name)
+{
+  size_t start;
+  size_t end;
+  std::string part;
+
+  if (name.empty() ||
+      (name.size() > PATH_MAX) ||
+      (name.find('\0') != std::string::npos))
+  {
+    return false;
+  }
+
+  for (start = 0; start <= name.size(); start = end + 1)
+  {
+    end  = std::min(name.find('/', start), name.size());
+    part = name.substr(start, end - start);
+
+    if (part.empty() ||
+        (part == ".") ||
+        (part == ".."))
+    {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+// A file of a folder whole, at most RESOURCE_LIMIT bytes
+static bool ReadResourceFile(const std::string& path, std::string& text, std::string& reason)
+{
+  FILE* file;
+  size_t length;
+  struct stat status;
+  char buffer[4096];
+
+  if (((file = fopen(path.c_str(), "rb")) == nullptr) ||
+      (fstat(fileno(file), &status) < 0) ||
+      (!S_ISREG(status.st_mode)))
+  {
+    reason = path + ": " + ((file != nullptr) ? "not a file" : strerror(errno));
+    if (file != nullptr) fclose(file);
+    return false;
+  }
+
+  if (status.st_size > RESOURCE_LIMIT)
+  {
+    reason = path + " is larger than resource() gives, 16 MiB";
+    fclose(file);
+    return false;
+  }
+
+  while ((length = fread(buffer, 1, sizeof(buffer), file)) > 0)
+  {
+    text.append(buffer, length);
+  }
+
+  fclose(file);
+  return true;
+}
+
+// A file of an archive whole, at most RESOURCE_LIMIT bytes
+static bool ReadResourceArchive(const std::string& path, const std::string& name, std::string& text, std::string& reason)
+{
+  int code;
+  zip_t* archive;
+  zip_file_t* file;
+  zip_error_t error;
+  zip_int64_t index;
+  zip_int64_t length;
+  zip_stat_t status;
+  char buffer[4096];
+
+  if ((archive = zip_open(path.c_str(), ZIP_RDONLY, &code)) == nullptr)
+  {
+    zip_error_init_with_code(&error, code);
+    reason = path + ": " + zip_error_strerror(&error);
+    zip_error_fini(&error);
+    return false;
+  }
+
+  if (((index = zip_name_locate(archive, name.c_str(), 0)) < 0) ||
+      (zip_stat_index(archive, index, 0, &status) < 0))
+  {
+    reason = path + " has no " + name;
+    zip_discard(archive);
+    return false;
+  }
+
+  if ((status.valid & ZIP_STAT_SIZE) &&
+      (status.size > RESOURCE_LIMIT))
+  {
+    reason = name + " of " + path + " is larger than resource() gives, 16 MiB";
+    zip_discard(archive);
+    return false;
+  }
+
+  if ((file = zip_fopen_index(archive, index, 0)) == nullptr)
+  {
+    reason = path + ": " + zip_strerror(archive);
+    zip_discard(archive);
+    return false;
+  }
+
+  while (((length = zip_fread(file, buffer, sizeof(buffer))) > 0) &&
+         (text.size() + length <= RESOURCE_LIMIT))
+  {
+    text.append(buffer, length);
+  }
+
+  if (length != 0)
+  {
+    reason = name + " of " + path + ((length < 0) ? (std::string(": ") + zip_file_strerror(file)) : std::string(" is larger than resource() gives, 16 MiB"));
+    text.clear();
+  }
+
+  zip_fclose(file);
+  zip_discard(archive);
+  return length == 0;
+}
+
+// resource(name): a file of the plugin whose code calls it, of its folder or its archive, as text or nil and why. The
+// plugin is told by the file of the function that calls, not by the one whose action runs: a function of Arrakis that
+// the list of the bookmarks calls reads the files of Arrakis
+static int GetResource(lua_State* state)
+{
+  lua_Debug caller;
+  std::string name;
+  std::string text;
+  std::string place;
+  std::string reason;
+  std::string source;
+
+  if ((!GetString(state, 1, name)) ||
+      (!CheckResourceName(name)))
+  {
+    return Fail(state, "resource() takes a name of a file of the plugin, relative and without . or .. in it, prompts/system.txt for one");
+  }
+
+  if ((lua_getstack(state, 1, &caller) == 0) ||
+      (lua_getinfo(state, "S", &caller) == 0) ||
+      (caller.source == nullptr) ||
+      (caller.source[0] != '@'))
+  {
+    lua_pushnil(state);
+    lua_pushliteral(state, "resource() is called by code that is not of a file of a plugin");
+    return 2;
+  }
+
+  source = caller.source + 1;
+
+  for (const std::pair<const std::string, std::string>& folder : folders)
+  {
+    if (source.compare(0, folder.second.size() + 1, folder.second + "/") == 0)
+    {
+      place = folder.second + "/" + name;
+
+      if ((!CheckTrust(place, reason)) ||
+          (!ReadResourceFile(place, text, reason)))
+      {
+        lua_pushnil(state);
+        lua_pushlstring(state, reason.data(), reason.size());
+        return 2;
+      }
+
+      lua_pushlstring(state, text.data(), text.size());
+      return 1;
+    }
+  }
+
+  for (const std::pair<const std::string, std::string>& archive : archives)
+  {
+    if (source.compare(0, archive.second.size() + 1, archive.second + ":") == 0)
+    {
+      if ((!CheckTrust(archive.second, reason)) ||
+          (!ReadResourceArchive(archive.second, name, text, reason)))
+      {
+        lua_pushnil(state);
+        lua_pushlstring(state, reason.data(), reason.size());
+        return 2;
+      }
+
+      lua_pushlstring(state, text.data(), text.size());
+      return 1;
+    }
+  }
+
+  lua_pushnil(state);
+  lua_pushfstring(state, "%s is of no plugin of a folder or an archive, a plugin of one file has no resources", source.c_str());
+  return 2;
+}
+
 // A callback with the values of the plugin that go to it after the ones of its event, from the function at an index and
 // the values from another one on: { func, value, ..., n = count } in the registry
 int KeepCallback(lua_State* state, int function, int first)
@@ -809,6 +1005,7 @@ static const luaL_Reg functions[] =
   { "sudo",            Call<GetSudoUser,     PHASE_ANY>    },
   { "settings",        Call<Settings,        PHASE_ANY>    },
   { "where",           Call<Where,           PHASE_ANY>    },
+  { "resource",        Call<GetResource,     PHASE_ANY>    },
   { "date",            Call<FormatDate,      PHASE_ANY>    },
   { "poll",            Call<AddWatch,        PHASE_WATCH>  },
   { "timeout",         Call<AddTimer,        PHASE_WATCH>  },
@@ -1296,7 +1493,8 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
 
     if (HasSuffix(file.first, ".zip"))
     {
-      result = LoadPluginArchive(path, plugin);
+      archives[plugin] = path;
+      result           = LoadPluginArchive(path, plugin);
     }
     else
     {
@@ -1319,6 +1517,7 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
       lua_settop(state, 0);
       ForgetPluginMethods(plugin);
       folders.erase(plugin);
+      archives.erase(plugin);
       continue;
     }
 
