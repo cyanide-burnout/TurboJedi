@@ -12,7 +12,8 @@ entries you mark or the errors of a window, answers questions about them, by a m
 your choice, see [ARRAKIS.md](Documentation/ARRAKIS.md).
 
 Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd, PCRE2, Lua 5.4, libcurl, SQLite,
-[lua-cjson](https://github.com/openresty/lua-cjson) and [lsqlite3](https://lua.sqlite.org/home/index).
+[libzip](https://libzip.org), [lua-cjson](https://github.com/openresty/lua-cjson) and
+[lsqlite3](https://lua.sqlite.org/home/index).
 
 ![Three windows: the whole journal following, its warnings and errors paused with marked lines and 7 entries come meanwhile, and their timeline in Braille dots; the Plugins menu open with the items of Arrakis, Watches and Console](screenshot.png)
 
@@ -43,7 +44,8 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd, PC
   plugins offer for it, Alt-P the Plugins menu of what they do without one. The plugins of the package:
   [bookmarks](Documentation/BOOKMARKS.md), an entry or a selection kept with a comment and a topic after the journal
   has rotated; [Arrakis](Documentation/ARRAKIS.md), a language model of your choice that explains the entries; the unit
-  and the process of an entry, addresses, core dumps, fail2ban; more of them are examples. See [plugins](Documentation/PLUGINS.md) and how
+  and the process of an entry, addresses, core dumps, fail2ban; more of them are examples. A plugin is a file, a folder
+  of its modules and files, or the same folder in an archive of ZIP, one file to copy. See [plugins](Documentation/PLUGINS.md) and how
   to write one, [LUA.md](Documentation/LUA.md)
 - Watches of plugins: entries of a filter as they come, a status and lines of each in a list, F12; Watch 1/3 * in the
   status line tells about new ones, an important one brings the list up with a bell
