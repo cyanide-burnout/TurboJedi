@@ -226,7 +226,7 @@ install:
 	install -D -m 755 $(EXECUTABLE) $(PREFIX)/bin/$(EXECUTABLE)
 	install -D -m 644 $(EXECUTABLE).1 $(PREFIX)/share/man/man1/$(EXECUTABLE).1
 	install -D -m 644 -t $(PREFIX)/share/$(EXECUTABLE)/plugins Plugins/*.lua
-	cd Plugins && find . -mindepth 2 -type f -name '*.lua' ! -path './Examples/*' | while read -r file; do \
+	cd Plugins && find . -mindepth 2 -type f ! -path './Examples/*' | while read -r file; do \
 	  install -D -m 644 "$$file" "$(PREFIX)/share/$(EXECUTABLE)/plugins/$$file"; done
 	install -D -m 644 -t $(PREFIX)/share/$(EXECUTABLE)/examples Plugins/Examples/*.lua
 	install -D -m 644 $(POLICY_FILE) $(POLICY)/me.burnaway.TurboJedi.conf
