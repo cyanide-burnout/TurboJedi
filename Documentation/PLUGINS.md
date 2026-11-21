@@ -17,9 +17,9 @@ menu bar, Alt-P, see [The Plugins menu](LUA.md#the-plugins-menu).
 
 The package brings these, in `/usr/share/turbojedi/plugins`:
 
-- `010-bookmarks.lua`: bookmarks of entries with a comment and a topic, kept with copies of the entries after the
+- `010-bookmarks/`: bookmarks of entries with a comment and a topic, kept with copies of the entries after the
   journal has rotated, looked up and shown from the Plugins menu, read by an agent; see [BOOKMARKS.md](BOOKMARKS.md)
-- `020-arrakis.lua`, where `arrakis.conf` tells a language model: the marked entries, or the entry and what has come
+- `020-arrakis/`, where `arrakis.conf` tells a language model: the marked entries, or the entry and what has come
   before it, explained by the model, and in the Plugins menu the errors of the window; see [ARRAKIS.md](ARRAKIS.md)
 - `030-systemd.lua`: the status of the unit of the entry in a window or to the clipboard, its state and since when
   told in the title of the item by systemd over D-Bus, its unit file, its process in htop, or in top without it
@@ -70,17 +70,29 @@ behind by a removed package is told about at start. A build installed by `make i
 All three are read whatever way TurboJedi is built and installed. There are no plugins in `/etc`: it is for settings,
 not for code.
 
-- Every `*.lua` file of them is run once at start, in the order of the names: `030-systemd.lua` before
-  `060-fail2ban.lua`, and their items come in that order in the menus. The name of a plugin is the name of its file
-  without the number and `.lua`: `fail2ban`.
-- A file of a plugin in a directory lower in the table takes the place of the plugin of that name above, whatever the
-  numbers: `050-fail2ban.lua` of the user takes the place of `060-fail2ban.lua` of the package. The numbers of the
+- A plugin is a file, a folder or an archive, and every one of them is run once at start, in the order of the names:
+  `030-systemd.lua` before `060-fail2ban.lua`, and their items come in that order in the menus. The name of a plugin
+  is the name of its file or folder without the number, `.lua` and `.zip`: `fail2ban`.
+
+  | Form | What runs |
+  |---|---|
+  | `060-fail2ban.lua` | the file |
+  | `010-bookmarks/` | `init.lua` in it, its modules and files beside it |
+  | `010-bookmarks.zip` | `init.lua` at the root of the archive of ZIP, its modules and files in it |
+
+  A folder is the form to write a plugin of many files in, an archive the one to give it in: one file to copy, to
+  replace or to remove, never half of one version and half of another. `cd 010-bookmarks && zip -r ../010-bookmarks.zip .`
+  makes the one of the other; see [A plugin of many files](LUA.md#a-plugin-of-many-files).
+- A plugin in a directory lower in the table takes the place of the plugin of that name above, whatever the numbers
+  and the form: `050-fail2ban.lua` of the user takes the place of `060-fail2ban.lua` of the package, and
+  `010-bookmarks.zip` of the user the one of the folder `010-bookmarks/`. The numbers of the
   package may change, as they have in 0.18, and a version or a mask of the user keeps working. Two files of one plugin
   in one directory are told at the start, the later one by name is taken.
 - A plugin may be a link to a file elsewhere, an example of the package among them; under root the file it points to
-  is the one checked. An empty file, or a link to `/dev/null`, of a plugin leaves it out, the way a unit of systemd is
-  masked. A link to a file that is gone is told about.
-- `lib/` of the directories holds modules for `require`, looked for in the same order: `require('net')` finds
+  is the one checked. An empty file, `.lua` or `.zip`, or a link to `/dev/null`, of a plugin leaves it out whatever its
+  form, the way a unit of systemd is masked. A link to a file that is gone, and a folder without `init.lua`, are told
+  about.
+- `lib/` of the directories holds modules for `require` shared by all plugins, it is no plugin itself; looked for in the same order: `require('net')` finds
   `lib/net.lua` of the user first, `require('net.address')` finds `lib/net/address.lua`. Paths relative to the current
   directory are taken out of `package.path` and `package.cpath`.
 - A plugin that fails to load is told about once the windows are up, the rest of them work.

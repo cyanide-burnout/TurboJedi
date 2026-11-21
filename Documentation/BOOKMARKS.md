@@ -3,7 +3,7 @@
 What an investigation has found stays: an entry, or the entries you have selected, kept with a comment and a topic,
 "the restart is the OOM killer of the backup at 03:00". A copy of every entry goes along, so a bookmark is there after
 the journal has rotated. Months later you, or an agent, find it again: has this happened before, and what did I find
-then? `010-bookmarks.lua` of the package keeps them in a base of SQLite of yours; it only keeps what you tell it,
+then? `010-bookmarks/` of the package keeps them in a base of SQLite of yours; it only keeps what you tell it,
 nothing on the system changes.
 
 ## In Actions

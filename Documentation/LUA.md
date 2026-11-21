@@ -184,7 +184,8 @@ argument whatever it holds, no shell sees it.
 | `matches(text, pattern, flags)` | any time | an iterator over every match |
 | `which(name)` | any time | the path of a program in `PATH`, or `nil` |
 | `left()` | any time | the milliseconds a method of `Invoke()` has left of the 30 seconds of its call, `nil` outside one: its queries take what is left on their own, a method weighs the rest of its work by it |
-| `where(name, options)` | any time | the path of the file `settings(name)` reads and writes, `{ data = true }` the one of data, under `sudo` the one of the user of sudo, `nil` without a directory: for a file a plugin keeps another way, a base of SQLite for one. It is written by root under `sudo`: made first by `settings(name, '', { private = true, data = true })` it is of the user, 0600, and opened without following a link, see `010-bookmarks.lua` |
+| `where(name, options)` | any time | the path of the file `settings(name)` reads and writes, `{ data = true }` the one of data, under `sudo` the one of the user of sudo, `nil` without a directory: for a file a plugin keeps another way, a base of SQLite for one. It is written by root under `sudo`: made first by `settings(name, '', { private = true, data = true })` it is of the user, 0600, and opened without following a link, see `010-bookmarks/base.lua` |
+| `resource(name)` | any time | a file of the folder or the archive of the plugin, `prompts/system.txt` for one, as text, or `nil` and why: of the plugin whose code calls it, so that a function of one plugin another calls reads the files of its own. A name relative and without `.` or `..` among its parts, 16 MiB at most; under root, a file only root can change. A plugin of one file has none, see [A plugin of many files](#a-plugin-of-many-files) |
 | `sudo()` | any time | the user who has run TurboJedi as root by `sudo`: `{ name = ..., uid = ..., home = ... }`, `nil` otherwise; for a file of settings of that user, see Plugins and root |
 | `utc()` | any time | `true` when the user wants the times of the watches in UTC, `false` for the local zone |
 | `date(format, time)` | any time | `os.date()` in the zone the user has chosen for the watches: put it in its place for the times a watch shows. `!` in front of the format forces UTC as in `os.date()`, `*t` is left to `os.date()` |
@@ -466,6 +467,42 @@ other one that may take long, through a program and `execute` of mode `capture`,
 A handler making the menu should not wait on the network at all: the budget of the menu bounds `query`, not a module.
 A socket that is to be read when something comes is better watched by `poll`, below.
 
+### A plugin of many files
+
+A plugin grown past one file is a folder, `010-bookmarks/` with `init.lua` in it, or the same folder in an archive of
+ZIP, `010-bookmarks.zip` with `init.lua` at its root; see [PLUGINS.md](PLUGINS.md#where-plugins-are). `init.lua` runs as
+the file of a plugin does and gets the name of the plugin as `...`, the way `require` gives a module its name. The
+other files of `.lua` are its modules: `require(name .. '.base')` gives `base.lua`, `require(name .. '.net')`
+`net/init.lua`, at load or later in a handler alike.
+
+```lua
+-- init.lua
+local name  = ...
+local base  = require(name .. '.base')
+local lists = require(name .. '.lists')
+
+turbojedi.on('menu', 'All...', lists.all)
+```
+
+```lua
+-- lists.lua: the name of the plugin is the first part of the name of the module
+local name = (...):match('^[^.]+')
+local base = require(name .. '.base')
+```
+
+The modules of a plugin are named after it, so two plugins never share a module by chance in the one state of Lua; a
+folder or an archive renamed keeps working, since no name is written into it. `init.lua` is no module. The modules of a
+folder are read as they are required and checked under root as `lib/` is; the ones of an archive are compiled when the
+plugin loads and the archive is closed then. An error tells its place, `010-bookmarks/base.lua:12:` or
+`010-bookmarks.zip:base.lua:12:`.
+
+Other files of the plugin, the text of a prompt, a schema, a template, are read by `resource()`, from the folder or the
+archive alike:
+
+```lua
+local INSTRUCTIONS = assert(turbojedi.resource('prompts/instructions.txt'))
+```
+
 ### Descriptors and timers
 
 A plugin may keep a descriptor watched and a timer going between the events, the way the windows read their journals,
@@ -571,7 +608,7 @@ end)
 whatever Lua modules the distribution has, with full-text search by FTS5. A base of a plugin belongs among the data
 of the user: `where(name, { data = true })` tells its path, `settings(name, '', { private = true, data = true })` makes it as the user, 0600, and it is
 opened with `SQLITE_OPEN_NOFOLLOW` (`0x01000000`) and the rollback journal, so that under `sudo` root writes into a file
-of the user and leaves nothing of its own beside it. `010-bookmarks.lua` is the example to follow.
+of the user and leaves nothing of its own beside it. `010-bookmarks/base.lua` is the example to follow.
 
 **Do not wait.** With a function after the request, `fetch` returns at once and the answer comes to the function
 later, with the same values. Nothing is shown meanwhile, the user goes on; the function may use the dialogs as an action
@@ -1006,7 +1043,7 @@ answers nobody but root, so a TurboJedi of another user has no items of it.
 
 ### Arrakis
 
-`020-arrakis.lua` of the package explains the marked entries, or the entry and what has come before it, by a language
+`020-arrakis/` of the package explains the marked entries, or the entry and what has come before it, by a language
 model behind the HTTP API of OpenAI or Anthropic that `arrakis.conf` tells; see [ARRAKIS.md](ARRAKIS.md). In the Plugins menu it explains
 the errors of the window by `query { window = true, priority = 'err' }`, and tells its settings.
 Without the file it sends nothing. A plugin of `fetch()`, `query()`, a watch whose lines are the job and `message(text, title)`, the way a plugin
