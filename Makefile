@@ -221,11 +221,15 @@ POLICY_FILE  ?= $(if $(and $(DBUS_VERSION),$(shell printf '%s\n1.13.11\n' '$(DBU
 # an install over an older one would leave two files of a plugin side by side
 RENAMED := 010-systemd.lua 020-network.lua 030-coredump.lua 040-fail2ban.lua 050-arrakis.lua 010-bookmarks.lua 020-arrakis.lua
 
+# The folders of the plugins of the package are put anew: a module an older version has had and this one has not would
+# stay otherwise
+
 install:
 	rm -f $(addprefix $(PREFIX)/share/$(EXECUTABLE)/plugins/,$(RENAMED))
 	install -D -m 755 $(EXECUTABLE) $(PREFIX)/bin/$(EXECUTABLE)
 	install -D -m 644 $(EXECUTABLE).1 $(PREFIX)/share/man/man1/$(EXECUTABLE).1
 	install -D -m 644 -t $(PREFIX)/share/$(EXECUTABLE)/plugins Plugins/*.lua
+	cd Plugins && for folder in */; do [ -d "$$folder" ] && [ "$$folder" != Examples/ ] && rm -rf "$(PREFIX)/share/$(EXECUTABLE)/plugins/$$folder"; done; true
 	cd Plugins && find . -mindepth 2 -type f ! -path './Examples/*' | while read -r file; do \
 	  install -D -m 644 "$$file" "$(PREFIX)/share/$(EXECUTABLE)/plugins/$$file"; done
 	install -D -m 644 -t $(PREFIX)/share/$(EXECUTABLE)/examples Plugins/Examples/*.lua

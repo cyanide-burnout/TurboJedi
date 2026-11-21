@@ -16,6 +16,7 @@
 #define MENU_SCAN          10000   // Entries they may look at together
 #define MARKED_LIMIT       1000    // Entries of the selection a handler gets in context.marked
 #define RESOURCE_LIMIT     (16 * 1024 * 1024)  // Bytes of a file resource() gives
+#define ARCHIVE_LIMIT      (64 * 1024 * 1024)  // Bytes of the files of an archive of a plugin, unpacked, its modules compiled at once
 
 #define HANDLERS  "TurboJedi.handlers"
 
@@ -1166,6 +1167,10 @@ static int LoadPluginArchive(const std::string& path, const std::string& name)
   zip_t* archive;
   zip_error_t error;
   zip_int64_t index;
+  zip_int64_t count;
+  zip_int64_t number;
+  zip_uint64_t total;
+  zip_stat_t status;
 
   if ((archive = zip_open(path.c_str(), ZIP_RDONLY, &code)) == nullptr)
   {
@@ -1182,12 +1187,69 @@ static int LoadPluginArchive(const std::string& path, const std::string& name)
     return LUA_ERRFILE;
   }
 
+  // The modules are compiled at once: an archive that unpacks to far more than any plugin is, damaged or made so, is not
+  // read whole into memory
+  count = zip_get_num_entries(archive, 0);
+  total = 0;
+
+  for (number = 0; number < count; number ++)
+  {
+    if ((zip_stat_index(archive, number, 0, &status) == 0) &&
+        (status.valid & ZIP_STAT_SIZE))
+    {
+      total += status.size;
+    }
+  }
+
+  if (total > ARCHIVE_LIMIT)
+  {
+    lua_pushfstring(state, "%s: an archive of a plugin unpacks to %d MiB, more than the 64 MiB taken, the plugin is left out", path.c_str(), (int)(total >> 20));
+    zip_discard(archive);
+    return LUA_ERRFILE;
+  }
+
   LoadArchiveModules(state, archive, "?.lua;?/init.lua", name + ".", path);
   result = LoadArchiveFile(state, archive, index, path);
 
   // Only read, nothing to write back
   zip_discard(archive);
   return result;
+}
+
+// The modules of a plugin that has failed to load, compiled from its archive or loaded by its init.lua so far: neither
+// another plugin nor a later require() gets them
+static void ForgetPluginModules(const std::string& name)
+{
+  std::string prefix;
+  std::vector<std::string> keys;
+
+  prefix = name + ".";
+  lua_getglobal(state, "package");
+
+  for (const char* table : { "preload", "loaded" })
+  {
+    keys.clear();
+    lua_getfield(state, -1, table);
+
+    for (lua_pushnil(state); lua_next(state, -2) != 0; lua_pop(state, 1))
+    {
+      if ((lua_type(state, -2) == LUA_TSTRING) &&
+          (strncmp(lua_tostring(state, -2), prefix.c_str(), prefix.size()) == 0))
+      {
+        keys.push_back(lua_tostring(state, -2));
+      }
+    }
+
+    for (const std::string& key : keys)
+    {
+      lua_pushnil(state);
+      lua_setfield(state, -2, key.c_str());
+    }
+
+    lua_pop(state, 1);
+  }
+
+  lua_pop(state, 1);
 }
 
 // The title fits the screen, cut by whole characters
@@ -1528,6 +1590,7 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
       errors.push_back(GetError(state));
       lua_settop(state, 0);
       ForgetPluginMethods(plugin);
+      ForgetPluginModules(plugin);
       folders.erase(plugin);
       archives.erase(plugin);
       continue;

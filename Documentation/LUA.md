@@ -493,7 +493,8 @@ local base = require(name .. '.base')
 The modules of a plugin are named after it, so two plugins never share a module by chance in the one state of Lua; a
 folder or an archive renamed keeps working, since no name is written into it. `init.lua` is no module. The modules of a
 folder are read as they are required and checked under root as `lib/` is; the ones of an archive are compiled when the
-plugin loads and the archive is closed then. An error tells its place, `010-bookmarks/base.lua:12:` or
+plugin loads and the archive is closed then, an archive that unpacks to more than 64 MiB is left out. A plugin that
+fails to load leaves none of its modules behind, `require` of another plugin does not find them. An error tells its place, `010-bookmarks/base.lua:12:` or
 `010-bookmarks.zip:base.lua:12:`.
 
 Other files of the plugin, the text of a prompt, a schema, a template, are read by `resource()`, from the folder or the
