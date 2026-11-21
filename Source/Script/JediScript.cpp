@@ -1305,8 +1305,15 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
       result = luaL_loadfile(state, main.c_str());
     }
 
+    // The name of the plugin goes to its file as ..., the way require() gives a module its name: init.lua requires its
+    // modules by it, a folder renamed keeps working
+    if (result == LUA_OK)
+    {
+      lua_pushlstring(state, plugin.data(), plugin.size());
+    }
+
     if ((result != LUA_OK) ||
-        (lua_pcall(state, 0, 0, 1) != LUA_OK))
+        (lua_pcall(state, 1, 0, 1) != LUA_OK))
     {
       errors.push_back(GetError(state));
       lua_settop(state, 0);
