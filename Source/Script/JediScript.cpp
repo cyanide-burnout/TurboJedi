@@ -5,6 +5,7 @@
 // Plugins in Lua: the state, the files loaded, on(), the Actions menu and the Plugins menu, Invoke() of the bus
 
 #include "ScriptPrivate.h"
+#include "ScriptArchive.h"
 
 #define ACTION_LIMIT       100  // Actions of a menu, the ones of its submenus among them
 #define SUBMENU_DEPTH      3    // Submenus in a submenu
@@ -36,6 +37,7 @@ size_t budget;       // Entries they may look at yet
 int64_t invoked;     // Milliseconds of CLOCK_MONOTONIC a method of Invoke() has until, its queries stop there; zero outside one
 
 static std::vector<std::string> directories;  // In the order a file of the same name takes the place: the user last
+static std::map<std::string, std::string> folders;  // Of the plugins of a folder by their names, require() finds their modules there
 static std::map<std::pair<std::string, std::string>, PluginMethod> descriptions;  // Of on('invoke') by plugin and name
 static const JournalFilter machine = { };     // The journal of this machine, of a method called without a window
 
@@ -646,14 +648,45 @@ bool GetFlag(lua_State* state, int index, const char* name)
   return flag;
 }
 
-// Modules of lib/ in the plugin directories, the user's first, under root only the ones root alone can change
+// A module of a file as a searcher gives it, the loader and the path, or why root does not take it; 0 and the file told
+// as missing when it is not there
+static int FindModule(lua_State* state, const std::string& path, std::string& missing)
+{
+  std::string reason;
+
+  if (access(path.c_str(), R_OK) != 0)
+  {
+    missing += (missing.empty() ? "no file '" : "\n\tno file '") + path + "'";
+    return 0;
+  }
+
+  if (!CheckTrust(path, reason))
+  {
+    lua_pushlstring(state, reason.data(), reason.size());
+    return 1;
+  }
+
+  if (luaL_loadfile(state, path.c_str()) != LUA_OK)
+  {
+    return Fail(state, "error loading module '%s' from file '%s':\n\t%s", lua_tostring(state, 1), path.c_str(), lua_tostring(state, -1));
+  }
+
+  lua_pushlstring(state, path.data(), path.size());
+  return 2;
+}
+
+// Modules of the plugins of a folder, bookmarks.base of 010-bookmarks/base.lua, then the ones of lib/ in the plugin
+// directories, the user's first; under root only the ones root alone can change. The modules of the plugins of an archive
+// are in package.preload already
 static int Search(lua_State* state)
 {
+  int result;
+  size_t dot;
   size_t index;
   std::string name;
-  std::string path;
+  std::string file;
   std::string missing;
-  std::string reason;
+  std::map<std::string, std::string>::const_iterator folder;
 
   if (!GetString(state, 1, name))
   {
@@ -661,31 +694,28 @@ static int Search(lua_State* state)
     return 1;
   }
 
+  if (((dot = name.find('.')) != std::string::npos) &&
+      ((folder = folders.find(name.substr(0, dot))) != folders.end()) &&
+      ((file = name.substr(dot + 1)) != "init"))
+  {
+    // init.lua is the plugin itself, no module of it
+    std::replace(file.begin(), file.end(), '.', '/');
+
+    if (((result = FindModule(state, folder->second + "/" + file + ".lua", missing)) != 0) ||
+        ((result = FindModule(state, folder->second + "/" + file + "/init.lua", missing)) != 0))
+    {
+      return result;
+    }
+  }
+
   std::replace(name.begin(), name.end(), '.', '/');
 
   for (index = directories.size(); index > 0; index --)
   {
-    path = directories[index - 1] + "/lib/" + name + ".lua";
-
-    if (access(path.c_str(), R_OK) != 0)
+    if ((result = FindModule(state, directories[index - 1] + "/lib/" + name + ".lua", missing)) != 0)
     {
-      missing += (missing.empty() ? "no file '" : "\n\tno file '") + path + "'";
-      continue;
+      return result;
     }
-
-    if (!CheckTrust(path, reason))
-    {
-      lua_pushlstring(state, reason.data(), reason.size());
-      return 1;
-    }
-
-    if (luaL_loadfile(state, path.c_str()) != LUA_OK)
-    {
-      return Fail(state, "error loading module '%s' from file '%s':\n\t%s", lua_tostring(state, 1), path.c_str(), lua_tostring(state, -1));
-    }
-
-    lua_pushlstring(state, path.data(), path.size());
-    return 2;
   }
 
   lua_pushlstring(state, missing.data(), missing.size());
@@ -898,14 +928,57 @@ static void PushWindowContext(lua_State* state, JournalView* view)
   }
 }
 
-// Name of a plugin by its file: 100-fail2ban.lua is fail2ban
+static bool HasSuffix(const std::string& name, const char* suffix)
+{
+  size_t length;
+
+  length = strlen(suffix);
+  return (name.size() > length) && (name.compare(name.size() - length, length, suffix) == 0);
+}
+
+// Name of a plugin by its file or folder: 100-fail2ban.lua is fail2ban, 010-bookmarks/ and 010-bookmarks.zip are bookmarks
 static std::string GetPluginName(const std::string& file)
 {
+  size_t end;
   size_t start;
 
+  end   = file.size() - ((HasSuffix(file, ".lua") || HasSuffix(file, ".zip")) ? 4 : 0);
   start = file.find_first_not_of("0123456789");
-  start = ((start != std::string::npos) && (start > 0) && ((file[start] == '-') || (file[start] == '_'))) ? (start + 1) : 0;
-  return file.substr(start, file.size() - 4 - start);
+  start = ((start != std::string::npos) && (start > 0) && (start < end) && ((file[start] == '-') || (file[start] == '_'))) ? (start + 1) : 0;
+  return file.substr(start, end - start);
+}
+
+// A plugin of an archive: its modules into package.preload, and init.lua at the root of it compiled onto the stack, or
+// the error; nothing of the archive is kept
+static int LoadPluginArchive(const std::string& path, const std::string& name)
+{
+  int code;
+  int result;
+  zip_t* archive;
+  zip_error_t error;
+  zip_int64_t index;
+
+  if ((archive = zip_open(path.c_str(), ZIP_RDONLY, &code)) == nullptr)
+  {
+    zip_error_init_with_code(&error, code);
+    lua_pushfstring(state, "%s: %s", path.c_str(), zip_error_strerror(&error));
+    zip_error_fini(&error);
+    return LUA_ERRFILE;
+  }
+
+  if ((index = zip_name_locate(archive, "init.lua", 0)) < 0)
+  {
+    lua_pushfstring(state, "%s: an archive of a plugin has init.lua at its root, this one has not, the plugin is left out", path.c_str());
+    zip_discard(archive);
+    return LUA_ERRFILE;
+  }
+
+  LoadArchiveModules(state, archive, "?.lua;?/init.lua", name + ".", path);
+  result = LoadArchiveFile(state, archive, index, path);
+
+  // Only read, nothing to write back
+  zip_discard(archive);
+  return result;
 }
 
 // The title fits the screen, cut by whole characters
@@ -978,8 +1051,9 @@ static std::string DescribeLoaded(const std::string& path, size_t before)
 void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
 {
   DIR* folder;
+  int result;
   size_t handlers;
-  size_t length;
+  std::string main;
   std::string path;
   std::string reason;
   struct dirent* item;
@@ -1126,11 +1200,13 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
 
     while ((item = readdir(folder)) != nullptr)
     {
-      length = strlen(item->d_name);
-
-      if ((length > 4) &&
-          (strcmp(item->d_name + length - 4, ".lua") == 0) &&
-          (item->d_name[0] != '.'))
+      // A file, an archive or a folder of a plugin; lib/ holds the modules shared by all of them
+      if ((item->d_name[0] != '.') &&
+          ((HasSuffix(item->d_name, ".lua")) ||
+           (HasSuffix(item->d_name, ".zip")) ||
+           ((strcmp(item->d_name, "lib") != 0) &&
+            (stat((place + "/" + item->d_name).c_str(), &status) == 0) &&
+            (S_ISDIR(status.st_mode)))))
       {
         names.push_back(item->d_name);
       }
@@ -1168,6 +1244,7 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
   for (const std::pair<const std::string, std::string>& file : files)
   {
     path = file.second;
+    main = path;
 
     if (stat(path.c_str(), &status) < 0)
     {
@@ -1176,15 +1253,28 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
       continue;
     }
 
-    if ((!S_ISREG(status.st_mode)) ||
-        (status.st_size == 0))
+    if (S_ISDIR(status.st_mode) &&
+        (!HasSuffix(file.first, ".lua")) &&
+        (!HasSuffix(file.first, ".zip")))
     {
-      // An empty file or a link to /dev/null leaves out the plugin of that name
+      // A plugin of a folder runs its init.lua, its modules lie beside it
+      main = path + "/init.lua";
+
+      if (stat(main.c_str(), &status) < 0)
+      {
+        errors.push_back(path + ": a folder of a plugin has init.lua, this one has not, the plugin is left out");
+        continue;
+      }
+    }
+    else if ((!S_ISREG(status.st_mode)) ||
+             (status.st_size == 0))
+    {
+      // An empty file or archive, or a link to /dev/null, leaves out the plugin of that name
       LogConsole(GetPluginName(file.first), "left out by " + path + ", empty", false);
       continue;
     }
 
-    if (!CheckTrust(path, reason))
+    if (!CheckTrust(main, reason))
     {
       errors.push_back(reason);
       continue;
@@ -1204,12 +1294,24 @@ void LoadPlugins(const std::string& directory, std::vector<std::string>& errors)
     lua_settop(state, 0);
     lua_pushcfunction(state, Trace);
 
-    if ((luaL_loadfile(state, path.c_str()) != LUA_OK) ||
+    if (HasSuffix(file.first, ".zip"))
+    {
+      result = LoadPluginArchive(path, plugin);
+    }
+    else
+    {
+      // The modules of a folder are found from now on, init.lua may require them already
+      if (main != path) folders[plugin] = path;
+      result = luaL_loadfile(state, main.c_str());
+    }
+
+    if ((result != LUA_OK) ||
         (lua_pcall(state, 0, 0, 1) != LUA_OK))
     {
       errors.push_back(GetError(state));
       lua_settop(state, 0);
       ForgetPluginMethods(plugin);
+      folders.erase(plugin);
       continue;
     }
 

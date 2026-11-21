@@ -11,7 +11,7 @@ pkgdesc='Turbo Vision viewer of the systemd journal'
 arch=('x86_64' 'aarch64')
 url='https://github.com/cyanide-burnout/TurboJedi'
 license=('MIT')
-depends=('glibc' 'gcc-libs' 'systemd-libs' 'ncurses' 'pcre2' 'gpm' 'curl' 'sqlite' 'lua54')
+depends=('glibc' 'gcc-libs' 'systemd-libs' 'ncurses' 'pcre2' 'gpm' 'curl' 'sqlite' 'libzip' 'lua54')
 makedepends=('cmake' 'git' 'pkgconf')
 optdepends=('python: turbojedi-mcp.py, the D-Bus interface for AI agents'
             'python-dbus: turbojedi-mcp.py, the D-Bus interface for AI agents')

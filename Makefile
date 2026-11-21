@@ -83,6 +83,9 @@ endif
 ifneq ($(shell $(PKG_CONFIG) --exists sqlite3 && echo yes), yes)
 $(error SQLite is needed: libsqlite3-dev, sqlite-devel, sqlite3-devel or sqlite of the distribution)
 endif
+ifneq ($(shell $(PKG_CONFIG) --exists libzip && echo yes), yes)
+$(error libzip is needed for the plugins of an archive: libzip-dev, libzip-devel or libzip of the distribution)
+endif
 endif
 
 LIBRARIES := \
@@ -93,6 +96,7 @@ DEPENDENCIES := \
 	libpcre2-8 \
 	libcurl \
 	sqlite3 \
+	libzip \
 	$(LUA)
 
 OBJECTS := \
@@ -129,6 +133,7 @@ OBJECTS := \
 	$(SOURCE)/Dialog/JournalsDialog.o \
 	$(SOURCE)/Dialog/DirectoryDialog.o \
 	$(SOURCE)/Script/JediScript.o \
+	$(SOURCE)/Script/ScriptArchive.o \
 	$(SOURCE)/Script/ScriptDBus.o \
 	$(SOURCE)/Script/ScriptWatch.o \
 	$(SOURCE)/Script/ScriptEvent.o \
@@ -212,15 +217,17 @@ POLICY ?= $(if $(filter %/usr,$(PREFIX)),$(PREFIX)/share/dbus-1/system.d,$(DESTD
 DBUS_VERSION := $(shell dbus-daemon --version 2> /dev/null | sed -n '1s/.* \([0-9][0-9.]*\)$$/\1/p')
 POLICY_FILE  ?= $(if $(and $(DBUS_VERSION),$(shell printf '%s\n1.13.11\n' '$(DBUS_VERSION)' | sort -V -C && echo old)),me.burnaway.TurboJedi.compat.conf,me.burnaway.TurboJedi.conf)
 
-# The names of the plugins of the package before 0.18 go first: an install over an older one would leave two files of a
-# plugin side by side
-RENAMED := 010-systemd.lua 020-network.lua 030-coredump.lua 040-fail2ban.lua 050-arrakis.lua
+# The names of the plugins of the package before 0.18, and the files of the ones that are folders since 0.19, go first:
+# an install over an older one would leave two files of a plugin side by side
+RENAMED := 010-systemd.lua 020-network.lua 030-coredump.lua 040-fail2ban.lua 050-arrakis.lua 010-bookmarks.lua 020-arrakis.lua
 
 install:
 	rm -f $(addprefix $(PREFIX)/share/$(EXECUTABLE)/plugins/,$(RENAMED))
 	install -D -m 755 $(EXECUTABLE) $(PREFIX)/bin/$(EXECUTABLE)
 	install -D -m 644 $(EXECUTABLE).1 $(PREFIX)/share/man/man1/$(EXECUTABLE).1
 	install -D -m 644 -t $(PREFIX)/share/$(EXECUTABLE)/plugins Plugins/*.lua
+	cd Plugins && find . -mindepth 2 -type f -name '*.lua' ! -path './Examples/*' | while read -r file; do \
+	  install -D -m 644 "$$file" "$(PREFIX)/share/$(EXECUTABLE)/plugins/$$file"; done
 	install -D -m 644 -t $(PREFIX)/share/$(EXECUTABLE)/examples Plugins/Examples/*.lua
 	install -D -m 644 $(POLICY_FILE) $(POLICY)/me.burnaway.TurboJedi.conf
 	sed "s|^VERSION = 'unknown'|VERSION = '$(VERSION)'|" $(EXECUTABLE)-mcp.py > $(EXECUTABLE)-mcp.py.installed

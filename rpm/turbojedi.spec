@@ -44,6 +44,9 @@ BuildRequires:  sqlite3-devel
 BuildRequires:  sqlite-devel
 %endif
 
+# Plugins of an archive, CRB of EL9 and EL10 has it
+BuildRequires:  libzip-devel
+
 # Plugins of the Actions menu, Lua 5.4 under its own name in openSUSE
 %if 0%{?suse_version}
 BuildRequires:  lua54-devel

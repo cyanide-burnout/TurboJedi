@@ -4,7 +4,7 @@ From the sources, and the packages of the distributions. Ready packages: [README
 
 ## Dependencies
 
-Debian packages: `build-essential cmake pkg-config git curl libsystemd-dev libncurses-dev libpcre2-dev liblua5.4-dev libcurl4-openssl-dev libsqlite3-dev`,
+Debian packages: `build-essential cmake pkg-config git curl libsystemd-dev libncurses-dev libpcre2-dev liblua5.4-dev libcurl4-openssl-dev libsqlite3-dev libzip-dev`,
 `libgpm-dev` for the mouse in the Linux console, and `grc` for its rule files if they are wanted. git clones the project
 with its submodules and tells the version; curl fetches lsqlite3, which lives in Fossil: Fossil itself is not needed, the
 file comes over HTTPS.
@@ -32,7 +32,7 @@ offline afterwards. `make install` puts the executable to `/usr/local/bin`, the 
 plugins to `/usr/local/share/turbojedi`, `PREFIX` and `DESTDIR` move them. Without libgpm the build goes on, with the mouse in terminal emulators only; the mouse
 of the Linux console needs the `gpm` service running.
 libcurl serves Check for updates and the requests of plugins, the SQLite of the system the bases of plugins, the
-bookmarks first. Lua 5.4 is needed; distributions name its pkg-config module in
+bookmarks first, and libzip the plugins of an archive. Lua 5.4 is needed; distributions name its pkg-config module in
 their own ways, `lua5.4`, `lua54` or `lua`, any of them of version 5.4 is taken.
 
 About, `--help` and Check for updates link to the repository on GitHub the clone comes from, its `origin`, so a fork links
@@ -56,25 +56,25 @@ that architecture in place:
 ```
 sudo dpkg --add-architecture amd64
 sudo apt update
-sudo apt install crossbuild-essential-amd64 libsystemd-dev:amd64 libncurses-dev:amd64 libpcre2-dev:amd64 libgpm-dev:amd64 libcurl4-openssl-dev:amd64 libsqlite3-dev:amd64 liblua5.4-dev:amd64
+sudo apt install crossbuild-essential-amd64 libsystemd-dev:amd64 libncurses-dev:amd64 libpcre2-dev:amd64 libgpm-dev:amd64 libcurl4-openssl-dev:amd64 libsqlite3-dev:amd64 libzip-dev:amd64 liblua5.4-dev:amd64
 ```
 
 ## RPM package
 
 ```
-sudo dnf install rpm-build gcc-c++ make cmake git curl systemd-devel ncurses-devel pcre2-devel gpm-devel libcurl-devel sqlite-devel lua-devel
+sudo dnf install rpm-build gcc-c++ make cmake git curl systemd-devel ncurses-devel pcre2-devel gpm-devel libcurl-devel sqlite-devel libzip-devel lua-devel
 make rpm
 ```
 
 `make rpm` builds `rpmbuild/RPMS/<arch>/turbojedi-<version>-1.<dist>.<arch>.rpm` for Fedora, RHEL and Amazon Linux,
-with the version the same way. RHEL 9 and its rebuilds have `lua-devel` in CRB: `sudo dnf config-manager --set-enabled crb`. openSUSE takes the same
+with the version the same way. RHEL 9 and 10 and their rebuilds have `lua-devel` and `libzip-devel` in CRB: `sudo dnf config-manager --set-enabled crb`. openSUSE takes the same
 packages from `zypper` with `lua54-devel`, `sqlite3-devel` and `gcc-PIE`, gives no tag of its own
 and gets it by `make rpm DIST=tumbleweed` or `DIST=leap16`.
 
 ## Arch Linux package
 
 ```
-sudo pacman -S --needed base-devel cmake git pkgconf gpm curl sqlite lua54
+sudo pacman -S --needed base-devel cmake git pkgconf gpm curl sqlite libzip lua54
 make arch
 ```
 
