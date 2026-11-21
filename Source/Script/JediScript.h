@@ -62,7 +62,7 @@ int GetConsoleWatch();
 struct PluginArgument
 {
   std::string name;
-  std::string type;         // s u i t x b d as
+  std::string type;         // s u i t x b d as a{sv}
   std::string description;
   bool required;
 };

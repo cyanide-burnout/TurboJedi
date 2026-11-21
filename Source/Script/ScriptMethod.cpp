@@ -50,9 +50,10 @@ static bool ReadMethodArgument(lua_State* state, PluginArgument& argument, std::
   }
 
   if ((argument.type != "s") && (argument.type != "u") && (argument.type != "i") && (argument.type != "t") &&
-      (argument.type != "x") && (argument.type != "b") && (argument.type != "d") && (argument.type != "as"))
+      (argument.type != "x") && (argument.type != "b") && (argument.type != "d") && (argument.type != "as") &&
+      (argument.type != "a{sv}"))
   {
-    error = "argument " + argument.name + " has type s, u, i, t, x, b, d or as, not '" + argument.type + "'";
+    error = "argument " + argument.name + " has type s, u, i, t, x, b, d, as or a{sv}, not '" + argument.type + "'";
     return false;
   }
 

@@ -268,7 +268,7 @@ The keys of `values` beginning with `_` are of TurboJedi, not of the method, whi
 Another key beginning with `_` gives `InvalidArgs`, so a caller learns that an instance does not know it yet. A method
 that has told its arguments, see `ListMethods()`, gets its values checked before it runs: a key it has not told, a
 value of another type or a required one missing gives `InvalidArgs` with the name. An integer of another type is taken
-when its value fits, any number for `d`.
+when its value fits, any number for `d`; an `a{sv}` takes any values in it.
 
 Values of the answer are of the types of Lua: a string `s`, `true`/`false` `b`, an integer `i` while it fits, `t`
 above, `x` below, a float `d`; any other type is given as `{ type = 'as', value = { ... } }`, as `dbus()` takes a
@@ -283,7 +283,7 @@ A method of `ListMethods()`, of the plugins in the order of their names:
 | `description` | s | what it does and gives back, as the plugin tells it; empty when it tells nothing |
 | `effect` | s | `none`, it only reads; `screen`, it changes what the user sees, windows, marks, watches; `system`, it changes the machine or a service, and so is every method that has not told its effect |
 | `declared` | b | it has told its arguments and its values are checked by them; any values go to it otherwise |
-| `arguments` | aa{sv} | `name` s, `type` s (`s`, `u`, `i`, `t`, `x`, `b`, `d`, `as`), `description` s, `required` b |
+| `arguments` | aa{sv} | `name` s, `type` s (`s`, `u`, `i`, `t`, `x`, `b`, `d`, `as`, `a{sv}`), `description` s, `required` b |
 
 A caller limited by the files of allow sees only the methods its `Invoke:` permissions give, and needs `ListMethods`
 there to ask. The effect is what the plugin promises: a caller decides by it what to call, the server of MCP offers an

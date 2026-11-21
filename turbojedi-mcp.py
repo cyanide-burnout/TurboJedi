@@ -515,7 +515,8 @@ EFFECTS = ('none', 'screen')  # What an agent may call: a method that reads, or 
 LIMITS = {'u': (0, 0xffffffff), 'i': (-0x80000000, 0x7fffffff), 't': (0, 0xffffffffffffffff),
           'x': (-0x8000000000000000, 0x7fffffffffffffff)}
 JSON = {'s': {'type': 'string'}, 'b': {'type': 'boolean'}, 'd': {'type': 'number'},
-        'as': {'type': 'array', 'items': {'type': 'string'}}}
+        'as': {'type': 'array', 'items': {'type': 'string'}}, 'a{sv}': {'type': 'object'}}
+DEPTH = 16  # Objects and lists in one another a value may have, far less than D-Bus takes
 
 
 def offered(method):
@@ -563,28 +564,44 @@ def convert(name, kind, value):
         return dbus.Double(value)
     if kind == 'as' and isinstance(value, list) and all(isinstance(item, str) for item in value):
         return dbus.Array(value, signature='s')
+    if kind == 'a{sv}' and isinstance(value, dict):
+        return variant(name, value)
     if kind in LIMITS and integer and (LIMITS[kind][0] <= value <= LIMITS[kind][1]):
         return {'u': dbus.UInt32, 'i': dbus.Int32, 't': dbus.UInt64, 'x': dbus.Int64}[kind](value)
 
     raise Failure('argument %s is %s, the value given is not' % (name, {'s': 'a string', 'b': 'true or false',
-                  'd': 'a number', 'as': 'a list of strings', 'u': 'a whole number of 0 to 4294967295',
+                  'd': 'a number', 'as': 'a list of strings', 'a{sv}': 'an object', 'u': 'a whole number of 0 to 4294967295',
                   'i': 'a whole number of 32 bits', 't': 'a whole number of 0 or more', 'x': 'a whole number of 64 bits'}[kind]))
 
 
-def guess(name, value):
-    '''A value for a method that has not told its arguments, of the type JSON gives it'''
+def variant(name, value, depth=0):
+    '''A value of JSON as D-Bus types it in a variant: an object a{sv}, a list of strings as, any other list av; the
+    method gets them all as tables'''
+    if depth > DEPTH:
+        raise Failure('argument %s has objects and lists in one another deeper than %d' % (name, DEPTH))
     if isinstance(value, bool):
         return dbus.Boolean(value)
     if isinstance(value, int):
+        if not LIMITS['x'][0] <= value <= LIMITS['x'][1]:
+            raise Failure('argument %s has a whole number past 64 bits' % name)
         return dbus.Int64(value)
     if isinstance(value, float):
         return dbus.Double(value)
     if isinstance(value, str):
         return dbus.String(value)
+    if isinstance(value, dict):
+        return dbus.Dictionary(dict((key, variant(name, item, depth + 1)) for key, item in value.items()), signature='sv')
     if isinstance(value, list) and all(isinstance(item, str) for item in value):
         return dbus.Array(value, signature='s')
+    if isinstance(value, list):
+        return dbus.Array([variant(name, item, depth + 1) for item in value], signature='v')
 
-    raise Failure('argument %s is a string, a number, true or false, or a list of strings' % name)
+    raise Failure('argument %s has null, D-Bus has no value for it' % name)
+
+
+def guess(name, value):
+    '''A value for a method that has not told its arguments, of the type JSON gives it'''
+    return variant(name, value)
 
 
 def overview(bus, name):

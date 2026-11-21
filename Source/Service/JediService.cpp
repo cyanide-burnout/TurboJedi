@@ -1073,8 +1073,9 @@ static bool ReadInteger(sd_bus_message* message, const char* type, bool& negativ
   return true;
 }
 
-// A value of the bus fits a type of an argument: an integer of another type when its value fits, any number for d. An
-// integer is read through, read tells it; the variant of another value is left for the caller to skip
+// A value of the bus fits a type of an argument: an integer of another type when its value fits, any number for d; a
+// dictionary a{sv} whatever its values are, the method gets them as tables. An integer is read through, read tells it;
+// the variant of another value is left for the caller to skip
 static bool FitsArgument(sd_bus_message* message, const char* contents, const std::string& type, bool& read)
 {
   bool negative;
@@ -1082,7 +1083,7 @@ static bool FitsArgument(sd_bus_message* message, const char* contents, const st
 
   read = false;
 
-  if ((type == "s") || (type == "b") || (type == "as") ||
+  if ((type == "s") || (type == "b") || (type == "as") || (type == "a{sv}") ||
       (strcmp(contents, "d") == 0))
   {
     return (type == contents) || ((type == "d") && (strcmp(contents, "d") == 0));

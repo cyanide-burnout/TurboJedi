@@ -146,7 +146,9 @@ plugin promises; TurboJedi does not check its code, which runs with your rights 
 
 `invoke` runs the method as an action of a window: its queries read the journal of that window, a watch it sets follows
 it. Without `window_id`, the window you have in front, or the journal of the machine when no window of the journal is
-in front. The values are checked by the schema of the method, by the server and again by TurboJedi.
+in front. The values are checked by the schema of the method, by the server and again by TurboJedi. An argument of
+`a{sv}` is an object in the schema: its strings, numbers, `true`/`false`, lists and objects go to the method as they
+are, `null` has no value on D-Bus and is refused; the same for every value of a method that has not told its arguments.
 
 The plugins of BrandMeister and TetraPack offer:
 
