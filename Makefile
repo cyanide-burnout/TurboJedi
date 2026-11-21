@@ -106,6 +106,11 @@ OBJECTS := \
 	$(SOURCE)/Main/JediClock.o \
 	$(SOURCE)/Main/JediClipboard.o \
 	$(SOURCE)/Journal/JournalView.o \
+	$(SOURCE)/Journal/JournalDraw.o \
+	$(SOURCE)/Journal/JournalLoad.o \
+	$(SOURCE)/Journal/JournalMove.o \
+	$(SOURCE)/Journal/JournalMark.o \
+	$(SOURCE)/Journal/JournalChoice.o \
 	$(SOURCE)/Journal/JournalSource.o \
 	$(SOURCE)/Journal/JournalWindow.o \
 	$(SOURCE)/Journal/JournalHeader.o \
@@ -150,6 +155,9 @@ OBJECTS := \
 	$(SOURCE)/Script/WatchWindow.o \
 	$(SOURCE)/Script/ScriptNotation.o \
 	$(SOURCE)/Service/JediService.o \
+	$(SOURCE)/Service/ServicePermission.o \
+	$(SOURCE)/Service/ServiceMessage.o \
+	$(SOURCE)/Service/ServiceMethod.o \
 	$(SOURCE)/Script/ActionDialogs.o
 
 # The repository lets the Help menu check for a newer release, without it the item is left out
@@ -202,7 +210,27 @@ $(SOURCE)/Main/Version.h: FORCE
 	@printf '#define VERSION "%s"\n#define BUILT_FOR "%s"\n#define REPOSITORY "%s"\n' '$(VERSION)' '$(TARGET)' '$(REPOSITORY)' | cmp -s - $@ || \
 	 printf '#define VERSION "%s"\n#define BUILT_FOR "%s"\n#define REPOSITORY "%s"\n' '$(VERSION)' '$(TARGET)' '$(REPOSITORY)' > $@
 
-$(SOURCE)/Main/TurboJedi.o $(SOURCE)/Main/JediApplication.o $(SOURCE)/Main/JediUpdate.o $(SOURCE)/Script/JediFetch.o $(SOURCE)/Script/JediScript.o $(SOURCE)/Script/ScriptDBus.o $(SOURCE)/Script/ScriptWatch.o $(SOURCE)/Script/ScriptEvent.o $(SOURCE)/Script/ScriptCommand.o $(SOURCE)/Script/ScriptWindow.o $(SOURCE)/Service/JediService.o: $(SOURCE)/Main/Version.h
+# The users of Version.h, ScriptPrivate.h and ServicePrivate.h among them: built after it, also by make -j
+VERSIONED := \
+	$(SOURCE)/Main/TurboJedi.o \
+	$(SOURCE)/Main/JediApplication.o \
+	$(SOURCE)/Main/JediUpdate.o \
+	$(SOURCE)/Script/JediFetch.o \
+	$(SOURCE)/Script/JediScript.o \
+	$(SOURCE)/Script/ScriptLoader.o \
+	$(SOURCE)/Script/ScriptMethod.o \
+	$(SOURCE)/Script/ScriptMenu.o \
+	$(SOURCE)/Script/ScriptDBus.o \
+	$(SOURCE)/Script/ScriptWatch.o \
+	$(SOURCE)/Script/ScriptEvent.o \
+	$(SOURCE)/Script/ScriptCommand.o \
+	$(SOURCE)/Script/ScriptWindow.o \
+	$(SOURCE)/Service/JediService.o \
+	$(SOURCE)/Service/ServicePermission.o \
+	$(SOURCE)/Service/ServiceMessage.o \
+	$(SOURCE)/Service/ServiceMethod.o
+
+$(VERSIONED): $(SOURCE)/Main/Version.h
 
 # Internal headers of Turbo Vision include each other from there, only the event source needs them
 $(SOURCE)/Journal/JournalSource.o: CXXFLAGS += -I$(TURBOVISION)/include/tvision
