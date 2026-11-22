@@ -3,6 +3,31 @@
 Every release has a theme of its own, the patch releases after it finish the same one. Packages of every release are on
 the [releases page](https://github.com/cyanide-burnout/TurboJedi/releases).
 
+## 0.19 — 2026-11-22
+
+Plugins of many files, a folder or a ZIP archive with resources of their own, and the inside of TurboJedi put in order.
+
+- A plugin of a folder with `init.lua` or of a ZIP archive: `require('name.x')` gives a module of it, named after the
+  plugin, so that two plugins never share one by chance and a folder or an archive renamed keeps working. An archive is
+  read when the plugin loads, one that unpacks to more than 64 MiB is left out; a plugin that fails to load leaves none
+  of its modules behind. An error tells its place, `010-bookmarks/base.lua:12:` or `010-bookmarks.zip:base.lua:12:`;
+  see A plugin of many files in `Documentation/LUA.md`
+- `resource(name)` gives a file of the folder or the archive of the plugin whose code calls it, the text of a prompt, a
+  schema or a template, 16 MiB at most; under root, a file only root can change
+- Bookmarks and Arrakis are plugins of folders, `010-bookmarks/` and `020-arrakis/`, their parts in modules and the
+  prompts of Arrakis in `prompts/`. `make install` puts the folders of the plugins of the package anew and removes
+  `010-bookmarks.lua` and `020-arrakis.lua` of 0.18
+- An argument of a method of `a{sv}`: an object of any values, the objects in it as tables. `turbojedi-mcp.py` gives an
+  agent an object for it and converts the values for a method that has declared no arguments the same way; `null`, a
+  whole number past 64 bits and objects and lists in one another deeper than 16 are refused with the reason
+- The base of bookmarks is among the data of the user, `~/.local/share/turbojedi/bookmarks.sqlite` by
+  `XDG_DATA_HOME`, and the last layout in its state, `~/.local/state/turbojedi/last.jedi` by `XDG_STATE_HOME`; the first
+  start moves them from `~/.config/turbojedi/` of 0.18. `settings()` and `where()` take `{ data = true }` for a file of
+  data of a plugin, a base of SQLite for one
+- libzip is needed to build TurboJedi, libzip-dev, libzip-devel or libzip of the distribution; the packages depend on it
+- The loader of the plugins, the methods and the menus of the scripts, the window of the journal and the service of
+  D-Bus are in files of their parts, none of them past about 700 lines
+
 ## 0.18 — 2026-11-20
 
 Methods of plugins for agents, and bookmarks: what an investigation has found stays, with a comment and a topic.
