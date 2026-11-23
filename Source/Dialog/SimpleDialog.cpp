@@ -12,6 +12,7 @@
 #define Uses_TDeskTop
 #define Uses_TEvent
 #include "SimpleDialog.h"
+#include "FilterDialog.h"
 #include "PickDialog.h"
 #include "PickButton.h"
 #include "TextDialog.h"
@@ -40,9 +41,9 @@ bool FitsSimpleFilter(const JournalFilter& filter)
 
 // SimpleDialog
 
-SimpleDialog::SimpleDialog(const JournalFilter& filter) :
+SimpleDialog::SimpleDialog(const JournalFilter& filter, int start) :
   TWindowInit(&TDialog::initFrame),
-  TDialog(TRect(0, 0, 66, 19), "Filter")
+  TDialog(TRect(0, 0, 90, 19), "Filter")
 {
   static const char* const labels[] = { "~U~nit", "~I~dentifier", "~C~ommand", "~T~ransport", "~B~oot", "U~s~er", "~M~achine", "~P~ID" };
 
@@ -93,12 +94,28 @@ SimpleDialog::SimpleDialog(const JournalFilter& filter) :
     modes->setData(&value);
   }
 
+  // As the rules show them, the letters would take the keys of the labels
+  levels = new TCheckBoxes(TRect(65, 3, 87, 11),
+    new TSItem("Emergency",
+    new TSItem("Alert",
+    new TSItem("Critical",
+    new TSItem("Error",
+    new TSItem("Warning",
+    new TSItem("Notice",
+    new TSItem("Informational",
+    new TSItem("Debug", nullptr)))))))));
+
+  value = filter.levels;
+  insert(levels);
+  insert(new TLabel(TRect(64, 2, 75, 3), "Le~v~els", levels));
+  levels->setData(&value);
+
   // What of the filter this window does not show
   told = "Advanced... makes rules of any field, to keep or to leave out";
 
-  if ((filter.levels != 0xff) || !filter.since.empty() || !filter.until.empty())
+  if (!filter.since.empty() || !filter.until.empty())
   {
-    told = "The levels and the times of Advanced... stay as they are";
+    told = "The times of Advanced... stay as they are";
   }
 
   insert(new TStaticText(TRect(3, 14, 63, 15), told.c_str()));
@@ -107,12 +124,13 @@ SimpleDialog::SimpleDialog(const JournalFilter& filter) :
   insert(new TButton(TRect(17, 16, 33, 18), "A~d~vanced...", cmFilterRules, bfNormal));
   insert(new TButton(TRect(35, 16, 47, 18), "C~l~ear",       cmFilterClear, bfNormal));
   insert(new TButton(TRect(49, 16, 61, 18), "Cancel",        cmCancel,      bfNormal));
-  selectNext(False);
+  ((start == FILTER_LEVELS) ? (TView*)levels : (TView*)lines[0])->select();
 }
 
 void SimpleDialog::handleEvent(TEvent& event)
 {
   int field;
+  ushort value;
 
   TDialog::handleEvent(event);
 
@@ -146,6 +164,10 @@ void SimpleDialog::handleEvent(TEvent& event)
     }
 
     SetLine(line, "");
+
+    // Every level
+    value = 0xff;
+    levels->setData(&value);
 
     clearEvent(event);
   }
@@ -203,6 +225,9 @@ void SimpleDialog::apply(JournalFilter& filter) const
 
   lines[JOURNAL_FIELD_COUNT]->getData(data);
   filter.pid = atoi(data);
+
+  levels->getData(&value);
+  filter.levels = value;
 
   line->getData(data);
   modes->getData(&value);

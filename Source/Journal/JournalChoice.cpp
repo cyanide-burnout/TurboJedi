@@ -144,16 +144,16 @@ void JournalView::chooseFilter(int start)
   SimpleDialog* plain;
   FilterDialog* rules;
 
-  // The simple filter when it shows all of it, the window of the rules otherwise; F3 goes to the levels of the rules
+  // The simple filter when it shows all of it, the window of the rules otherwise; F3 goes to the levels of either
   draft  = filter;
-  result = (FitsSimpleFilter(draft) && (start != FILTER_LEVELS)) ? cmFilterSimple : cmFilterRules;
+  result = FitsSimpleFilter(draft) ? cmFilterSimple : cmFilterRules;
 
   // From one to the other with what has been chosen there, OK applies it, Cancel leaves the filter as it has been
   while ((result == cmFilterSimple) || (result == cmFilterRules))
   {
     if (result == cmFilterSimple)
     {
-      plain  = new SimpleDialog(draft);
+      plain  = new SimpleDialog(draft, start);
       result = TProgram::deskTop->execView(plain);
 
       if (result != cmCancel)
