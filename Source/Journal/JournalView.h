@@ -194,7 +194,8 @@ class JournalView : public TScroller
     void reopen();  // open() with a new filter, back on the entry it has been on or the nearest one in time
     void land(const std::string& entry, uint64_t realtime);  // On the entry of a place, a part of the jump at hand
     void read();
-    size_t back(int64_t deadline = 0);  // Up to the deadline, without one until it has found an entry
+    size_t back(int64_t deadline = 0, int* entries = nullptr);  // Lines in front, up to the deadline, without one until
+                                                                // it has found an entry; entries tells their entries
     void dig(int64_t deadline);         // The history wanted, up to the deadline
     bool parse(sd_journal* source, JournalLine& model, std::string& message);
     void split(const JournalLine& model, const std::string& message, std::vector<JournalLine>& parts);

@@ -827,7 +827,7 @@ void TimelineView::read()
       priority = value[0] - '0';
     }
 
-    if ((!filter.texts.empty()) &&
+    if ((chain.textual()) &&
         ((sd_journal_get_data(journal, "MESSAGE", (const void**)&data, &length) < 0) || (length < 8)))
     {
       // An entry without a message is left out by a text, as a journal window leaves it out

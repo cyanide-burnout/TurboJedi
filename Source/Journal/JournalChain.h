@@ -26,6 +26,7 @@ class JournalChain
     // False when an expression of a text is broken, it is taken as a plain text then
     bool set(const JournalFilter& filter);
     bool empty() const;
+    bool textual() const;  // Has a text to match, an empty one is none
 
     // The entry the journal is on passes; line is identifier[pid]: message when the one who asks has it already
     bool pass(sd_journal* journal, const std::string* line = nullptr);

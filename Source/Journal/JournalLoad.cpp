@@ -112,11 +112,14 @@ void JournalView::open(uint64_t at)
     }
     else if (history > 0)
     {
+      wanted = history;
+
       if (parse(journal, model, buffer))
       {
         // Show the entry the cursor is on before moving forward
         split(model, buffer, parts);
         push(parts);
+        wanted --;
       }
 
       if ((!chain.empty()) &&
@@ -124,9 +127,13 @@ void JournalView::open(uint64_t at)
       {
         // A filter done on this side: the window follows from the last entry, its history is looked for back from it,
         // as much as there is time for now and the rest by steps of the polls
-        past   = cursor;
-        wanted = history - lines.size();
+        past = cursor;
         free(cursor);
+      }
+      else
+      {
+        // The journal has stepped back over the history already
+        wanted = 0;
       }
     }
   }
@@ -216,7 +223,7 @@ void JournalView::read()
   trim();
 }
 
-size_t JournalView::back(int64_t deadline)
+size_t JournalView::back(int64_t deadline, int* entries)
 {
   int count;
   bool ended;
@@ -297,6 +304,11 @@ size_t JournalView::back(int64_t deadline)
   {
     past = cursor;
     free(cursor);
+  }
+
+  if (entries != nullptr)
+  {
+    *entries = count;
   }
 
   sd_journal_close(source);
@@ -608,13 +620,13 @@ void JournalView::refresh()
 
 void JournalView::dig(int64_t deadline)
 {
-  size_t added;
+  int entries;
 
   while ((wanted > 0) &&
          (older) &&
          (GetQueryMilliseconds() < deadline))
   {
-    if (((added = back(deadline)) == 0) &&
+    if ((back(deadline, &entries) == 0) &&
         (GetQueryMilliseconds() < deadline))
     {
       // The journal, the range or the room of the window has ended
@@ -622,8 +634,8 @@ void JournalView::dig(int64_t deadline)
       break;
     }
 
-    // Lines, near enough to the entries
-    wanted -= std::min<int>(added, wanted);
+    // The history is counted in entries, a message of several lines is one
+    wanted -= std::min(entries, wanted);
   }
 }
 

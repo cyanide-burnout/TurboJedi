@@ -63,6 +63,11 @@ bool JournalChain::empty() const
   return texts.empty() && exclusions.empty() && presences.empty();
 }
 
+bool JournalChain::textual() const
+{
+  return !texts.empty();
+}
+
 bool JournalChain::pass(sd_journal* journal, const std::string* line)
 {
   size_t length;
@@ -71,14 +76,21 @@ bool JournalChain::pass(sd_journal* journal, const std::string* line)
   char identifier[256];
   char pid[32];
 
-  for (const std::pair<std::string, std::string>& exclusion : exclusions)
+  if (!exclusions.empty())
   {
-    if ((sd_journal_get_data(journal, exclusion.first.c_str(), &data, &length) >= 0) &&
-        (length == exclusion.second.size()) &&
-        (memcmp(data, exclusion.second.data(), length) == 0))
+    // A field may come several times in an entry, sd_journal_get_data() gives the first one only: any of its values
+    // left out leaves the entry out
+    SD_JOURNAL_FOREACH_DATA(journal, data, length)
     {
-      // A value left out
-      return false;
+      for (const std::pair<std::string, std::string>& exclusion : exclusions)
+      {
+        if ((length == exclusion.second.size()) &&
+            (memcmp(data, exclusion.second.data(), length) == 0))
+        {
+          // A value left out
+          return false;
+        }
+      }
     }
   }
 
