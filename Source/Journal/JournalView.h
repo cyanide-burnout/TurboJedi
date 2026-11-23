@@ -48,6 +48,10 @@ struct JournalPlace
   uint64_t anchor;
   uint64_t cursor;
   bool follow;
+  uint64_t generation;                          // The query the numbers are of, each filter opens one of its own
+  std::shared_ptr<const JournalFilter> filter;  // The filter there, a step back to another one takes it again
+  std::string entry;                            // The cursor of the journal of the line the window has been on
+  uint64_t realtime;                            // And its time, the nearest entry when the filter has left it out
 };
 
 struct JournalMoment
@@ -177,6 +181,9 @@ class JournalView : public TScroller
     size_t tail;
     size_t head;
     size_t step;
+    uint64_t generation;                         // Of the query open, the places of another one go by their entries
+    std::shared_ptr<const JournalFilter> shown;  // The filter of the lines there are
+    bool landing;                                // reach() as a part of a jump, not one of its own
 
     std::string status;
     std::string caption;
@@ -185,6 +192,7 @@ class JournalView : public TScroller
     void attach();
     void open();
     void reopen();  // open() with a new filter, back on the entry it has been on or the nearest one in time
+    void land(const std::string& entry, uint64_t realtime);  // reach() as a part of the jump at hand
     void read();
     size_t back(int64_t deadline = 0);  // Up to the deadline, without one until it has found an entry
     void dig(int64_t deadline);         // The history wanted, up to the deadline

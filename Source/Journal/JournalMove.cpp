@@ -409,6 +409,9 @@ void JournalView::reopen()
   uint64_t realtime;
   std::string place;
 
+  // Ctrl-Z goes back to the filter before and to the place there
+  remember();
+
   // Following goes on following; otherwise the selection, or the newest line on the screen while paused
   index = follow ? lines.size() : focus();
 
@@ -425,8 +428,15 @@ void JournalView::reopen()
   if (!place.empty())
   {
     // The entry itself when the filter has kept it, the nearest one in time when it has left it out
-    reach(place, realtime);
+    land(place, realtime);
   }
+}
+
+void JournalView::land(const std::string& entry, uint64_t realtime)
+{
+  landing = true;
+  reach(entry, realtime);
+  landing = false;
 }
 
 bool JournalView::find(int direction, bool tell)
@@ -561,11 +571,37 @@ void JournalView::seek(uint64_t realtime, bool nearest)
 
 JournalPlace JournalView::here()
 {
-  return { first + ((total() > 0) ? lineOf(delta.y) : 0), anchor, cursor, follow };
+  size_t index;
+  JournalPlace place;
+
+  place.top        = first + ((total() > 0) ? lineOf(delta.y) : 0);
+  place.anchor     = anchor;
+  place.cursor     = cursor;
+  place.follow     = follow;
+  place.generation = generation;
+  place.filter     = shown;
+  place.realtime   = 0;
+
+  // The entry of the selection, of the top of the screen without one
+  index = (anchor != NO_SELECTION) ? focus() : ((total() > 0) ? lineOf(delta.y) : lines.size());
+
+  if (index < lines.size())
+  {
+    place.entry    = lines[index].cursor;
+    place.realtime = lines[index].realtime;
+  }
+
+  return place;
 }
 
 void JournalView::remember()
 {
+  if (landing)
+  {
+    // A part of the jump remembered already
+    return;
+  }
+
   // The places after the step are gone and the step takes where the window is; the place the jump lands on comes next,
   // it is taken anew when the window leaves it
   step = (head > tail) ? step : head;
@@ -609,6 +645,25 @@ void JournalView::travel(int direction)
     // One place farther, the bound is checked first so that the numbers never go below the tail
     next  = (direction < 0) ? (next - 1) : (next + 1);
     place = trail[next % JOURNAL_PLACE_DEPTH];
+
+    if ((place.generation != generation) &&
+        (place.filter != nullptr))
+    {
+      // Of a filter changed since: the window takes it again and goes to the entry, the nearest one in time when it is
+      // gone; following goes on following
+      step   = next;
+      filter = *place.filter;
+      follow = place.follow;
+      open();
+
+      if ((!place.follow) &&
+          (!place.entry.empty()))
+      {
+        land(place.entry, place.realtime);
+      }
+
+      return;
+    }
 
     if ((place.top < first) ||
         (place.top >= (first + lines.size())))

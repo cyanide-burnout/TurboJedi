@@ -41,13 +41,12 @@ void JournalView::open()
   wanted  = 0;
   past.clear();
 
-  // Lines of another query
-  tail = 0;
-  head = 0;
-  step = 0;
-
   // A layout file may bring a broken expression, it goes as plain text then
   RepairJournalTexts(filter);
+
+  // Lines of another query, the places of the ones before go by their entries and filters
+  generation ++;
+  shown = std::make_shared<const JournalFilter>(filter);
   chain.set(filter);
 
   if ((result = OpenJournalQuery(&journal, filter)) < 0)

@@ -46,6 +46,12 @@ JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar
   marking  = false;
   unmark   = false;
   only     = false;
+  tail     = 0;
+  head     = 0;
+  step     = 0;
+  landing  = false;
+  wanted   = 0;
+  generation = 0;
 
   open();
 }
@@ -86,6 +92,11 @@ JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar
   tail        = source.tail;
   head        = source.head;
   step        = source.step;
+  generation  = source.generation;
+  shown       = source.shown;
+  landing     = false;
+  past        = source.past;
+  wanted      = source.wanted;
 
   for (index = tail; index < head; index ++)
   {
