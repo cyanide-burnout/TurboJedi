@@ -30,6 +30,13 @@ void JournalView::open(uint64_t at)
     notifier = nullptr;
   }
 
+  if (elder != nullptr)
+  {
+    // Matches of the filter before, FIELD=* of the values there have been
+    sd_journal_close(elder);
+    elder = nullptr;
+  }
+
   clear();
 
   since   = 0;
@@ -243,11 +250,20 @@ size_t JournalView::back(int64_t deadline, int* entries)
   from = (!past.empty()) ? past : ((!lines.empty()) ? edge(false).cursor : std::string());
 
   if ((!older) ||
-      (from.empty()) ||
-      (OpenJournalHistory(&source, filter) < 0))
+      (from.empty()))
   {
     return 0;
   }
+
+  if ((elder == nullptr) &&
+      (OpenJournalHistory(&elder, filter) < 0))
+  {
+    // FIELD=* is given as the values the field has now, the history has them all
+    elder = nullptr;
+    return 0;
+  }
+
+  source = elder;
 
   // A journal of its own, the one of the window keeps following the tail, seeking lands on the entry looked at, the next
   // steps go older; one the history does not match lands on the one before, not looked at yet
@@ -311,7 +327,6 @@ size_t JournalView::back(int64_t deadline, int* entries)
     *entries = count;
   }
 
-  sd_journal_close(source);
   older  = !ended;
   before = total();
 

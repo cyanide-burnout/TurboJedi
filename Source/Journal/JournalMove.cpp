@@ -575,10 +575,14 @@ void JournalView::seek(uint64_t realtime, bool nearest)
 
   if (nearest &&
       (index > 0) &&
+      (lines[index].realtime >= realtime) &&
       ((realtime - lines[index - 1].realtime) < (lines[index].realtime - realtime)))
   {
-    // The one just before is closer to the moment
-    index --;
+    // The entry just before is closer to the moment, on its first line; a moment after the last line stays on it
+    for (index --; (index > 0) && (lines[index].continued); index --)
+    {
+      // Up to the first line of the entry
+    }
   }
 
   select(index, false);

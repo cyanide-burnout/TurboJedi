@@ -153,6 +153,7 @@ class JournalView : public TScroller
     bool pending;    // Reading has stopped at the end of its batch, the next poll goes on
     bool older;      // History in front of the first line may still be there
     std::string past; // Cursor of the oldest entry the history has looked at, it goes on from there
+    sd_journal* elder; // The journal the history is read from, kept from one step to the next while the filter stays
     int wanted;       // Entries of the history a filter done on this side is still looking for, by steps of the polls
 
     std::vector<uint64_t> rows;  // Wrapped lines: rows in front of every line, the total last

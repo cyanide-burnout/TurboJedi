@@ -51,6 +51,7 @@ JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar
   step     = 0;
   landing  = false;
   wanted   = 0;
+  elder    = nullptr;
   generation = 0;
 
   open();
@@ -95,6 +96,7 @@ JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar
   generation  = source.generation;
   applied     = source.applied;
   landing     = false;
+  elder       = nullptr;
   past        = source.past;
   wanted      = source.wanted;
 
@@ -160,6 +162,11 @@ JournalView::~JournalView()
     // Window has been closed, the copy of inotify goes first
     ReleaseJournalSource(notifier);
     sd_journal_close(journal);
+  }
+
+  if (elder != nullptr)
+  {
+    sd_journal_close(elder);
   }
 }
 
@@ -430,6 +437,13 @@ void JournalView::handleEvent(TEvent& event)
         attach();
         unseen -= counted;
         counted = 0;
+
+        if (elder != nullptr)
+        {
+          // Its files may have gone too
+          sd_journal_close(elder);
+          elder = nullptr;
+        }
       }
 
       if ((event.message.command == cmJournalPoll) &&
