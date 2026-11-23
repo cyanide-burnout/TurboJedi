@@ -134,9 +134,10 @@ A window of `ListWindows()`:
 | `title` | s | as the frame shows it, without the signs of following and the order |
 | `directory` | s | the journal files of a directory, empty for the journal of the machine |
 | `merge` | b | the journals of every machine |
-| `text`, `regex`, `exclude`, `case` | s, b, b, b | the text of the filter and how it is matched |
+| `texts` | as | the texts of the chain of the window as its title writes them, `/text/`, `!/text/` left out, `r` and `c` after it for an expression and for case (since 0.20) |
+| `text`, `regex`, `exclude`, `case` | s, b, b, b | the first of them and how it is matched |
 | `levels` | s | the priorities shown, `EACRWNID` with `-` for the hidden ones |
-| `matches` | as | FIELD=VALUE of the command line and of the plugins |
+| `matches` | as | FIELD=VALUE of the command line and of the plugins, FIELD!=VALUE left out, in the order given |
 | `unit`, `identifier`, `command`, `transport`, `boot`, `user`, `machine` | s | the fields of Source, only the ones set |
 | `pid` | u | Source, when set |
 | `since`, `until` | s | the range as given, when set |
@@ -203,13 +204,13 @@ A line of `GetWatchLines()`: `number` t, `moment` t (microseconds it has been ad
 
 ### Query
 
-`Query(options)` reads the way `turbojedi.query()` of a plugin does. The journal applies the matches, the text is
-matched against `identifier[pid]: message` as in a window.
+`Query(options)` reads the way `turbojedi.query()` of a plugin does. The journal applies the matches of FIELD=VALUE,
+FIELD!=VALUE and the text are applied here as in a window, the text against `identifier[pid]: message`.
 
 | Option | Type | |
 |---|---|---|
 | `id` | u | the journal of this window, its directory and merge; the journal of the machine without it |
-| `matches` | as | FIELD=VALUE, the same field twice is OR, different fields are AND |
+| `matches` | as | FIELD=VALUE, the same field twice is OR, different fields are AND; FIELD!=VALUE leaves the entries with the value out |
 | `text` | s | text of the message |
 | `regex`, `exclude`, `case` | b | the text is a regular expression of PCRE2; the entries that match are left out; the case matters |
 | `priority` | s | up to the level: `emerg`, `alert`, `crit`, `err`, `warning`, `notice`, `info`, `debug` or `0`..`7` |

@@ -6,7 +6,7 @@ it: [README](../README.md).
 ## Usage
 
 ```
-turbojedi [options] [FIELD=VALUE ...]
+turbojedi [options] [FIELD=VALUE | FIELD!=VALUE | /text/ | !/text/ ...]
 ```
 
 | Option | |
@@ -31,6 +31,16 @@ turbojedi [options] [FIELD=VALUE ...]
 one as journalctl takes it: `-1h`, `+30m`, `-1h 30min`, `-2days`, `5min ago` (`us`, `ms`, `s`, `min`, `h`, `d`, `w`,
 `M`, `y` and their longer names); in local time, or in UTC with `UTC` at the end as journalctl takes it:
 `2026-10-23 17:00 UTC`.
+
+`FIELD=VALUE` matches any journal field, the journal itself finds the entries: the same field twice is OR, different
+fields are AND. The rest is a chain applied by TurboJedi, an entry has to pass all of it: `FIELD!=VALUE` leaves out the
+entries with the value, `/text/` shows the entries with the text in `identifier[pid]: message`, `!/text/` leaves them
+out; `r` after the last `/` makes it a regular expression of PCRE2, `c` makes the case matter. The title of a window
+writes its chain the same way.
+
+```
+turbojedi -u foo.service /start/ '!/restart/' _PID!=123 _PID!=234
+```
 
 Reading the whole journal needs root or the `systemd-journal` group, others see their own entries only.
 
@@ -76,7 +86,7 @@ Your shell puts in `$USER` and `$HOME` before `sudo` starts.
 | F2 | new window with the filter of the command line |
 | Shift-F2 | clone of the focused window: its lines, filter, find, selection and place, or the counts, step, scale, bars and cursor of a timeline; both go on with the journal on their own |
 | F3 | levels |
-| F4 | text filter |
+| F4 | the chain of the window: its matches and texts in the order given. Show adds the text typed to show the entries with it, Hide to leave them out; Remove takes the link under the cursor out, Show or Enter with nothing typed applies it |
 | F7 | source |
 | Shift-F7 | journals: of this machine, of every machine or of a directory |
 | Ctrl-T | time range, in local time or with UTC checked in UTC: checking it turns the times over to the same moments, `today` to the date and time of its midnight, and back to `today` with nothing typed meanwhile; it starts in the zone the range is written in, or as the window shows times when nothing in the range is of a zone |
@@ -168,8 +178,9 @@ highlight = conf.log
 columns = date,time,level,identifier,pid,millisecond
 ```
 
-Keys: `bounds`, `directory`, `merge`, `unit`, `identifier`, `command`, `transport`, `boot`, `user`, `machine`, `pid`, `match` (repeatable),
-`since`, `until`, `text`, `regex`, `exclude`, `case`, `levels` (letters `EACRWNID` of the levels shown, dashes
+Keys: `bounds`, `directory`, `merge`, `unit`, `identifier`, `command`, `transport`, `boot`, `user`, `machine`, `pid`, `match` (repeatable,
+`FIELD=VALUE` or `FIELD!=VALUE`), `since`, `until`, `text` (repeatable, each followed by its own `regex`, `exclude` and
+`case`), `levels` (letters `EACRWNID` of the levels shown, dashes
 for the hidden ones), `highlight` and `columns` (`date`, `time`, `level`, `host`, `unit`, `identifier`, `pid`, `utc`,
 `millisecond`, `wrap`, `headless`, `reverse`).
 

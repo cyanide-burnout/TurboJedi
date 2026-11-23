@@ -276,11 +276,11 @@ of the menu, its filter is of the options.
 
 | Option | |
 |---|---|
-| `matches` | `{ FIELD = value }`, `{ FIELD = { value, ... } }` or `{ 'FIELD=VALUE', ... }`: the journal finds them, the values of one field are ORed, different fields ANDed |
+| `matches` | `{ FIELD = value }`, `{ FIELD = { value, ... } }` or `{ 'FIELD=VALUE', ... }`: the journal finds them, the values of one field are ORed, different fields ANDed. `'FIELD!=VALUE'` in the list leaves out the entries with the value, as many of them as given (since 0.20) |
 | `text` | the text filter, plain by default; with `regex = true` an expression of PCRE2, `exclude = true` leaves the matching entries out, `case = true` minds the case. It is matched against `identifier[pid]: message`, as the text filter of a window is: `^Failed` never matches, `: Failed` does |
 | `since`, `until` | times as `-S` takes them: `2026-10-23 19:00`, `-10m`, `today` |
 | `priority` | up to the level, as `-p`: `err`, `warning` or `0` to `7` |
-| `window` | `true`: the whole filter of the window of the menu, which the other options narrow. Matches of other fields go along with its own, a match of a field it has adds a value to it, as the journal ORs one field; `priority` keeps the levels both let through, `since` and `until` take the place of its times, `text` goes where it has none. An item of the Plugins menu with no window open starts from the filter TurboJedi has been started with. `watch:follow()` takes no `window` |
+| `window` | `true`: the whole filter of the window of the menu, which the other options narrow. Matches of other fields go along with its own, a match of a field it has adds a value to it, as the journal ORs one field; `priority` keeps the levels both let through, `since` and `until` take the place of its times, `text` is one more after its texts, an entry has to pass all of them. An item of the Plugins menu with no window open starts from the filter TurboJedi has been started with. `watch:follow()` takes no `window` |
 
 ```lua
 turbojedi.open { matches = { _SYSTEMD_UNIT = entry._SYSTEMD_UNIT }, text = identifier, since = '-1h' }

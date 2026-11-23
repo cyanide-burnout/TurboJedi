@@ -3,7 +3,7 @@
 turbojedi \- Turbo Vision viewer of the systemd journal
 .SH SYNOPSIS
 .B turbojedi
-[\fIoptions\fR] [\fIFIELD\fB=\fIVALUE\fR ...]
+[\fIoptions\fR] [\fIFIELD\fB=\fIVALUE\fR | \fIFIELD\fB!=\fIVALUE\fR | \fB/\fItext\fB/\fR | \fB!/\fItext\fB/\fR ...]
 .SH DESCRIPTION
 .B turbojedi
 shows the systemd journal in windows and follows it.
@@ -12,6 +12,12 @@ Options set the filter of the first window, the dialogs of the Journal menu chan
 .PP
 \fIFIELD\fB=\fIVALUE\fR matches any journal field.
 Matches of the same field are joined by OR, of different fields by AND.
+.PP
+The rest is a chain applied by turbojedi, an entry has to pass all of it:
+\fIFIELD\fB!=\fIVALUE\fR leaves out the entries with the value,
+\fB/\fItext\fB/\fR shows the entries with the text in "identifier[pid]: message",
+\fB!/\fItext\fB/\fR leaves them out;
+\fBr\fR after the last \fB/\fR makes it a regular expression of PCRE2, \fBc\fR makes the case matter.
 .SH OPTIONS
 .TP
 \fB\-t\fR, \fB\-\-identifier\fR \fIID\fR
@@ -91,7 +97,7 @@ Clone of the focused window: its lines, filter, find, selection and place, or th
 Levels.
 .TP
 .B F4
-Text filter: plain or regular expression, to show or to leave out the matching entries, case sensitive or not.
+The chain of the window, its matches and texts in the order given: Show adds a text to show the entries with it, Hide to leave them out, plain or regular expression, case sensitive or not; Remove takes a link out.
 .TP
 .B F7
 Source: unit, identifier, command, transport, boot, user, machine, PID, with lists of the values in the journal.

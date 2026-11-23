@@ -22,7 +22,8 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd, PC
 - Windows with journals and filters of their own: journals of this machine, of every machine or of a directory,
   one mounted from another machine over SSH or NFS as well,
   levels, source (unit, identifier, command, transport, boot, user, machine, PID,
-  any `FIELD=VALUE`), time range, and text, plain or a regular expression of PCRE2, to show or to leave out
+  any `FIELD=VALUE`), time range, and a chain of texts and values to show or to leave out, `/start/ !/restart/
+  _PID!=123`, plain or a regular expression of PCRE2
 - Follows the tail, Space pauses; scrolling past the oldest line brings the older entries in. The title of every
   window tells it: ► follows, ‖ is paused, ‖ +12 has 12 entries come meanwhile; a click on the sign pauses or follows.
   A paused window that is full keeps
@@ -102,7 +103,7 @@ The dependencies and the packages of the distributions: [BUILD.md](Documentation
 ## Start
 
 ```
-turbojedi [options] [FIELD=VALUE ...]
+turbojedi [options] [FIELD=VALUE | FIELD!=VALUE | /text/ | !/text/ ...]
 ```
 
 `-u nginx` takes the entries of a unit, `-p err` the errors, `-S -1h` the last hour, `-D DIR` a directory of journals;
@@ -111,7 +112,7 @@ reading the whole journal needs root or the `systemd-journal` group. F1 tells th
 | Key | |
 |---|---|
 | F2 | new window |
-| F3, F4, F7 | levels, text filter, source of the window |
+| F3, F4, F7 | levels, the chain of texts and values, source of the window |
 | Ctrl-T | time range |
 | Ctrl-F | find |
 | Space | pause or follow |

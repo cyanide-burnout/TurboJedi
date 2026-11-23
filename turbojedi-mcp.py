@@ -696,7 +696,8 @@ FILTER = {
                                                     'the journal of the machine without it'},
     'matches': {'type': 'array', 'items': {'type': 'string'},
                 'description': 'FIELD=VALUE as journalctl takes them, such as _SYSTEMD_UNIT=nginx.service or '
-                               'SYSLOG_IDENTIFIER=sshd; the same field twice is OR, different fields are AND'},
+                               'SYSLOG_IDENTIFIER=sshd; the same field twice is OR, different fields are AND. '
+                               'FIELD!=VALUE leaves out the entries with the value, _PID!=123 for one'},
     'text': {'type': 'string', 'description': 'text matched against "identifier[pid]: message"'},
     'regex': {'type': 'boolean', 'description': 'text is a regular expression of PCRE2'},
     'exclude': {'type': 'boolean', 'description': 'entries that match the text are left out'},
@@ -752,7 +753,9 @@ TOOLS = [
 
     ('list_windows', list_windows, True,
      'The windows of the journal of an instance, the front one first: window_id, the number on the screen, the title, '
-     'the filter (text, levels as EACRWNID with - for hidden ones, matches, the fields of Source, since, until), '
+     'the filter (texts as the title writes them, /text/ to show, !/text/ to leave out, r and c after it for an '
+     'expression and for case; levels as EACRWNID with - for hidden ones; matches, FIELD!=VALUE left out; the fields of '
+     'Source; since, until), '
      'whether the window follows the end of the journal, how many entries are marked or selected in it, and active, '
      'the one the user has in front. No window is active while a timeline or a list of watches is in front.',
      schema({})),
