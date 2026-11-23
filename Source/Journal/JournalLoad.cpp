@@ -44,8 +44,7 @@ void JournalView::open()
   // A layout file may bring a broken expression, it goes as plain text then
   RepairJournalTexts(filter);
 
-  // Lines of another query, the places of the ones before go by their entries and filters
-  generation ++;
+  // The filter of the lines to come, the places of the ones before go by their entries and filters
   applied = std::make_shared<const JournalFilter>(filter);
   chain.set(filter);
 
@@ -522,12 +521,11 @@ void JournalView::clear()
   marking = false;
   unmark  = false;
 
-  // The numbers of the newest on top go on in front, places of the lines gone could get them again
+  // The numbers of the newest on top go on in front, marks of the lines gone could get them again; the places of the
+  // jumps stay, of lines gone they go by their entries and filters
   marks.clear();
-  tail = 0;
-  head = 0;
-  step = 0;
   lines.clear();
+  generation ++;
   bytes = 0;
   rows.clear();
   memset(counts, 0, sizeof(counts));
