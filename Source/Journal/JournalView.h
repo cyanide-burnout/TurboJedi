@@ -184,6 +184,7 @@ class JournalView : public TScroller
 
     void attach();
     void open();
+    void reopen();  // open() with a new filter, back on the entry it has been on or the nearest one in time
     void read();
     size_t back(int64_t deadline = 0);  // Up to the deadline, without one until it has found an entry
     void dig(int64_t deadline);         // The history wanted, up to the deadline

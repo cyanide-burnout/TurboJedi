@@ -311,7 +311,7 @@ void JournalView::details()
     // One more value left out, of any field, after those the chain has; the window narrows as Apply as filter of
     // Wireshark does
     filter.matches.push_back(name + "!=" + value);
-    open();
+    reopen();
     return;
   }
 
@@ -341,7 +341,7 @@ void JournalView::details()
   }
 
   // The window narrows to it, F4 shows the rules and takes one out again
-  open();
+  reopen();
 }
 
 size_t JournalView::mark(const std::set<std::string>& cursors, uint64_t oldest, bool clear)

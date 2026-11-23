@@ -187,7 +187,7 @@ void JournalView::chooseFilter(int start)
   if (result == cmOK)
   {
     filter = draft;
-    open();
+    reopen();
   }
 }
 
@@ -204,7 +204,7 @@ void JournalView::chooseSource()
     // A directory is checked by the dialog already, the query starts over
     filter.merge     = data.scope == JOURNALS_ALL;
     filter.directory = (data.scope == JOURNALS_DIRECTORY) ? data.directory : "";
-    open();
+    reopen();
   }
 }
 
@@ -249,5 +249,5 @@ void JournalView::chooseTime()
 
   filter.since = data.since;
   filter.until = data.until;
-  open();
+  reopen();
 }

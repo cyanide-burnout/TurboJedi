@@ -403,6 +403,32 @@ bool JournalView::reach(const std::string& cursor, uint64_t realtime)
   return false;
 }
 
+void JournalView::reopen()
+{
+  size_t index;
+  uint64_t realtime;
+  std::string place;
+
+  // Following goes on following; otherwise the selection, or the newest line on the screen while paused
+  index = follow ? lines.size() : focus();
+
+  if (index >= lines.size())
+  {
+    open();
+    return;
+  }
+
+  place    = lines[index].cursor;
+  realtime = lines[index].realtime;
+  open();
+
+  if (!place.empty())
+  {
+    // The entry itself when the filter has kept it, the nearest one in time when it has left it out
+    reach(place, realtime);
+  }
+}
+
 bool JournalView::find(int direction, bool tell)
 {
   size_t added;
