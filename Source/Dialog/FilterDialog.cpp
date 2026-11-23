@@ -322,6 +322,7 @@ std::string FilterDialog::describe(const Rule& rule) const
 bool FilterDialog::addField(bool quiet)
 {
   int field;
+  bool any;
   bool taken;
   ushort checked;
   std::string key;
@@ -355,8 +356,10 @@ bool FilterDialog::addField(bool quiet)
   }
 
   field = FindAlias(key);
+  any   = (text == "*");
 
   if ((field == JOURNAL_FIELD_UNIT) &&
+      (!any) &&
       (text.find('.') == std::string::npos))
   {
     // Like systemctl and journalctl do
@@ -364,6 +367,7 @@ bool FilterDialog::addField(bool quiet)
   }
 
   if ((field == JOURNAL_FIELD_COUNT) &&
+      (!any) &&
       ((text.find_first_not_of("0123456789") != std::string::npos) || (atoi(text.c_str()) <= 0)))
   {
     this->value->select();
@@ -371,9 +375,9 @@ bool FilterDialog::addField(bool quiet)
     return false;
   }
 
-  // The first value of a field of Source shown is the field itself, as the Source dialog has set it; another value of it
-  // and a value left out go to the journal as raw matches
-  if ((field >= 0) && (!checked))
+  // The first value of a field of Source shown is the field itself, as the Source dialog has set it; another value of it,
+  // a value left out and * of any value are raw matches
+  if ((field >= 0) && (!checked) && (!any))
   {
     taken = false;
 
@@ -391,7 +395,8 @@ bool FilterDialog::addField(bool quiet)
     }
   }
 
-  if (field == JOURNAL_FIELD_USER)
+  if ((field == JOURNAL_FIELD_USER) &&
+      (!any))
   {
     // The journal knows numbers only
     if ((text = GetJournalUserIdentifier(text)).empty())

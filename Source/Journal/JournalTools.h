@@ -59,7 +59,7 @@ struct JournalFilter
   std::string directory;             // Journal files of a directory, empty for the journals of this system
   bool merge;                        // Of every machine there are instead of this one, like journalctl --merge
   std::string values[JOURNAL_FIELD_COUNT];
-  std::vector<std::string> matches;  // Raw FIELD=VALUE for the journal, FIELD!=VALUE left out on this side, in the order given
+  std::vector<std::string> matches;  // Raw FIELD=VALUE for the journal, FIELD!=VALUE, FIELD=* and FIELD!=* on this side, in the order given
   int pid;
   uint16_t levels;                   // Bit N shows priority N
   std::vector<JournalText> texts;    // Applied on this side, an entry has to pass all of them
@@ -145,6 +145,7 @@ std::string GetJournalUserIdentifier(const std::string& user);
 // the entries with that value left out, as well unless only equal is asked for
 bool CheckJournalMatch(const std::string& match, bool equal = false);
 bool IsJournalExclusion(const std::string& match);  // FIELD!=VALUE
+bool IsJournalPresence(const std::string& match);   // FIELD=* has the field, FIELD!=* has it not, of any value
 
 // A text of a filter the way a title writes it, like sed: /text/, !/text/ leaves out, r after it an expression, c case;
 // ParseJournalText takes it back, false for what is no such text

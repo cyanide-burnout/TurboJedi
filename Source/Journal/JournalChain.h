@@ -15,8 +15,9 @@
 #include "JournalMatcher.h"
 
 // What of a filter the journal cannot apply, done on this side: the values of fields left out, FIELD!=VALUE of its
-// matches, and its texts matched against identifier[pid]: message. An entry passes when it has none of the values left
-// out, by the first value of the field, and passes every text
+// matches, the fields an entry has to have or not to have, FIELD=* and FIELD!=*, and its texts matched against
+// identifier[pid]: message. An entry passes when it has none of the values left out, by the first value of the field,
+// has the fields asked for and not the others, and passes every text
 
 class JournalChain
 {
@@ -39,6 +40,7 @@ class JournalChain
 
     std::deque<Text> texts;
     std::vector<std::pair<std::string, std::string>> exclusions;  // FIELD and FIELD=VALUE
+    std::vector<std::pair<std::string, bool>> presences;           // FIELD and whether it has to be there
 };
 
 // A text of a broken expression of a filter becomes a plain one, as a window takes it, a layout may bring one

@@ -121,9 +121,10 @@ int OpenJournalQuery(sd_journal** journal, const JournalFilter& filter)
 
   for (const std::string& value : filter.matches)
   {
-    if (!IsJournalExclusion(value))
+    if ((!IsJournalExclusion(value)) &&
+        (!IsJournalPresence(value)))
     {
-      // Raw FIELD=VALUE, one left out is up to a JournalChain
+      // Raw FIELD=VALUE, one left out and one of any value are up to a JournalChain
       sd_journal_add_match(*journal, value.c_str(), 0);
     }
   }
@@ -727,6 +728,16 @@ bool IsJournalExclusion(const std::string& match)
   equal = match.find('=');
 
   return (equal != std::string::npos) && (equal > 0) && (match[equal - 1] == '!');
+}
+
+bool IsJournalPresence(const std::string& match)
+{
+  size_t equal;
+
+  // The value is the star alone, a value of a field that has a star in it is matched as it is
+  equal = match.find('=');
+
+  return (equal != std::string::npos) && (equal > 0) && (match.compare(equal + 1, std::string::npos, "*") == 0);
 }
 
 std::string FormatJournalText(const JournalText& text)

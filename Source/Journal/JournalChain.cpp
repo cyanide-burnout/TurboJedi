@@ -17,9 +17,18 @@ bool JournalChain::set(const JournalFilter& filter)
 
   texts.clear();
   exclusions.clear();
+  presences.clear();
 
   for (const std::string& match : filter.matches)
   {
+    if (IsJournalPresence(match))
+    {
+      // FIELD=* has the field, FIELD!=* has it not
+      equal = match.find('=');
+      presences.emplace_back(match.substr(0, IsJournalExclusion(match) ? (equal - 1) : equal), !IsJournalExclusion(match));
+      continue;
+    }
+
     if (IsJournalExclusion(match))
     {
       // FIELD!=VALUE is compared as the journal gives the data, FIELD=VALUE
@@ -51,7 +60,7 @@ bool JournalChain::set(const JournalFilter& filter)
 
 bool JournalChain::empty() const
 {
-  return texts.empty() && exclusions.empty();
+  return texts.empty() && exclusions.empty() && presences.empty();
 }
 
 bool JournalChain::pass(sd_journal* journal, const std::string* line)
@@ -69,6 +78,15 @@ bool JournalChain::pass(sd_journal* journal, const std::string* line)
         (memcmp(data, exclusion.second.data(), length) == 0))
     {
       // A value left out
+      return false;
+    }
+  }
+
+  for (const std::pair<std::string, bool>& presence : presences)
+  {
+    if ((sd_journal_get_data(journal, presence.first.c_str(), &data, &length) >= 0) != presence.second)
+    {
+      // A field there that has not to be, or one missing
       return false;
     }
   }

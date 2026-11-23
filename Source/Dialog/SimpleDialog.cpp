@@ -185,6 +185,13 @@ void SimpleDialog::apply(JournalFilter& filter) const
   {
     lines[field]->getData(data);
     filter.values[field] = data;
+
+    if (filter.values[field] == "*")
+    {
+      // Of any value, the entries that have the field: the chain does it, the journal knows no such match
+      filter.matches.push_back(std::string(JournalFieldNames[field]) + "=*");
+      filter.values[field].clear();
+    }
   }
 
   if ((!filter.values[JOURNAL_FIELD_UNIT].empty()) &&
