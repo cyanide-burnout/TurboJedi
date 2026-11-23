@@ -46,7 +46,8 @@ enum
   cmJournalReverse,
   cmJournalMarked,
   cmPageCopy,
-  cmPageFilter,
+  cmPageShow,                  // A window of the field under the cursor of a page
+  cmPageHide,                  // A window without its value
   cmPageCursor,                // Broadcast of a page: its cursor has moved
   cmJournalPoll,
   cmJournalSourceClear,

@@ -15,7 +15,7 @@
 #include "PageView.h"
 
 // Read-only text in a dialog almost as large as the desktop, Copy puts all of it to the clipboard,
-// choosing adds a cursor and Filter ends the dialog with cmPageFilter, off on a line that may not be chosen
+// choosing adds a cursor, Show and Hide end the dialog with cmPageShow and cmPageHide, off on a line that may not be chosen
 
 class PageDialog : public TDialog
 {
@@ -29,7 +29,8 @@ class PageDialog : public TDialog
   private:
 
     PageView* page;
-    TButton* filter;
+    TButton* show;
+    TButton* hide;
 
     void copy();
     void follow();

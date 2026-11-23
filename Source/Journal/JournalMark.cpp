@@ -283,14 +283,14 @@ void JournalView::details()
 
   bounds = TProgram::deskTop->getExtent();
   bounds.grow(-2, -1);
-  // Filter is off on a field the journal takes no match of
+  // Show and Hide are off on a field the journal takes no match of
   dialog = new PageDialog(bounds, "Entry", shown, true, matchable);
   result = TProgram::deskTop->execView(dialog);
   chosen = dialog->chosen();
 
   TObject::destroy(dialog);
 
-  if ((result != cmPageFilter) ||
+  if (((result != cmPageShow) && (result != cmPageHide)) ||
       (chosen < 0))
   {
     // Closed
@@ -308,6 +308,14 @@ void JournalView::details()
   value = fields[chosen].substr(equal + 1);
   other = filter;
 
+  if (result == cmPageHide)
+  {
+    // One more value left out, of any field, after those the chain has
+    other.matches.push_back(name + "!=" + value);
+    message(TProgram::application, evBroadcast, cmJournalOpenFilter, &other);
+    return;
+  }
+
   for (field = 0; field < JOURNAL_FIELD_COUNT; field ++)
   {
     if (name == JournalFieldNames[field])
@@ -324,7 +332,12 @@ void JournalView::details()
   }
   else if (field == JOURNAL_FIELD_COUNT)
   {
-    // Any other field as a raw match
+    // Any other field as a raw match, in place of one of the same field: the journal would join the two by OR
+    other.matches.erase(std::remove_if(other.matches.begin(), other.matches.end(), [&name] (const std::string& match)
+    {
+      return (match.compare(0, name.size() + 1, name + "=") == 0);
+    }), other.matches.end());
+
     other.matches.push_back(fields[chosen]);
   }
 

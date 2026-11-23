@@ -29,18 +29,21 @@ PageDialog::PageDialog(const TRect& bounds, const char* title, const std::vector
   extent.grow(-1, -1);
   extent.b.y -= 3;
   page        = new PageView(extent, horizontal, vertical, lines, choosing);
-  filter      = nullptr;
+  show        = nullptr;
+  hide        = nullptr;
 
   page->choosable = choosable;
   insert(page);
 
   if (choosing)
   {
-    // Enter opens a window of the field under the cursor
-    filter = new TButton(TRect(extent.b.x / 2 - 19, extent.b.y + 1, extent.b.x / 2 - 7, extent.b.y + 3), "~F~ilter", cmPageFilter, bfDefault);
-    insert(filter);
-    insert(new TButton(TRect(extent.b.x / 2 - 6,  extent.b.y + 1, extent.b.x / 2 + 6, extent.b.y + 3), "~C~opy",   cmPageCopy,   bfNormal));
-    insert(new TButton(TRect(extent.b.x / 2 + 7,  extent.b.y + 1, extent.b.x / 2 + 19, extent.b.y + 3), "C~l~ose", cmOK,         bfNormal));
+    // Enter opens a window of the field under the cursor, Hide one without its value
+    show = new TButton(TRect(extent.b.x / 2 - 25, extent.b.y + 1, extent.b.x / 2 - 13, extent.b.y + 3), "~S~how", cmPageShow, bfDefault);
+    hide = new TButton(TRect(extent.b.x / 2 - 12, extent.b.y + 1, extent.b.x / 2,      extent.b.y + 3), "~H~ide", cmPageHide, bfNormal);
+    insert(show);
+    insert(hide);
+    insert(new TButton(TRect(extent.b.x / 2 + 1,  extent.b.y + 1, extent.b.x / 2 + 13, extent.b.y + 3), "~C~opy",   cmPageCopy,   bfNormal));
+    insert(new TButton(TRect(extent.b.x / 2 + 14, extent.b.y + 1, extent.b.x / 2 + 26, extent.b.y + 3), "C~l~ose", cmOK,         bfNormal));
   }
   else
   {
@@ -65,12 +68,12 @@ void PageDialog::handleEvent(TEvent& event)
   }
 
   if ((event.what == evCommand) &&
-      (event.message.command == cmPageFilter))
+      ((event.message.command == cmPageShow) || (event.message.command == cmPageHide)))
   {
-    // Filter button, Enter or a double click, nothing on a line that may not be chosen
+    // Show, Enter or a double click, or Hide; nothing on a line that may not be chosen
     if (page->allowed())
     {
-      endModal(cmPageFilter);
+      endModal(event.message.command);
     }
 
     clearEvent(event);
@@ -91,7 +94,7 @@ void PageDialog::handleEvent(TEvent& event)
 
   if (changed)
   {
-    // A button takes its state of the set of commands then, the one of Filter is told by the cursor
+    // A button takes its state of the set of commands then, the ones of Show and Hide are told by the cursor
     follow();
   }
 }
@@ -103,11 +106,14 @@ int PageDialog::chosen()
 
 void PageDialog::follow()
 {
-  if (filter != nullptr)
+  for (TButton* button : { show, hide })
   {
-    // A command past 255 cannot be disabled in Turbo Vision, the button is turned off by its state
-    filter->setState(sfDisabled, !page->allowed());
-    filter->drawView();
+    if (button != nullptr)
+    {
+      // A command past 255 cannot be disabled in Turbo Vision, the button is turned off by its state
+      button->setState(sfDisabled, !page->allowed());
+      button->drawView();
+    }
   }
 }
 

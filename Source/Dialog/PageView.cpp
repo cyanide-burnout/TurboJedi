@@ -104,7 +104,7 @@ void PageView::handleEvent(TEvent& event)
     if ((event.mouse.eventFlags & meDoubleClick) &&
         (allowed()))
     {
-      message(owner, evCommand, cmPageFilter, this);
+      message(owner, evCommand, cmPageShow, this);
     }
 
     clearEvent(event);
