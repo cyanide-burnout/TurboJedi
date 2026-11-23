@@ -19,8 +19,8 @@
 #define FILTER_FIELD   0  // Where the window starts: the line of a field, the levels
 #define FILTER_LEVELS  1
 
-// The rules of a filter in the order given, as the title writes them; Delete takes one out, a double click, Enter or
-// Space puts it back into its line to be changed
+// The rules of a filter in the order given, as the title writes them; Delete takes one out, a double click or Space puts
+// it back into its line to be changed
 
 class RuleList : public TListViewer
 {
@@ -30,7 +30,7 @@ class RuleList : public TListViewer
 
     void getText(char* dest, short item, short limit) override;
     void handleEvent(TEvent& event) override;  // Delete takes the rule out
-    void selectItem(short item) override;      // A double click, Enter or Space puts it back into its line
+    void selectItem(short item) override;      // A double click or Space puts it back into its line, Enter is OK
 
   private:
 

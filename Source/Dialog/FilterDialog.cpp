@@ -105,15 +105,6 @@ void RuleList::getText(char* dest, short item, short limit)
 void RuleList::handleEvent(TEvent& event)
 {
   if ((event.what == evKeyDown) &&
-      (event.keyDown.keyCode == kbEnter))
-  {
-    // Before the dialog takes it for OK
-    selectItem(focused);
-    clearEvent(event);
-    return;
-  }
-
-  if ((event.what == evKeyDown) &&
       (event.keyDown.keyCode == kbDel))
   {
     message(owner, evCommand, cmFilterRemove, this);
