@@ -93,7 +93,7 @@ JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar
   head        = source.head;
   step        = source.step;
   generation  = source.generation;
-  shown       = source.shown;
+  applied     = source.applied;
   landing     = false;
   past        = source.past;
   wanted      = source.wanted;

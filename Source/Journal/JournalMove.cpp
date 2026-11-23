@@ -579,7 +579,7 @@ JournalPlace JournalView::here()
   place.cursor     = cursor;
   place.follow     = follow;
   place.generation = generation;
-  place.filter     = shown;
+  place.filter     = applied;
   place.realtime   = 0;
 
   // The entry of the selection, of the top of the screen without one

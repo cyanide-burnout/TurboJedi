@@ -46,7 +46,7 @@ void JournalView::open()
 
   // Lines of another query, the places of the ones before go by their entries and filters
   generation ++;
-  shown = std::make_shared<const JournalFilter>(filter);
+  applied = std::make_shared<const JournalFilter>(filter);
   chain.set(filter);
 
   if ((result = OpenJournalQuery(&journal, filter)) < 0)

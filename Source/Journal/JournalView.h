@@ -182,7 +182,7 @@ class JournalView : public TScroller
     size_t head;
     size_t step;
     uint64_t generation;                         // Of the query open, the places of another one go by their entries
-    std::shared_ptr<const JournalFilter> shown;  // The filter of the lines there are
+    std::shared_ptr<const JournalFilter> applied;  // The filter of the lines there are
     bool landing;                                // reach() as a part of a jump, not one of its own
 
     std::string status;
