@@ -183,6 +183,7 @@ class JournalView : public TScroller
     void attach();
     void open();
     void read();
+    bool rewind(int count);  // Steps back to the oldest of the last entries that pass the filter, true if it has moved
     size_t back();
     bool parse(sd_journal* source, JournalLine& model, std::string& message);
     void split(const JournalLine& model, const std::string& message, std::vector<JournalLine>& parts);

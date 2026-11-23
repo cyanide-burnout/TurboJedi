@@ -86,7 +86,7 @@ void JournalView::open()
     if (until != 0) sd_journal_seek_realtime_usec(journal, until + 1);
     else            sd_journal_seek_tail(journal);
 
-    if (sd_journal_previous_skip(journal, (history > 0) ? history : 1) <= 0)
+    if (!rewind((history > 0) ? history : 1))
     {
       // Nothing of the filter yet, an identifier that has written nothing for one: libsystemd never finds anything
       // after a bare tail, from the head the first entry to come is next
@@ -109,6 +109,36 @@ void JournalView::open()
     // Window title shows the filter
     static_cast<TWindow*>(owner)->frame->drawView();
   }
+}
+
+bool JournalView::rewind(int count)
+{
+  int found;
+  bool moved;
+  int64_t deadline;
+
+  if ((chain.empty()) ||
+      (history <= 0))
+  {
+    // The journal has applied the whole filter, every entry counts
+    return sd_journal_previous_skip(journal, count) > 0;
+  }
+
+  // What is done on this side counts only the entries that pass it: a rare field or text may be far back,
+  // it is looked for up to the deadline, the cursor stays on the oldest entry looked at
+  deadline = GetQueryMilliseconds() + HISTORY_SCAN;
+
+  for (found = 0, moved = false; (found < count) && (GetQueryMilliseconds() < deadline) && (sd_journal_previous(journal) > 0); )
+  {
+    moved = true;
+
+    if (chain.pass(journal))
+    {
+      found ++;
+    }
+  }
+
+  return moved;
 }
 
 void JournalView::read()
@@ -190,6 +220,7 @@ size_t JournalView::back()
   int count;
   bool ended;
   size_t size;
+  int64_t deadline;
   uint64_t realtime;
   uint64_t before;
   sd_journal* source;
@@ -209,7 +240,10 @@ size_t JournalView::back()
   // seeking lands on the entry of the oldest line, the next steps go older
   ended = (sd_journal_seek_cursor(source, edge(false).cursor.c_str()) < 0) || (sd_journal_previous(source) <= 0);
 
-  for (count = 0, size = bytes; (!ended) && (count < HISTORY_STEP) && ((lines.size() + batch.size()) < capacity) && (size < BYTE_CAPACITY); count ++)
+  // A filter done on this side counts the entries that pass it, a rare one is looked for up to the deadline
+  deadline = GetQueryMilliseconds() + HISTORY_SCAN;
+
+  for (count = 0, size = bytes; (!ended) && (count < HISTORY_STEP) && ((lines.size() + batch.size()) < capacity) && (size < BYTE_CAPACITY) && (GetQueryMilliseconds() < deadline); )
   {
     if (sd_journal_previous(source) <= 0)
     {
@@ -229,6 +263,8 @@ size_t JournalView::back()
 
     if (parse(source, model, buffer))
     {
+      count ++;
+
       // Entries come newest first: under the newest on top they go on in their order, otherwise their lines go
       // in reverse so the batch can be put in front as it is
       split(model, buffer, parts);
