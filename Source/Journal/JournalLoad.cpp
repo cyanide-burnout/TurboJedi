@@ -12,10 +12,11 @@ static size_t GetLineSize(const JournalLine& line)
   return sizeof(JournalLine) + line.host.size() + line.unit.size() + line.identifier.size() + line.pid.size() + line.cursor.size() + line.text.size() + line.tints.size() * sizeof(JournalTint);
 }
 
-void JournalView::open()
+void JournalView::open(uint64_t at)
 {
   int result;
   char* cursor;
+  uint64_t stamp;
   char message[128];
   JournalLine model;
   std::vector<JournalLine> parts;
@@ -75,7 +76,14 @@ void JournalView::open()
     ParseJournalTime(filter.since, &since);
   }
 
-  if (since != 0)
+  if (at != 0)
+  {
+    // Around an entry far from the end, paused: the oldest lines stay, what comes after the room is counted
+    follow = false;
+  }
+
+  if ((since != 0) &&
+      (at <= since))
   {
     // Range starts at its time instead of the last entries
     sd_journal_seek_realtime_usec(journal, since);
@@ -83,15 +91,24 @@ void JournalView::open()
   else
   {
     // History first: the cursor lands on the oldest of the last entries, which next() would step over,
-    // a step back is needed even without history, next() from the bare tail finds nothing at all
-    if (until != 0) sd_journal_seek_realtime_usec(journal, until + 1);
-    else            sd_journal_seek_tail(journal);
+    // a step back is needed even without history, next() from the bare tail finds nothing at all; around an entry the
+    // history is the one before it
+    if (at != 0)         sd_journal_seek_realtime_usec(journal, ((until != 0) && (at > until)) ? (until + 1) : at);
+    else if (until != 0) sd_journal_seek_realtime_usec(journal, until + 1);
+    else                 sd_journal_seek_tail(journal);
 
     if (sd_journal_previous_skip(journal, ((history > 0) && chain.empty()) ? history : 1) <= 0)
     {
       // Nothing of the filter yet, an identifier that has written nothing for one: libsystemd never finds anything
       // after a bare tail, from the head the first entry to come is next
-      sd_journal_seek_head(journal);
+      (since != 0) ? sd_journal_seek_realtime_usec(journal, since) : sd_journal_seek_head(journal);
+    }
+    else if ((since != 0) &&
+             (sd_journal_get_realtime_usec(journal, &stamp) >= 0) &&
+             (stamp < since))
+    {
+      // The history before the entry is not all in the range
+      sd_journal_seek_realtime_usec(journal, since);
     }
     else if (history > 0)
     {

@@ -190,9 +190,9 @@ class JournalView : public TScroller
     std::string badge;   // Sign the title has been drawn with, a new one draws the frame again
 
     void attach();
-    void open();
+    void open(uint64_t at = 0);  // From the end, or around the time of an entry, paused
     void reopen();  // open() with a new filter, back on the entry it has been on or the nearest one in time
-    void land(const std::string& entry, uint64_t realtime);  // reach() as a part of the jump at hand
+    void land(const std::string& entry, uint64_t realtime);  // On the entry of a place, a part of the jump at hand
     void read();
     size_t back(int64_t deadline = 0);  // Up to the deadline, without one until it has found an entry
     void dig(int64_t deadline);         // The history wanted, up to the deadline

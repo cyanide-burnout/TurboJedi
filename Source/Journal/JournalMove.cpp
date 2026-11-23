@@ -423,20 +423,35 @@ void JournalView::reopen()
 
   place    = lines[index].cursor;
   realtime = lines[index].realtime;
-  open();
 
-  if (!place.empty())
+  if (place.empty())
   {
-    // The entry itself when the filter has kept it, the nearest one in time when it has left it out
-    land(place, realtime);
+    open();
+    return;
   }
+
+  // Around it, a wider filter may have more entries after it than the window has room for
+  open(realtime);
+  land(place, realtime);
 }
 
 void JournalView::land(const std::string& entry, uint64_t realtime)
 {
+  // The entry itself when the filter has kept it, the nearest one in time when it has left it out; the lines around it
+  // are there already, reading on to the end is up to the polls
   landing = true;
-  reach(entry, realtime);
+  seek(realtime, true);
   landing = false;
+
+  for (size_t index = 0; index < lines.size(); index ++)
+  {
+    if ((!lines[index].continued) &&
+        (lines[index].cursor == entry))
+    {
+      select(index, false);
+      return;
+    }
+  }
 }
 
 bool JournalView::find(int direction, bool tell)
@@ -654,14 +669,16 @@ void JournalView::travel(int direction)
       step   = next;
       filter = *place.filter;
       follow = place.follow;
-      open();
 
-      if ((!place.follow) &&
-          (!place.entry.empty()))
+      if ((place.follow) ||
+          (place.entry.empty()))
       {
-        land(place.entry, place.realtime);
+        open();
+        return;
       }
 
+      open(place.realtime);
+      land(place.entry, place.realtime);
       return;
     }
 
