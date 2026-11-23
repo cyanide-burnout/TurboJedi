@@ -139,18 +139,19 @@ FilterDialog::FilterDialog(const JournalFilter& filter, int start) :
   bar    = new TScrollBar(TRect(46, 7, 47, 15));
   list   = new RuleList(TRect(3, 7, 46, 15), bar, items);
   levels = new TCheckBoxes(TRect(50, 7, 72, 15),
-    new TSItem("~E~mergency",
-    new TSItem("Ale~r~t",
-    new TSItem("Cri~t~ical",
-    new TSItem("Erro~r~",
-    new TSItem("~W~arning",
-    new TSItem("~N~otice",
-    new TSItem("In~f~ormational",
-    new TSItem("Debu~g~", nullptr)))))))));
+    new TSItem("Emergency",
+    new TSItem("Alert",
+    new TSItem("Critical",
+    new TSItem("Error",
+    new TSItem("Warning",
+    new TSItem("Notice",
+    new TSItem("Informational",
+    new TSItem("Debug", nullptr)))))))));
 
   insert(bar);
   insert(list);
   insert(new TLabel(TRect(2, 6, 48, 7), "R~u~les, an entry has to pass all of them", list));
+  // The letters of the levels would take the keys of the labels, Alt-V and the arrows go to them
   insert(levels);
   insert(new TLabel(TRect(49, 6, 60, 7), "Le~v~els", levels));
 
