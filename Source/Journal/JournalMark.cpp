@@ -256,7 +256,6 @@ void JournalView::details()
   PageDialog* dialog;
   std::string name;
   std::string value;
-  JournalFilter other;
   std::vector<std::string> fields;
   std::vector<std::string> shown;
   std::vector<bool> matchable;
@@ -306,13 +305,13 @@ void JournalView::details()
   equal = fields[chosen].find('=');
   name  = fields[chosen].substr(0, equal);
   value = fields[chosen].substr(equal + 1);
-  other = filter;
 
   if (result == cmPageHide)
   {
-    // One more value left out, of any field, after those the chain has
-    other.matches.push_back(name + "!=" + value);
-    message(TProgram::application, evBroadcast, cmJournalOpenFilter, &other);
+    // One more value left out, of any field, after those the chain has; the window narrows as Apply as filter of
+    // Wireshark does
+    filter.matches.push_back(name + "!=" + value);
+    open();
     return;
   }
 
@@ -320,29 +319,29 @@ void JournalView::details()
   {
     if (name == JournalFieldNames[field])
     {
-      // Source field shows in the Source dialog, a value of its own would be joined by OR, so it is replaced
-      other.values[field] = value;
+      // A field of Source is a rule of its own, a value more would be joined by OR, so it is replaced
+      filter.values[field] = value;
       break;
     }
   }
 
   if (name == "_PID")
   {
-    other.pid = atoi(value.c_str());
+    filter.pid = atoi(value.c_str());
   }
   else if (field == JOURNAL_FIELD_COUNT)
   {
     // Any other field as a raw match, in place of one of the same field: the journal would join the two by OR
-    other.matches.erase(std::remove_if(other.matches.begin(), other.matches.end(), [&name] (const std::string& match)
+    filter.matches.erase(std::remove_if(filter.matches.begin(), filter.matches.end(), [&name] (const std::string& match)
     {
       return (match.compare(0, name.size() + 1, name + "=") == 0);
-    }), other.matches.end());
+    }), filter.matches.end());
 
-    other.matches.push_back(fields[chosen]);
+    filter.matches.push_back(fields[chosen]);
   }
 
-  // The application makes the window, the filter of this one goes on unchanged
-  message(TProgram::application, evBroadcast, cmJournalOpenFilter, &other);
+  // The window narrows to it, F4 shows the rules and takes one out again
+  open();
 }
 
 size_t JournalView::mark(const std::set<std::string>& cursors, uint64_t oldest, bool clear)

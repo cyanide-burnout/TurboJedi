@@ -45,8 +45,8 @@ enum
   cmJournalReverse,
   cmJournalMarked,
   cmPageCopy,
-  cmPageShow,                  // A window of the field under the cursor of a page
-  cmPageHide,                  // A window without its value
+  cmPageShow,                  // The field under the cursor of a page into the filter
+  cmPageHide,                  // Its value left out
   cmFilterFields,              // The window of the filter: the list of the fields
   cmFilterValues,              // The list of the values of the field
   cmFilterAddField,            // The field and its value into the rules

@@ -37,7 +37,7 @@ PageDialog::PageDialog(const TRect& bounds, const char* title, const std::vector
 
   if (choosing)
   {
-    // Enter opens a window of the field under the cursor, Hide one without its value
+    // Enter narrows the window to the field under the cursor, Hide leaves its value out
     show = new TButton(TRect(extent.b.x / 2 - 25, extent.b.y + 1, extent.b.x / 2 - 13, extent.b.y + 3), "~S~how", cmPageShow, bfDefault);
     hide = new TButton(TRect(extent.b.x / 2 - 12, extent.b.y + 1, extent.b.x / 2,      extent.b.y + 3), "~H~ide", cmPageHide, bfNormal);
     insert(show);
