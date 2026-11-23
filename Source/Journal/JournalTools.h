@@ -77,8 +77,10 @@ int OpenJournalQuery(sd_journal** journal, const JournalFilter& filter);
 // Milliseconds up to the limit to wait for the journal, less when inotify cannot tell about every change
 int GetJournalWait(sd_journal* journal, int limit);
 
-// Every field of the entry at a cursor as FIELD=value lines, empty when the entry is gone
-std::vector<std::string> ReadJournalEntry(const JournalFilter& filter, const std::string& cursor);
+// Every field of the entry at a cursor as FIELD=value lines, empty when the entry is gone: its time and cursor on top, the
+// fields of the program, then the ones of _ journald adds. Matchable tells of each line whether it is a match the
+// journal takes, not one of __ nor of binary data
+std::vector<std::string> ReadJournalEntry(const JournalFilter& filter, const std::string& cursor, std::vector<bool>* matchable = nullptr);
 bool GetJournalField(sd_journal* journal, const char* name, char* buffer, size_t size);
 
 // Every field of the entry at a cursor as the journal has it, binary data and repeated fields included, with

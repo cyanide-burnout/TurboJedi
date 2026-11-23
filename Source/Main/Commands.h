@@ -47,6 +47,7 @@ enum
   cmJournalMarked,
   cmPageCopy,
   cmPageFilter,
+  cmPageCursor,                // Broadcast of a page: its cursor has moved
   cmJournalPoll,
   cmJournalSourceClear,
   cmJournalActions,            // Menu of the actions of plugins for the entry under the cursor

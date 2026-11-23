@@ -143,9 +143,16 @@ int OpenJournalQuery(sd_journal** journal, const JournalFilter& filter)
   return result;
 }
 
-std::vector<std::string> ReadJournalEntry(const JournalFilter& filter, const std::string& cursor)
+// Rank of a field among the lines of an entry: the address of the entry, of the program, of journald
+static int RankJournalField(const std::string& line)
 {
-  size_t top;
+  if (line.compare(0, 2, "__") == 0) return 0;
+  if (line.compare(0, 1, "_") == 0)  return 2;
+  return 1;
+}
+
+std::vector<std::string> ReadJournalEntry(const JournalFilter& filter, const std::string& cursor, std::vector<bool>* matchable)
+{
   size_t length;
   time_t second;
   uint64_t stamp;
@@ -156,6 +163,12 @@ std::vector<std::string> ReadJournalEntry(const JournalFilter& filter, const std
   char line[64];
   sd_journal* journal;
   std::vector<std::string> fields;
+  std::vector<std::pair<std::string, bool>> lines;
+
+  if (matchable != nullptr)
+  {
+    matchable->clear();
+  }
 
   if (OpenJournal(&journal, filter) < 0)
   {
@@ -173,10 +186,10 @@ std::vector<std::string> ReadJournalEntry(const JournalFilter& filter, const std
       second = stamp / 1000000;
       localtime_r(&second, &date);
       strftime(line, sizeof(line), "%F %T %Z", &date);
-      fields.push_back(std::string("__REALTIME_TIMESTAMP=") + std::to_string(stamp) + " (" + line + ")");
+      lines.emplace_back(std::string("__REALTIME_TIMESTAMP=") + std::to_string(stamp) + " (" + line + ")", false);
     }
 
-    top = fields.size();
+    lines.emplace_back("__CURSOR=" + cursor, false);
 
     SD_JOURNAL_FOREACH_DATA(journal, data, length)
     {
@@ -187,18 +200,39 @@ std::vector<std::string> ReadJournalEntry(const JournalFilter& filter, const std
           (!std::all_of(text, text + length, [] (char character) { return (character == '\n') || (character == '\t') || (character == '\r') || (character == '\x07') || (character == '\x1b') || (static_cast<unsigned char>(character) >= 0x20); })))
       {
         // Binary data, only its name and size, escape sequences of a terminal are text the details take out
-        fields.push_back(std::string(text, equal - text) + "=[" + std::to_string(length - (equal - text) - 1) + " bytes]");
+        lines.emplace_back(std::string(text, equal - text) + "=[" + std::to_string(length - (equal - text) - 1) + " bytes]", false);
         continue;
       }
 
-      fields.emplace_back(text, length);
+      lines.emplace_back(std::string(text, length), false);
+      lines.back().second = (RankJournalField(lines.back().first) != 0) && CheckJournalMatch(lines.back().first);
     }
 
-    std::sort(fields.begin() + top, fields.end());
-    fields.push_back("__CURSOR=" + cursor);
+    // The time and the cursor stay in their order, the fields of the program and of journald in groups of their own
+    std::stable_sort(lines.begin(), lines.end(), [] (const std::pair<std::string, bool>& one, const std::pair<std::string, bool>& other)
+    {
+      int left;
+      int right;
+
+      left  = RankJournalField(one.first);
+      right = RankJournalField(other.first);
+
+      return (left != right) ? (left < right) : ((left != 0) && (one.first < other.first));
+    });
   }
 
   sd_journal_close(journal);
+
+  for (const std::pair<std::string, bool>& line : lines)
+  {
+    fields.push_back(line.first);
+
+    if (matchable != nullptr)
+    {
+      matchable->push_back(line.second);
+    }
+  }
+
   return fields;
 }
 

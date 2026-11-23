@@ -11,7 +11,7 @@
 
 // PageDialog
 
-PageDialog::PageDialog(const TRect& bounds, const char* title, const std::vector<std::string>& lines, bool choosing) :
+PageDialog::PageDialog(const TRect& bounds, const char* title, const std::vector<std::string>& lines, bool choosing, const std::vector<bool>& choosable) :
   TWindowInit(&TDialog::initFrame),
   TDialog(bounds, title)
 {
@@ -29,13 +29,16 @@ PageDialog::PageDialog(const TRect& bounds, const char* title, const std::vector
   extent.grow(-1, -1);
   extent.b.y -= 3;
   page        = new PageView(extent, horizontal, vertical, lines, choosing);
+  filter      = nullptr;
 
+  page->choosable = choosable;
   insert(page);
 
   if (choosing)
   {
     // Enter opens a window of the field under the cursor
-    insert(new TButton(TRect(extent.b.x / 2 - 19, extent.b.y + 1, extent.b.x / 2 - 7, extent.b.y + 3), "~F~ilter", cmPageFilter, bfDefault));
+    filter = new TButton(TRect(extent.b.x / 2 - 19, extent.b.y + 1, extent.b.x / 2 - 7, extent.b.y + 3), "~F~ilter", cmPageFilter, bfDefault);
+    insert(filter);
     insert(new TButton(TRect(extent.b.x / 2 - 6,  extent.b.y + 1, extent.b.x / 2 + 6, extent.b.y + 3), "~C~opy",   cmPageCopy,   bfNormal));
     insert(new TButton(TRect(extent.b.x / 2 + 7,  extent.b.y + 1, extent.b.x / 2 + 19, extent.b.y + 3), "C~l~ose", cmOK,         bfNormal));
   }
@@ -46,10 +49,13 @@ PageDialog::PageDialog(const TRect& bounds, const char* title, const std::vector
   }
 
   page->select();
+  follow();
 }
 
 void PageDialog::handleEvent(TEvent& event)
 {
+  bool changed;
+
   if (((event.what == evCommand) && (event.message.command == cmPageCopy)) ||
       ((event.what == evKeyDown) && (event.keyDown.keyCode == kbCtrlIns)))
   {
@@ -61,18 +67,48 @@ void PageDialog::handleEvent(TEvent& event)
   if ((event.what == evCommand) &&
       (event.message.command == cmPageFilter))
   {
-    // Filter button, Enter or a double click
-    endModal(cmPageFilter);
+    // Filter button, Enter or a double click, nothing on a line that may not be chosen
+    if (page->allowed())
+    {
+      endModal(cmPageFilter);
+    }
+
     clearEvent(event);
     return;
   }
 
+  if ((event.what == evBroadcast) &&
+      (event.message.command == cmPageCursor))
+  {
+    follow();
+    clearEvent(event);
+    return;
+  }
+
+  changed = (event.what == evBroadcast) && (event.message.command == cmCommandSetChanged);
+
   TDialog::handleEvent(event);
+
+  if (changed)
+  {
+    // A button takes its state of the set of commands then, the one of Filter is told by the cursor
+    follow();
+  }
 }
 
 int PageDialog::chosen()
 {
   return (page->cursor >= 0) ? (int)page->origins[page->cursor] : -1;
+}
+
+void PageDialog::follow()
+{
+  if (filter != nullptr)
+  {
+    // A command past 255 cannot be disabled in Turbo Vision, the button is turned off by its state
+    filter->setState(sfDisabled, !page->allowed());
+    filter->drawView();
+  }
 }
 
 void PageDialog::copy()

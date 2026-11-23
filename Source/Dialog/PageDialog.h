@@ -6,6 +6,7 @@
 // Artem Prilutskiy, 2026
 
 #define Uses_TDialog
+#define Uses_TButton
 #include <tvision/tv.h>
 
 #include <vector>
@@ -14,13 +15,13 @@
 #include "PageView.h"
 
 // Read-only text in a dialog almost as large as the desktop, Copy puts all of it to the clipboard,
-// choosing adds a cursor and Filter ends the dialog with cmPageFilter
+// choosing adds a cursor and Filter ends the dialog with cmPageFilter, off on a line that may not be chosen
 
 class PageDialog : public TDialog
 {
   public:
 
-    PageDialog(const TRect& bounds, const char* title, const std::vector<std::string>& lines, bool choosing = false);
+    PageDialog(const TRect& bounds, const char* title, const std::vector<std::string>& lines, bool choosing = false, const std::vector<bool>& choosable = { });
 
     void handleEvent(TEvent& event) override;
     int chosen();  // Index of the given line under the cursor, -1 without choosing
@@ -28,8 +29,10 @@ class PageDialog : public TDialog
   private:
 
     PageView* page;
+    TButton* filter;
 
     void copy();
+    void follow();
 };
 
 #endif

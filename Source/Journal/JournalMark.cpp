@@ -259,6 +259,7 @@ void JournalView::details()
   JournalFilter other;
   std::vector<std::string> fields;
   std::vector<std::string> shown;
+  std::vector<bool> matchable;
 
   if ((index = focus()) >= lines.size())
   {
@@ -267,7 +268,7 @@ void JournalView::details()
   }
 
   if ((lines[index].cursor.empty()) ||
-      ((fields = ReadJournalEntry(filter, lines[index].cursor)).empty()))
+      ((fields = ReadJournalEntry(filter, lines[index].cursor, &matchable)).empty()))
   {
     // Rotated away meanwhile, or the journal cannot be opened
     messageBox(DescribeJournalLoss(filter).c_str(), mfInformation | mfOKButton);
@@ -282,7 +283,8 @@ void JournalView::details()
 
   bounds = TProgram::deskTop->getExtent();
   bounds.grow(-2, -1);
-  dialog = new PageDialog(bounds, "Entry", shown, true);
+  // Filter is off on a field the journal takes no match of
+  dialog = new PageDialog(bounds, "Entry", shown, true, matchable);
   result = TProgram::deskTop->execView(dialog);
   chosen = dialog->chosen();
 
@@ -295,11 +297,9 @@ void JournalView::details()
     return;
   }
 
-  if ((fields[chosen].compare(0, 2, "__") == 0) ||
-      (!CheckJournalMatch(fields[chosen])))
+  if (!matchable[chosen])
   {
-    // Addresses of the entry and values the details show in their own way
-    messageBox("A window cannot be filtered by this field", mfInformation | mfOKButton);
+    // The dialog has not let it be chosen
     return;
   }
 

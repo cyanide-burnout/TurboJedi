@@ -22,7 +22,10 @@ class PageView : public TScroller
 
     std::vector<std::string> lines;
     std::vector<size_t> origins;  // Index of the given line every shown one comes from
+    std::vector<bool> choosable;  // Of the given lines, empty when all of them may be chosen
     int cursor;                   // Shown line, -1 without choosing
+
+    bool allowed() const;         // The line under the cursor may be chosen
 
     void draw() override;
     void handleEvent(TEvent& event) override;

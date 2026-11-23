@@ -101,7 +101,8 @@ void PageView::handleEvent(TEvent& event)
     // Click puts the cursor on a line, double click chooses it
     move(delta.y + makeLocal(event.mouse.where).y);
 
-    if (event.mouse.eventFlags & meDoubleClick)
+    if ((event.mouse.eventFlags & meDoubleClick) &&
+        (allowed()))
     {
       message(owner, evCommand, cmPageFilter, this);
     }
@@ -117,6 +118,13 @@ TPalette& PageView::getPalette() const
   return palette;
 }
 
+bool PageView::allowed() const
+{
+  return
+    (cursor >= 0) && ((size_t)cursor < lines.size()) &&
+    (choosable.empty() || ((origins[cursor] < choosable.size()) && choosable[origins[cursor]]));
+}
+
 void PageView::move(int line)
 {
   cursor = std::clamp(line, 0, std::max(0, (int)lines.size() - 1));
@@ -126,4 +134,7 @@ void PageView::move(int line)
   if (cursor >= delta.y + size.y)  scrollTo(delta.x, cursor - size.y + 1);
 
   drawView();
+
+  // The buttons of the dialog follow the line under the cursor
+  message(owner, evBroadcast, cmPageCursor, this);
 }
