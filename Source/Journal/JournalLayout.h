@@ -22,6 +22,7 @@ struct JournalLayout
 {
   int bounds[4];  // Left, top, right, bottom
   JournalFilter filter;
+  uint16_t mode;  // Options of a text read before the text itself, the first text takes them
   bool timeline;
   int step;       // Seconds of an interval of a timeline, zero lets the window choose
   bool logarithmic;

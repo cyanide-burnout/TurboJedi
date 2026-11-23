@@ -136,8 +136,8 @@ TimelineView::TimelineView(const TRect& bounds, TScrollBar* horizontal, const Ti
   blind       = false;
   anchor      = -1;
 
-  // The expression is compiled again, it is not shared
-  matcher.set(filter.text, filter.mode);
+  // The expressions are compiled again, they are not shared
+  chain.set(filter);
 
   if ((source.journal != nullptr) &&
       (OpenJournalQuery(&journal, filter) < 0))
@@ -694,12 +694,9 @@ void TimelineView::open()
   int result;
   char message[128];
 
-  if (!matcher.set(filter.text, filter.mode))
-  {
-    // A layout file may bring a broken expression, it goes as plain text then
-    filter.mode &= ~JOURNAL_TEXT_EXPRESSION;
-    matcher.set(filter.text, filter.mode);
-  }
+  // A layout file may bring a broken expression, it goes as plain text then
+  RepairJournalTexts(filter);
+  chain.set(filter);
 
   if ((result = OpenJournalQuery(&journal, filter)) < 0)
   {
@@ -802,8 +799,6 @@ void TimelineView::read()
   uint64_t realtime;
   const char* data;
   char value[JOURNAL_VALUE_LENGTH];
-  std::string identifier;
-  std::string pid;
 
   for (count = 0; (!closed) && (count < READ_STEP) && (sd_journal_next(journal) > 0); count ++)
   {
@@ -832,18 +827,17 @@ void TimelineView::read()
       priority = value[0] - '0';
     }
 
-    if (!matcher.empty())
+    if ((!filter.texts.empty()) &&
+        ((sd_journal_get_data(journal, "MESSAGE", (const void**)&data, &length) < 0) || (length < 8)))
     {
-      // The text filter looks at the syslog style source as well, the way a journal window applies it
-      identifier = (GetJournalField(journal, "SYSLOG_IDENTIFIER", value, sizeof(value)) || GetJournalField(journal, "_COMM", value, sizeof(value))) ? value : "?";
-      pid        = GetJournalField(journal, "_PID", value, sizeof(value)) ? value : "";
+      // An entry without a message is left out by a text, as a journal window leaves it out
+      continue;
+    }
 
-      if ((sd_journal_get_data(journal, "MESSAGE", (const void**)&data, &length) < 0) ||
-          (length < 8) ||
-          (matcher.match(identifier + "[" + pid + "]: " + std::string(data + 8, length - 8)) == ((filter.mode & JOURNAL_TEXT_EXCLUDE) != 0)))
-      {
-        continue;
-      }
+    if (!chain.pass(journal))
+    {
+      // What the journal cannot apply, the way a journal window applies it
+      continue;
     }
 
     if (!add(realtime, priority))

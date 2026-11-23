@@ -44,6 +44,13 @@
 #define JOURNAL_TEXT_EXCLUDE       (1 << 1)  // Entries that match are left out
 #define JOURNAL_TEXT_SENSITIVE     (1 << 2)  // Case matters
 
+// A text of a filter, matched against identifier[pid]: message, JOURNAL_TEXT_* tell how
+struct JournalText
+{
+  std::string text;
+  uint16_t mode;
+};
+
 // What a window asks the journal for, empty values and zero PID stand for any
 
 struct JournalFilter
@@ -51,11 +58,10 @@ struct JournalFilter
   std::string directory;             // Journal files of a directory, empty for the journals of this system
   bool merge;                        // Of every machine there are instead of this one, like journalctl --merge
   std::string values[JOURNAL_FIELD_COUNT];
-  std::vector<std::string> matches;  // Raw FIELD=VALUE from the command line
+  std::vector<std::string> matches;  // Raw FIELD=VALUE for the journal, FIELD!=VALUE left out on this side, in the order given
   int pid;
   uint16_t levels;                   // Bit N shows priority N
-  std::string text;                  // The only filter applied on this side, JOURNAL_TEXT_* tell how
-  uint16_t mode;
+  std::vector<JournalText> texts;    // Applied on this side, an entry has to pass all of them
   std::string since;                 // Times as given, relative ones count from each opening
   std::string until;
   uint16_t columns;                  // Shown in front of the message, not a filter but a new window takes it along too
@@ -129,10 +135,17 @@ void ListJournalValues(const JournalFilter& filter, int field, std::map<std::str
 // _UID value of a user name or number, empty when there is no such user
 std::string GetJournalUserIdentifier(const std::string& user);
 
-// FIELD=VALUE with a field name the journal takes: A-Z, 0-9 and _, not a digit first, up to 64 characters
-bool CheckJournalMatch(const std::string& match);
+// FIELD=VALUE with a field name the journal takes: A-Z, 0-9 and _, not a digit first, up to 64 characters; FIELD!=VALUE,
+// the entries with that value left out, as well unless only equal is asked for
+bool CheckJournalMatch(const std::string& match, bool equal = false);
+bool IsJournalExclusion(const std::string& match);  // FIELD!=VALUE
 
-// Short form of a filter for window titles: [levels], source fields, matches, times and /text/ the way sed writes it
+// A text of a filter the way a title writes it, like sed: /text/, !/text/ leaves out, r after it an expression, c case;
+// ParseJournalText takes it back, false for what is no such text
+std::string FormatJournalText(const JournalText& text);
+bool ParseJournalText(const std::string& notation, JournalText& text);
+
+// Short form of a filter for window titles: [levels], source fields, matches, times and the texts the way sed writes them
 std::string GetJournalFilterName(const JournalFilter& filter);
 
 // Microseconds of 2026-10-23 19:00[:00[.000000]], 2026-10-23, 19:00[:00] (today), now, today, yesterday, tomorrow, and

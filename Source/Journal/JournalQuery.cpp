@@ -62,15 +62,14 @@ bool JournalQuery::start(const JournalFilter& filter, const std::string& cursor,
   this->older = older;
   this->limit = limit;
   this->scan  = scan;
-  exclude     = (filter.mode & JOURNAL_TEXT_EXCLUDE) != 0;
   since       = 0;
   until       = 0;
 
   if ((!filter.since.empty() && !ParseJournalTime(filter.since, &since)) ||
       (!filter.until.empty() && !ParseJournalTime(filter.until, &until)) ||
-      (!matcher.set(filter.text, filter.mode)))
+      (!chain.set(filter)))
   {
-    error = "the time or the text of the filter is wrong";
+    error = "the time or a text of the filter is wrong";
     return false;
   }
 
@@ -116,33 +115,6 @@ void JournalQuery::stop(const char* reason)
     stopped = reason;
     over    = true;
   }
-}
-
-bool TestJournalText(sd_journal* journal, JournalMatcher& matcher, bool exclude)
-{
-  size_t length;
-  const void* data;
-  std::string text;
-  char identifier[256];
-  char pid[32];
-
-  if (matcher.empty())
-  {
-    return true;
-  }
-
-  // As a window matches its text
-  text = (GetJournalField(journal, "SYSLOG_IDENTIFIER", identifier, sizeof(identifier)) || GetJournalField(journal, "_COMM", identifier, sizeof(identifier))) ? identifier : "?";
-  text += "[";
-  text += GetJournalField(journal, "_PID", pid, sizeof(pid)) ? pid : "";
-  text += "]: ";
-
-  if (sd_journal_get_data(journal, "MESSAGE", &data, &length) >= 0)
-  {
-    text.append(static_cast<const char*>(data) + 8, length - 8);
-  }
-
-  return matcher.match(text) != exclude;
 }
 
 bool JournalQuery::step(int64_t deadline)
@@ -197,7 +169,7 @@ bool JournalQuery::step(int64_t deadline)
 
       scanned ++;
 
-      if (!TestJournalText(journal, matcher, exclude))
+      if (!chain.pass(journal))
       {
         continue;
       }

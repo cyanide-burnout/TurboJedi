@@ -93,7 +93,9 @@ int AppendStrings(sd_bus_message* message, const char* key, const std::vector<st
 int AppendFilter(sd_bus_message* message, const JournalFilter& filter)
 {
   int result;
+  JournalText first;
   std::string levels;
+  std::vector<std::string> texts;
 
   for (int index = 0; index < 8; index ++)
   {
@@ -102,10 +104,19 @@ int AppendFilter(sd_bus_message* message, const JournalFilter& filter)
 
   result = std::min(0, AppendString(message, "directory", filter.directory));
   result = std::min(result, sd_bus_message_append(message, "{sv}", "merge", "b", (int)filter.merge));
-  result = std::min(result, AppendString(message, "text", filter.text));
-  result = std::min(result, sd_bus_message_append(message, "{sv}", "regex", "b", (int)((filter.mode & JOURNAL_TEXT_EXPRESSION) != 0)));
-  result = std::min(result, sd_bus_message_append(message, "{sv}", "exclude", "b", (int)((filter.mode & JOURNAL_TEXT_EXCLUDE) != 0)));
-  result = std::min(result, sd_bus_message_append(message, "{sv}", "case", "b", (int)((filter.mode & JOURNAL_TEXT_SENSITIVE) != 0)));
+  for (const JournalText& text : filter.texts)
+  {
+    // The texts of the chain in the notation of the title
+    texts.push_back(FormatJournalText(text));
+  }
+
+  // The first text as well, as a window of one text has told it
+  first  = filter.texts.empty() ? JournalText { "", 0 } : filter.texts.front();
+  result = std::min(result, AppendString(message, "text", first.text));
+  result = std::min(result, sd_bus_message_append(message, "{sv}", "regex", "b", (int)((first.mode & JOURNAL_TEXT_EXPRESSION) != 0)));
+  result = std::min(result, sd_bus_message_append(message, "{sv}", "exclude", "b", (int)((first.mode & JOURNAL_TEXT_EXCLUDE) != 0)));
+  result = std::min(result, sd_bus_message_append(message, "{sv}", "case", "b", (int)((first.mode & JOURNAL_TEXT_SENSITIVE) != 0)));
+  result = std::min(result, AppendStrings(message, "texts", texts));
   result = std::min(result, AppendString(message, "levels", levels));
   result = std::min(result, AppendStrings(message, "matches", filter.matches));
 
@@ -323,7 +334,7 @@ bool MakeFilter(const Options& options, JournalFilter& filter, std::string& erro
   {
     if (!CheckJournalMatch(match))
     {
-      error = match + " is not a FIELD=VALUE match";
+      error = match + " is not a FIELD=VALUE or FIELD!=VALUE match";
       return false;
     }
 
@@ -332,13 +343,13 @@ bool MakeFilter(const Options& options, JournalFilter& filter, std::string& erro
 
   if ((text = options.texts.find("text")) != options.texts.end())
   {
-    filter.text = text->second;
-    filter.mode = (options.flags.count("regex")   && options.flags.at("regex")   ? JOURNAL_TEXT_EXPRESSION : 0) |
-                  (options.flags.count("exclude") && options.flags.at("exclude") ? JOURNAL_TEXT_EXCLUDE    : 0) |
-                  (options.flags.count("case")    && options.flags.at("case")    ? JOURNAL_TEXT_SENSITIVE  : 0);
+    filter.texts.push_back(JournalText { text->second, (uint16_t)(
+      (options.flags.count("regex")   && options.flags.at("regex")   ? JOURNAL_TEXT_EXPRESSION : 0) |
+      (options.flags.count("exclude") && options.flags.at("exclude") ? JOURNAL_TEXT_EXCLUDE    : 0) |
+      (options.flags.count("case")    && options.flags.at("case")    ? JOURNAL_TEXT_SENSITIVE  : 0)) });
 
-    if ((filter.mode & JOURNAL_TEXT_EXPRESSION) &&
-        (!JournalExpression().compile(filter.text, !(filter.mode & JOURNAL_TEXT_SENSITIVE), &error)))
+    if ((filter.texts.back().mode & JOURNAL_TEXT_EXPRESSION) &&
+        (!JournalExpression().compile(text->second, !(filter.texts.back().mode & JOURNAL_TEXT_SENSITIVE), &error)))
     {
       return false;
     }

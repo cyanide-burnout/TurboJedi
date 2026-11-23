@@ -132,6 +132,7 @@ OBJECTS := \
 	$(SOURCE)/Journal/JournalHighlighter.o \
 	$(SOURCE)/Journal/JournalTinter.o \
 	$(SOURCE)/Journal/JournalMatcher.o \
+	$(SOURCE)/Journal/JournalChain.o \
 	$(SOURCE)/Dialog/TextDialog.o \
 	$(SOURCE)/Dialog/LevelsDialog.o \
 	$(SOURCE)/Dialog/ColumnsDialog.o \

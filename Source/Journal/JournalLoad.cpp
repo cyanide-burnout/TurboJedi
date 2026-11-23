@@ -43,12 +43,9 @@ void JournalView::open()
   head = 0;
   step = 0;
 
-  if (!matcher.set(filter.text, filter.mode))
-  {
-    // A layout file may bring a broken expression, it goes as plain text then
-    filter.mode &= ~JOURNAL_TEXT_EXPRESSION;
-    matcher.set(filter.text, filter.mode);
-  }
+  // A layout file may bring a broken expression, it goes as plain text then
+  RepairJournalTexts(filter);
+  chain.set(filter);
 
   if ((result = OpenJournalQuery(&journal, filter)) < 0)
   {
@@ -297,6 +294,7 @@ bool JournalView::parse(sd_journal* source, JournalLine& model, std::string& mes
   char* position;
   const char* data;
   char value[JOURNAL_VALUE_LENGTH];
+  std::string line;
 
   if (sd_journal_get_realtime_usec(source, &model.realtime) < 0)
   {
@@ -339,11 +337,15 @@ bool JournalView::parse(sd_journal* source, JournalLine& model, std::string& mes
 
   message.assign(data + 8, length - 8);
 
-  if ((!matcher.empty()) &&
-      (matcher.match(model.identifier + "[" + model.pid + "]: " + message) == ((filter.mode & JOURNAL_TEXT_EXCLUDE) != 0)))
+  if (!chain.empty())
   {
-    // The only filter the journal cannot apply, it looks at the syslog style source as well
-    return false;
+    // What the journal cannot apply, the texts look at the syslog style source as well
+    line = model.identifier + "[" + model.pid + "]: " + message;
+
+    if (!chain.pass(source, &line))
+    {
+      return false;
+    }
   }
 
   counts[model.priority] ++;

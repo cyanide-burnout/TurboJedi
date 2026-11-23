@@ -14,6 +14,7 @@
 #include "JournalQuery.h"
 #include "JournalSource.h"
 #include "JournalMatcher.h"
+#include "JournalChain.h"
 
 #define WATCH_LINE_LIMIT  1000   // Lines of a watch, the oldest go
 #define WATCH_QUEUE       1000   // Entries read and not given to the plugin yet, the reading waits beyond them
@@ -139,8 +140,7 @@ class JournalWatch
     bool blind;              // Its file system tells nothing about the changes, see JournalView
     std::string files;
     unsigned faults;
-    JournalMatcher matcher;  // Text of the filter
-    bool exclude;
+    JournalChain chain;      // What of the filter is done on this side
 
     JournalPosition place;   // The entry read last, the journal goes on after it
     uint64_t begun;          // Microseconds of CLOCK_REALTIME the watch has started at

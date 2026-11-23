@@ -19,6 +19,7 @@
 #include "JournalTools.h"
 #include "JournalSource.h"
 #include "JournalMatcher.h"
+#include "JournalChain.h"
 
 // Entries of a filter counted by intervals of time: errors, warnings above them and the rest on top,
 // a column per interval, or two in a cell by the dots of Braille; the journal of its own is read in batches on the polls
@@ -71,7 +72,7 @@ class TimelineView : public TScroller
     std::string files;        // Of the directory of a blind journal, a change of them opens the journal again
     unsigned faults;          // Faults of mapped files seen when it has been opened, a new one opens a blind journal again
     JournalFilter filter;
-    JournalMatcher matcher;  // Text of the filter, applied the way a journal window applies it
+    JournalChain chain;      // What of the filter is done on this side, the way a journal window does it
     std::string error;       // Why there is nothing to show
 
     uint64_t since;    // Microseconds, zero when the range is open

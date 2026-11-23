@@ -247,7 +247,7 @@ static bool AddMatch(JournalFilter& filter, const std::string& field, const std:
 
   if (!CheckJournalMatch(match))
   {
-    error = match + " is not a FIELD=VALUE match";
+    error = match + " is not a FIELD=VALUE or FIELD!=VALUE match";
     return false;
   }
 
@@ -258,7 +258,7 @@ static bool AddMatch(JournalFilter& filter, const std::string& field, const std:
 // A filter of the options of open(), query() and watch(): the journals, columns and highlighting of a base, the window of the
 // menu for one, the matches, text, times and levels of the options; false and the reason when an option is wrong. With
 // window = true the whole filter of the base, which the options narrow: matches of other fields go along, the priority
-// keeps the levels both let through, since and until take the place of its times, a text goes where it has none
+// keeps the levels both let through, since and until take the place of its times, a text follows its texts
 bool MakeFilter(lua_State* state, int index, const JournalFilter& base, JournalFilter& filter, std::string& error)
 {
   int top;
@@ -343,18 +343,11 @@ bool MakeFilter(lua_State* state, int index, const JournalFilter& base, JournalF
 
   if (GetOption(state, index, "text", value))
   {
-    if (window && !filter.text.empty())
-    {
-      // A window has one text filter
-      error = "the window has a text filter of its own, window = true takes no other";
-      return false;
-    }
+    // One more text of the chain, after those of the window with window = true
+    filter.texts.push_back(JournalText { value, GetTextMode(state, index) });
 
-    filter.text = value;
-    filter.mode = GetTextMode(state, index);
-
-    if ((filter.mode & JOURNAL_TEXT_EXPRESSION) &&
-        (!JournalExpression().compile(filter.text, !(filter.mode & JOURNAL_TEXT_SENSITIVE), &error)))
+    if ((filter.texts.back().mode & JOURNAL_TEXT_EXPRESSION) &&
+        (!JournalExpression().compile(value, !(filter.texts.back().mode & JOURNAL_TEXT_SENSITIVE), &error)))
     {
       return false;
     }

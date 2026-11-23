@@ -18,6 +18,7 @@
 #include "JournalTools.h"
 #include "JournalSource.h"
 #include "JournalMatcher.h"
+#include "JournalChain.h"
 #include "JournalHighlighter.h"
 #include "JournalTinter.h"
 
@@ -135,7 +136,7 @@ class JournalView : public TScroller
 
     int widths[4];   // Host, unit, identifier and PID columns, as wide as their longest values within limits
 
-    JournalMatcher matcher;  // Text of the filter
+    JournalChain chain;      // What of the filter is done on this side
 
     JournalMatcher finder;   // What Find looks for, highlighted in the lines
 

@@ -121,8 +121,11 @@ int OpenJournalQuery(sd_journal** journal, const JournalFilter& filter)
 
   for (const std::string& value : filter.matches)
   {
-    // Raw FIELD=VALUE
-    sd_journal_add_match(*journal, value.c_str(), 0);
+    if (!IsJournalExclusion(value))
+    {
+      // Raw FIELD=VALUE, one left out is up to a JournalChain
+      sd_journal_add_match(*journal, value.c_str(), 0);
+    }
   }
 
   if (filter.levels != 0xff)
@@ -205,7 +208,7 @@ std::vector<std::string> ReadJournalEntry(const JournalFilter& filter, const std
       }
 
       lines.emplace_back(std::string(text, length), false);
-      lines.back().second = (RankJournalField(lines.back().first) != 0) && CheckJournalMatch(lines.back().first);
+      lines.back().second = (RankJournalField(lines.back().first) != 0) && CheckJournalMatch(lines.back().first, true);
     }
 
     // The time and the cursor stay in their order, the fields of the program and of journald in groups of their own
@@ -702,16 +705,66 @@ std::string GetJournalUserIdentifier(const std::string& user)
   return ((entry = getpwnam(user.c_str())) != nullptr) ? std::to_string(entry->pw_uid) : std::string();
 }
 
-bool CheckJournalMatch(const std::string& match)
+bool CheckJournalMatch(const std::string& match, bool equal)
+{
+  size_t end;
+
+  // The name ends at = or at != of a value left out
+  end = match.find('=');
+  end = ((!equal) && IsJournalExclusion(match)) ? (end - 1) : end;
+
+  return
+    (end != std::string::npos) && (end > 0) && (end <= 64) &&
+    ((match[0] < '0') || (match[0] > '9')) &&
+    (match.find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_") == end);
+}
+
+bool IsJournalExclusion(const std::string& match)
 {
   size_t equal;
 
+  // ! cannot be a part of the name of a field, the first = tells where the name ends
   equal = match.find('=');
 
-  return
-    (equal != std::string::npos) && (equal > 0) && (equal <= 64) &&
-    ((match[0] < '0') || (match[0] > '9')) &&
-    (match.find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_") == equal);
+  return (equal != std::string::npos) && (equal > 0) && (match[equal - 1] == '!');
+}
+
+std::string FormatJournalText(const JournalText& text)
+{
+  std::string notation;
+
+  notation  = (text.mode & JOURNAL_TEXT_EXCLUDE) ? "!/" : "/";
+  notation += text.text;
+  notation += '/';
+  notation += (text.mode & JOURNAL_TEXT_EXPRESSION) ? "r" : "";
+  notation += (text.mode & JOURNAL_TEXT_SENSITIVE)  ? "c" : "";
+
+  return notation;
+}
+
+bool ParseJournalText(const std::string& notation, JournalText& text)
+{
+  size_t start;
+  size_t end;
+
+  start = (notation.compare(0, 1, "!") == 0) ? 1 : 0;
+  end   = notation.rfind('/');
+
+  // The text is between the first / and the last one, a / inside it stays, only r and c may follow
+  if ((notation.compare(start, 1, "/") != 0) ||
+      (end == std::string::npos) || (end <= start + 1) ||
+      (notation.find_first_not_of("rc", end + 1) != std::string::npos))
+  {
+    return false;
+  }
+
+  text.text = notation.substr(start + 1, end - start - 1);
+  text.mode =
+    ((start != 0)                                           ? JOURNAL_TEXT_EXCLUDE    : 0) |
+    ((notation.find('r', end + 1) != std::string::npos)     ? JOURNAL_TEXT_EXPRESSION : 0) |
+    ((notation.find('c', end + 1) != std::string::npos)     ? JOURNAL_TEXT_SENSITIVE  : 0);
+
+  return true;
 }
 
 // A span of time as systemd writes it, without a sign: 30min, 1h 30min, 2 days, 90 (seconds); in microseconds
@@ -1235,15 +1288,11 @@ std::string GetJournalFilterName(const JournalFilter& filter)
     caption += filter.until;
   }
 
-  if (!filter.text.empty())
+  for (const JournalText& text : filter.texts)
   {
     // Like sed: !/text/ leaves out, r is a regular expression, c cares about case
     caption += caption.empty() ? "" : " ";
-    caption += (filter.mode & JOURNAL_TEXT_EXCLUDE) ? "!/" : "/";
-    caption += filter.text;
-    caption += '/';
-    caption += (filter.mode & JOURNAL_TEXT_EXPRESSION) ? "r" : "";
-    caption += (filter.mode & JOURNAL_TEXT_SENSITIVE)  ? "c" : "";
+    caption += FormatJournalText(text);
   }
 
   return caption;

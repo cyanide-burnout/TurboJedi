@@ -46,7 +46,6 @@ JournalWatch::JournalWatch()
   notifier    = nullptr;
   blind       = false;
   faults      = 0;
-  exclude     = false;
   place       = { std::string(), 0 };
   begun       = 0;
   reached     = 0;
@@ -89,11 +88,10 @@ bool JournalWatch::start(const JournalFilter& filter, const JournalPosition* fro
   int result;
 
   this->filter = filter;
-  exclude      = (filter.mode & JOURNAL_TEXT_EXCLUDE) != 0;
 
-  if (!matcher.set(filter.text, filter.mode))
+  if (!chain.set(filter))
   {
-    error = "the text of the filter is a broken expression";
+    error = "a text of the filter is a broken expression";
     return false;
   }
 
@@ -393,7 +391,7 @@ void JournalWatch::poll(size_t limit, int64_t deadline, bool paused)
     count ++;
     remember();
 
-    if (!TestJournalText(journal, matcher, exclude))
+    if (!chain.pass(journal))
     {
       continue;
     }

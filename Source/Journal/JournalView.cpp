@@ -103,7 +103,7 @@ JournalView::JournalView(const TRect& bounds, TScrollBar* horizontal, TScrollBar
   moving    = false;
 
   // Expressions are compiled again, they are not shared
-  matcher.set(filter.text, filter.mode);
+  chain.set(filter);
   finder.set(source.finder.getText(), source.finder.getMode());
 
   if ((source.journal != nullptr) &&

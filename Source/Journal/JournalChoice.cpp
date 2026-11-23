@@ -71,13 +71,25 @@ void JournalView::chooseText()
   TextData data;
 
   memset(&data, 0, sizeof(data));
-  strncpy(data.text, filter.text.c_str(), sizeof(data.text) - 1);
-  data.options = filter.mode;
+
+  if (!filter.texts.empty())
+  {
+    strncpy(data.text, filter.texts.back().text.c_str(), sizeof(data.text) - 1);
+    data.options = filter.texts.back().mode;
+  }
 
   if (TProgram::application->executeDialog(new TextDialog("Text", "~T~ext of the entries to show", true), &data) == cmOK)
   {
-    filter.text = data.text;
-    filter.mode = data.options;
+    if (!filter.texts.empty())
+    {
+      filter.texts.pop_back();
+    }
+
+    if (data.text[0] != '\0')
+    {
+      filter.texts.push_back(JournalText { data.text, data.options });
+    }
+
     open();
   }
 }

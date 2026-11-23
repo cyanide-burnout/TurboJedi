@@ -7,6 +7,7 @@
 #include "JournalLayout.h"
 #include "JournalTools.h"
 #include "JournalHighlighter.h"
+#include "JournalExpression.h"
 #include "JediClipboard.h"
 #include "JediScript.h"
 #include "JediService.h"
@@ -249,6 +250,9 @@ static void PrintUsage(const char* name)
   printf("without a layout and filter options\n");
   printf("\n");
   printf("FIELD=VALUE matches any journal field. Matches of the same field are joined by OR, of different fields by AND\n");
+  printf("FIELD!=VALUE leaves out the entries with the value, /text/ shows the entries with the text in\n");
+  printf("\"identifier[pid]: message\", !/text/ leaves them out, r after it makes the text a regular expression, c makes\n");
+  printf("the case matter: UNIT=foo.service /start/ '!/restart/' _PID!=123, an entry has to pass all of them\n");
   printf("TIME is 2026-10-23 19:00[:00], 2026-10-23, 19:00 (today), now, today, yesterday, tomorrow or relative as\n");
   printf("journalctl takes it: -1h, +30m, \"-1h 30min\", \"5min ago\" (us, ms, s, min, h, d, w, M, y and their longer names)\n");
   printf("Options set the filter of the first window, F7 changes the source of a window, F3 its levels, F4 its text,\n");
@@ -274,6 +278,7 @@ int main(int count, char* const* arguments)
   bool chosen;
   uid_t runner;
   std::string error;
+  JournalText text;
   std::vector<JournalLayout> windows;
   std::vector<std::string> watches;
   bool universal;
@@ -308,7 +313,6 @@ int main(int count, char* const* arguments)
   custom           = false;
   filter.merge     = false;
   filter.pid       = 0;
-  filter.mode      = 0;
   filter.levels    = 0xff;
   filter.columns   = JOURNAL_COLUMN_DEFAULT;
   filter.highlight = JOURNAL_HIGHLIGHT_BUILTIN;
@@ -414,9 +418,24 @@ int main(int count, char* const* arguments)
 
   for (index = optind; index < count; index ++)
   {
+    if (ParseJournalText(arguments[index], text))
+    {
+      // /text/ and !/text/ the way a title writes them
+      if ((text.mode & JOURNAL_TEXT_EXPRESSION) &&
+          (!JournalExpression().compile(text.text, !(text.mode & JOURNAL_TEXT_SENSITIVE), &error)))
+      {
+        fprintf(stderr, "%s is a broken regular expression: %s\n", arguments[index], error.c_str());
+        return EXIT_FAILURE;
+      }
+
+      filter.texts.push_back(text);
+      custom = true;
+      continue;
+    }
+
     if (!CheckJournalMatch(arguments[index]))
     {
-      fprintf(stderr, "%s is not a FIELD=VALUE match\n", arguments[index]);
+      fprintf(stderr, "%s is not a FIELD=VALUE, FIELD!=VALUE, /text/ or !/text/\n", arguments[index]);
       return EXIT_FAILURE;
     }
 

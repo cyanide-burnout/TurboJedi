@@ -13,11 +13,12 @@
 
 #include "JournalTools.h"
 #include "JournalMatcher.h"
+#include "JournalChain.h"
 
 typedef std::vector<std::pair<std::string, std::string>> JournalRecord;
 
-// Entries of a filter read for a plugin, the way a window reads them: the journal applies the matches, the text is matched
-// here against identifier[pid]: message, the times bound the range. Bounded by the entries kept and the entries looked at,
+// Entries of a filter read for a plugin, the way a window reads them: the journal applies the matches, the chain of the
+// rest is applied here, the times bound the range. Bounded by the entries kept and the entries looked at,
 // read in steps so that the screen goes on meanwhile
 
 class JournalQuery
@@ -43,8 +44,7 @@ class JournalQuery
   private:
 
     sd_journal* journal;
-    JournalMatcher matcher;
-    bool exclude;
+    JournalChain chain;
     bool older;
     bool held;            // The journal is on an entry not looked at yet
     size_t limit;
@@ -54,10 +54,6 @@ class JournalQuery
 };
 
 int64_t GetQueryMilliseconds();
-
-// The entry the journal is on passes the text of a filter, matched against identifier[pid]: message as a window does;
-// exclude turns it over. Any entry passes an empty one
-bool TestJournalText(sd_journal* journal, JournalMatcher& matcher, bool exclude);
 
 #define STEPS_DONE    0
 #define STEPS_TIME    1

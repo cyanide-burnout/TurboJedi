@@ -63,6 +63,7 @@ static const char* SetValue(JournalLayout& window, const std::string& key, const
   size_t start;
   size_t end;
   uint64_t stamp;
+  uint16_t* mode;
   struct stat status;
   std::string name;
 
@@ -133,18 +134,22 @@ static const char* SetValue(JournalLayout& window, const std::string& key, const
   if (key == "match")
   {
     window.filter.matches.push_back(value);
-    return CheckJournalMatch(value) ? nullptr : "match takes FIELD=VALUE, FIELD of A-Z, 0-9 and _";
+    return CheckJournalMatch(value) ? nullptr : "match takes FIELD=VALUE or FIELD!=VALUE, FIELD of A-Z, 0-9 and _";
   }
 
   if (key == "text")
   {
-    window.filter.text = value;
+    // One more text of the chain, the options before the first one are its own
+    window.filter.texts.push_back(JournalText { value, (uint16_t)(window.filter.texts.empty() ? window.mode : 0) });
     return nullptr;
   }
 
-  if (key == "regex")    return ParseSwitch(value, JOURNAL_TEXT_EXPRESSION, &window.filter.mode) ? nullptr : "regex takes yes or no";
-  if (key == "exclude")  return ParseSwitch(value, JOURNAL_TEXT_EXCLUDE,    &window.filter.mode) ? nullptr : "exclude takes yes or no";
-  if (key == "case")     return ParseSwitch(value, JOURNAL_TEXT_SENSITIVE,  &window.filter.mode) ? nullptr : "case takes yes or no";
+  // The options of a text follow it; a layout of one text may have them before it
+  mode = window.filter.texts.empty() ? &window.mode : &window.filter.texts.back().mode;
+
+  if (key == "regex")    return ParseSwitch(value, JOURNAL_TEXT_EXPRESSION, mode) ? nullptr : "regex takes yes or no";
+  if (key == "exclude")  return ParseSwitch(value, JOURNAL_TEXT_EXCLUDE,    mode) ? nullptr : "exclude takes yes or no";
+  if (key == "case")     return ParseSwitch(value, JOURNAL_TEXT_SENSITIVE,  mode) ? nullptr : "case takes yes or no";
 
   if ((key == "since") ||
       (key == "until"))
@@ -234,8 +239,17 @@ static bool CheckExpression(const JournalFilter& filter)
 {
   JournalExpression expression;
 
-  // The window would take a broken one as plain text
-  return expression.compile(filter.text, !(filter.mode & JOURNAL_TEXT_SENSITIVE));
+  for (const JournalText& text : filter.texts)
+  {
+    if ((text.mode & JOURNAL_TEXT_EXPRESSION) &&
+        (!expression.compile(text.text, !(text.mode & JOURNAL_TEXT_SENSITIVE))))
+    {
+      // The window would take a broken one as plain text
+      return false;
+    }
+  }
+
+  return true;
 }
 
 bool LoadJournalLayout(const std::string& path, std::vector<JournalLayout>& windows, std::vector<std::string>& watches, bool& utc, std::string& error)
@@ -324,7 +338,7 @@ bool LoadJournalLayout(const std::string& path, std::vector<JournalLayout>& wind
       windows.back().braille          = false;
       windows.back().filter.merge     = false;
       windows.back().filter.pid       = 0;
-      windows.back().filter.mode      = 0;
+      windows.back().mode             = 0;
       windows.back().filter.levels    = 0xff;
       windows.back().filter.columns   = JOURNAL_COLUMN_DEFAULT;
       windows.back().filter.highlight = JOURNAL_HIGHLIGHT_BUILTIN;
@@ -364,8 +378,7 @@ bool LoadJournalLayout(const std::string& path, std::vector<JournalLayout>& wind
 
   for (index = 0; index < windows.size(); index ++)
   {
-    if ((windows[index].filter.mode & JOURNAL_TEXT_EXPRESSION) &&
-        (!CheckExpression(windows[index].filter)))
+    if (!CheckExpression(windows[index].filter))
     {
       // Keys of a section come in any order, the text is checked once all of them are there
       snprintf(buffer, sizeof(buffer), "line %d: broken regular expression in text", sections[index]);
@@ -437,10 +450,16 @@ bool SaveJournalLayout(const std::string& path, const std::vector<JournalLayout>
     }
 
     if (window.filter.pid != 0)        file << "pid = " << window.filter.pid << '\n';
-    if (!window.filter.text.empty())   file << "text = " << window.filter.text << '\n';
-    if (window.filter.mode & JOURNAL_TEXT_EXPRESSION)  file << "regex = yes\n";
-    if (window.filter.mode & JOURNAL_TEXT_EXCLUDE)     file << "exclude = yes\n";
-    if (window.filter.mode & JOURNAL_TEXT_SENSITIVE)   file << "case = yes\n";
+
+    for (const JournalText& text : window.filter.texts)
+    {
+      // Each text of the chain with its options after it
+      file << "text = " << text.text << '\n';
+      if (text.mode & JOURNAL_TEXT_EXPRESSION)  file << "regex = yes\n";
+      if (text.mode & JOURNAL_TEXT_EXCLUDE)     file << "exclude = yes\n";
+      if (text.mode & JOURNAL_TEXT_SENSITIVE)   file << "case = yes\n";
+    }
+
     if (!window.filter.since.empty())  file << "since = " << window.filter.since << '\n';
     if (!window.filter.until.empty())  file << "until = " << window.filter.until << '\n';
 
