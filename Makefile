@@ -134,6 +134,7 @@ OBJECTS := \
 	$(SOURCE)/Journal/JournalMatcher.o \
 	$(SOURCE)/Journal/JournalChain.o \
 	$(SOURCE)/Dialog/TextDialog.o \
+	$(SOURCE)/Dialog/ChainDialog.o \
 	$(SOURCE)/Dialog/LevelsDialog.o \
 	$(SOURCE)/Dialog/ColumnsDialog.o \
 	$(SOURCE)/Dialog/JournalsDialog.o \

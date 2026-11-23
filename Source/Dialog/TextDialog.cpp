@@ -13,30 +13,18 @@
 
 // TextDialog
 
-TextDialog::TextDialog(const char* title, const char* label, bool exclude) :
+TextDialog::TextDialog(const char* title, const char* label) :
   TWindowInit(&TDialog::initFrame),
-  TDialog(TRect(0, 0, 52, exclude ? 13 : 12), title)
+  TDialog(TRect(0, 0, 52, 12), title)
 {
   int y;
 
-  this->exclude = exclude;
-  options      |= ofCentered;
-  y             = exclude ? 9 : 8;
-  line          = new TInputLine(TRect(3, 3, 49, 4), TEXT_LENGTH);
-
-  if (exclude)
-  {
-    boxes = new TCheckBoxes(TRect(3, 5, 49, 8),
-      new TSItem("~R~egular expression",
-      new TSItem("~E~xclude matching entries",
-      new TSItem("~C~ase sensitive", nullptr))));
-  }
-  else
-  {
-    boxes = new TCheckBoxes(TRect(3, 5, 49, 7),
-      new TSItem("~R~egular expression",
-      new TSItem("~C~ase sensitive", nullptr)));
-  }
+  options |= ofCentered;
+  y        = 8;
+  line     = new TInputLine(TRect(3, 3, 49, 4), TEXT_LENGTH);
+  boxes    = new TCheckBoxes(TRect(3, 5, 49, 7),
+    new TSItem("~R~egular expression",
+    new TSItem("~C~ase sensitive", nullptr)));
 
   insert(line);
   insert(new TLabel(TRect(2, 2, 49, 3), label, line));
@@ -55,8 +43,7 @@ void TextDialog::getData(void* record)
   line->getData(data->text);
   boxes->getData(&value);
 
-  // Bit N of three boxes is the JOURNAL_TEXT_* bit N, two boxes leave Exclude out
-  data->options = exclude ? value : (((value & 1) ? JOURNAL_TEXT_EXPRESSION : 0) | ((value & 2) ? JOURNAL_TEXT_SENSITIVE : 0));
+  data->options = ((value & 1) ? JOURNAL_TEXT_EXPRESSION : 0) | ((value & 2) ? JOURNAL_TEXT_SENSITIVE : 0);
 }
 
 void TextDialog::setData(void* record)
@@ -65,7 +52,7 @@ void TextDialog::setData(void* record)
   TextData* data;
 
   data  = static_cast<TextData*>(record);
-  value = exclude ? data->options : (((data->options & JOURNAL_TEXT_EXPRESSION) ? 1 : 0) | ((data->options & JOURNAL_TEXT_SENSITIVE) ? 2 : 0));
+  value = ((data->options & JOURNAL_TEXT_EXPRESSION) ? 1 : 0) | ((data->options & JOURNAL_TEXT_SENSITIVE) ? 2 : 0);
 
   line->setData(data->text);
   boxes->setData(&value);

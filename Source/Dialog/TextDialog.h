@@ -18,13 +18,13 @@ struct TextData
   ushort options;          // JOURNAL_TEXT_*
 };
 
-// Text of the filter with Exclude, or of Find without it; OK does not close it on a broken expression
+// Text of Find, plain or an expression, case or not; OK does not close it on a broken expression
 
 class TextDialog : public TDialog
 {
   public:
 
-    TextDialog(const char* title, const char* label, bool exclude);
+    TextDialog(const char* title, const char* label);
 
     void getData(void* record) override;
     void setData(void* record) override;
@@ -32,7 +32,6 @@ class TextDialog : public TDialog
 
   private:
 
-    bool exclude;
     TInputLine* line;
     TCheckBoxes* boxes;
 };

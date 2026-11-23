@@ -48,6 +48,9 @@ enum
   cmPageCopy,
   cmPageShow,                  // A window of the field under the cursor of a page
   cmPageHide,                  // A window without its value
+  cmChainShow,                 // A text to show the entries with it, of the Text dialog
+  cmChainHide,                 // A text to leave them out
+  cmChainRemove,               // The link of the chain under the cursor out
   cmPageCursor,                // Broadcast of a page: its cursor has moved
   cmJournalPoll,
   cmJournalSourceClear,

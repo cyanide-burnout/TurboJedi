@@ -68,30 +68,20 @@ void JournalView::arrange()
 
 void JournalView::chooseText()
 {
-  TextData data;
+  ushort result;
+  ChainDialog* dialog;
 
-  memset(&data, 0, sizeof(data));
+  // The chain of the window, a text added to it or a link taken out
+  dialog = new ChainDialog(filter);
+  result = TProgram::deskTop->execView(dialog);
 
-  if (!filter.texts.empty())
+  if (result == cmOK)
   {
-    strncpy(data.text, filter.texts.back().text.c_str(), sizeof(data.text) - 1);
-    data.options = filter.texts.back().mode;
-  }
-
-  if (TProgram::application->executeDialog(new TextDialog("Text", "~T~ext of the entries to show", true), &data) == cmOK)
-  {
-    if (!filter.texts.empty())
-    {
-      filter.texts.pop_back();
-    }
-
-    if (data.text[0] != '\0')
-    {
-      filter.texts.push_back(JournalText { data.text, data.options });
-    }
-
+    dialog->apply(filter);
     open();
   }
+
+  TObject::destroy(dialog);
 }
 
 void JournalView::chooseFind()
@@ -102,7 +92,7 @@ void JournalView::chooseFind()
   strncpy(data.text, finder.getText().c_str(), sizeof(data.text) - 1);
   data.options = finder.getMode();
 
-  if (TProgram::application->executeDialog(new TextDialog("Find", "~F~ind", false), &data) == cmOK)
+  if (TProgram::application->executeDialog(new TextDialog("Find", "~F~ind"), &data) == cmOK)
   {
     // Checked by the dialog already
     finder.set(data.text, data.options);

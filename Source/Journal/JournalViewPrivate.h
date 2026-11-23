@@ -23,6 +23,7 @@
 #include "PageDialog.h"
 #include "PickDialog.h"
 #include "TextDialog.h"
+#include "ChainDialog.h"
 #include "LevelsDialog.h"
 #include "ColumnsDialog.h"
 #include "JournalsDialog.h"
