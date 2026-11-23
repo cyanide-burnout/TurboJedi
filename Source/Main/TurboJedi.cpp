@@ -250,7 +250,8 @@ static void PrintUsage(const char* name)
   printf("without a layout and filter options\n");
   printf("\n");
   printf("FIELD=VALUE matches any journal field. Matches of the same field are joined by OR, of different fields by AND\n");
-  printf("FIELD!=VALUE leaves out the entries with the value, /text/ shows the entries with the text in\n");
+  printf("FIELD!=VALUE leaves out the entries with the value, FIELD=* takes the ones that have the field, FIELD!=* the\n");
+  printf("ones that have it not: EXIT_CODE='*' EXIT_CODE!=exited is there and not equal. /text/ shows the entries with the text in\n");
   printf("\"identifier[pid]: message\", !/text/ leaves them out, r after it makes the text a regular expression, c makes\n");
   printf("the case matter: UNIT=foo.service /start/ '!/restart/' _PID!=123, an entry has to pass all of them\n");
   printf("TIME is 2026-10-23 19:00[:00], 2026-10-23, 19:00 (today), now, today, yesterday, tomorrow or relative as\n");

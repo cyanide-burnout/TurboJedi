@@ -33,13 +33,24 @@ one as journalctl takes it: `-1h`, `+30m`, `-1h 30min`, `-2days`, `5min ago` (`u
 `2026-10-23 17:00 UTC`.
 
 `FIELD=VALUE` matches any journal field, the journal itself finds the entries: the same field twice is OR, different
-fields are AND. The rest is a chain applied by TurboJedi, an entry has to pass all of it: `FIELD!=VALUE` leaves out the
-entries with the value, `/text/` shows the entries with the text in `identifier[pid]: message`, `!/text/` leaves them
-out; `r` after the last `/` makes it a regular expression of PCRE2, `c` makes the case matter. The title of a window
-writes its chain the same way.
+fields are AND. The rest is a chain applied by TurboJedi, an entry has to pass all of it:
+
+| Rule | An entry passes |
+|---|---|
+| `FIELD!=VALUE` | without that value: one of another value passes, one without the field too |
+| `FIELD=*` | with the field, of any value |
+| `FIELD!=*` | without the field |
+| `/text/` | with the text in `identifier[pid]: message` |
+| `!/text/` | without it |
+
+`r` after the last `/` makes a text a regular expression of PCRE2, `c` makes the case matter. `FIELD=*` with
+`FIELD!=VALUE` asks for the field there and not equal: `EXIT_CODE=* EXIT_CODE!=exited` gives the units that have
+ended otherwise, not every entry without `EXIT_CODE`. A star is any value only alone, `MESSAGE=a*` is a value of its own.
+The title of a window writes its chain the same way.
 
 ```
 turbojedi -u foo.service /start/ '!/restart/' _PID!=123 _PID!=234
+turbojedi EXIT_CODE='*' EXIT_CODE!=exited
 ```
 
 Reading the whole journal needs root or the `systemd-journal` group, others see their own entries only.
@@ -85,7 +96,7 @@ Your shell puts in `$USER` and `$HOME` before `sudo` starts.
 | F1 | keys |
 | F2 | new window with the filter of the command line |
 | Shift-F2 | clone of the focused window: its lines, filter, find, selection and place, or the counts, step, scale, bars and cursor of a timeline; both go on with the journal on their own |
-| F4 | the filter of the window, all of it but the journals. Rules are made as a firewall makes them: a field or a text, `not` before the value leaves it out, Add puts the rule into the list, an entry has to pass all of them. The field is `unit`, `id`, `comm`, `via`, `boot`, `user`, `machine`, `pid` or any field of the journal, ▼ beside it lists the fields the journal has, ▼ beside the value its values, the running processes only for `pid`; the text is plain or a regular expression, case sensitive or not. Remove takes the rule under the cursor out, Clear the whole filter. The levels and Since and Until are there as well, Time... opens the dialog of Ctrl-T. OK takes what is typed and not added too, so a unit typed and OK works at once |
+| F4 | the filter of the window, all of it but the journals. The simple filter opens when it shows the whole filter: a value of each of Unit, Identifier, Command, Transport, Boot, User, Machine and PID, the arrow beside it or Down lists the values in the journal, and a text with Not, Regex and Case; `*` as a value takes the entries that have the field. Advanced... opens the rules: a field or a text, `not` before the value leaves it out, Add puts the rule into the list, an entry has to pass all of them. The field is `unit`, `id`, `comm`, `via`, `boot`, `user`, `machine`, `pid` or any field of the journal, the arrows list the fields the journal has and the values of the one chosen, the running processes only for `pid`; `*` is any value, with `not` no such field. Remove takes the rule under the cursor out, Clear the whole filter; the levels and Since and Until are there as well, Time... opens the dialog of Ctrl-T. A filter of more than the simple one shows, a value left out, two values of a field, `*` or two texts, opens in the rules at once, Simple... goes back once they are out. OK takes what is typed and not added too, so a unit typed and OK works at once |
 | F3 | the same window on the levels |
 | F7, Shift-F7 | source: the journals of this machine, of every machine or of a directory |
 | Ctrl-T | time range, in local time or with UTC checked in UTC: checking it turns the times over to the same moments, `today` to the date and time of its midnight, and back to `today` with nothing typed meanwhile; it starts in the zone the range is written in, or as the window shows times when nothing in the range is of a zone |

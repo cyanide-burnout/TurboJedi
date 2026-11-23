@@ -14,7 +14,9 @@ Options set the filter of the first window, the dialogs of the Journal menu chan
 Matches of the same field are joined by OR, of different fields by AND.
 .PP
 The rest is a chain applied by turbojedi, an entry has to pass all of it:
-\fIFIELD\fB!=\fIVALUE\fR leaves out the entries with the value,
+\fIFIELD\fB!=\fIVALUE\fR leaves out the entries with the value, the ones without the field pass;
+\fIFIELD\fB=*\fR takes the entries that have the field, \fIFIELD\fB!=*\fR the ones that have it not, so
+\fBEXIT_CODE=* EXIT_CODE!=exited\fR asks for the field there and not equal;
 \fB/\fItext\fB/\fR shows the entries with the text in "identifier[pid]: message",
 \fB!/\fItext\fB/\fR leaves them out;
 \fBr\fR after the last \fB/\fR makes it a regular expression of PCRE2, \fBc\fR makes the case matter.
@@ -94,7 +96,7 @@ New window with the filter of the command line.
 Clone of the focused window: its lines, filter, find, selection and place, or the counts, step, scale, bars and cursor of a timeline; both go on with the journal on their own.
 .TP
 .B F4
-Filter of the window: rules of a field or a text, \fBnot\fR before the value leaves it out, Add puts a rule into the list, an entry has to pass all of them; the lists of the fields and the values of the journal; the levels, Since and Until.
+Filter of the window. The simple one, a value of each field of Source and PID and a text, opens when it shows the whole filter; Advanced... opens the rules: a field or a text, \fBnot\fR before the value leaves it out, \fB*\fR is any value, Add puts a rule into the list, an entry has to pass all of them; the lists of the fields and the values of the journal; the levels, Since and Until.
 .TP
 .B F3
 The same window on the levels.

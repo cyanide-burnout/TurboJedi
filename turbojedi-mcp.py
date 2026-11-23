@@ -697,7 +697,9 @@ FILTER = {
     'matches': {'type': 'array', 'items': {'type': 'string'},
                 'description': 'FIELD=VALUE as journalctl takes them, such as _SYSTEMD_UNIT=nginx.service or '
                                'SYSLOG_IDENTIFIER=sshd; the same field twice is OR, different fields are AND. '
-                               'FIELD!=VALUE leaves out the entries with the value, _PID!=123 for one'},
+                               'FIELD!=VALUE leaves out the entries with the value, _PID!=123 for one, the ones '
+                               'without the field pass; FIELD=* takes the entries that have the field, FIELD!=* the '
+                               'ones that have it not: EXIT_CODE=* with EXIT_CODE!=exited is there and not equal'},
     'text': {'type': 'string', 'description': 'text matched against "identifier[pid]: message"'},
     'regex': {'type': 'boolean', 'description': 'text is a regular expression of PCRE2'},
     'exclude': {'type': 'boolean', 'description': 'entries that match the text are left out'},

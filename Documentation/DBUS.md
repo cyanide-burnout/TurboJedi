@@ -137,7 +137,7 @@ A window of `ListWindows()`:
 | `texts` | as | the texts of the chain of the window as its title writes them, `/text/`, `!/text/` left out, `r` and `c` after it for an expression and for case (since 0.20) |
 | `text`, `regex`, `exclude`, `case` | s, b, b, b | the first of them and how it is matched |
 | `levels` | s | the priorities shown, `EACRWNID` with `-` for the hidden ones |
-| `matches` | as | FIELD=VALUE of the command line and of the plugins, FIELD!=VALUE left out, in the order given |
+| `matches` | as | FIELD=VALUE of the command line and of the plugins, FIELD!=VALUE left out, FIELD=* and FIELD!=* the field there or not, in the order given |
 | `unit`, `identifier`, `command`, `transport`, `boot`, `user`, `machine` | s | the fields of Source, only the ones set |
 | `pid` | u | Source, when set |
 | `since`, `until` | s | the range as given, when set |
@@ -210,7 +210,7 @@ FIELD!=VALUE and the text are applied here as in a window, the text against `ide
 | Option | Type | |
 |---|---|---|
 | `id` | u | the journal of this window, its directory and merge; the journal of the machine without it |
-| `matches` | as | FIELD=VALUE, the same field twice is OR, different fields are AND; FIELD!=VALUE leaves the entries with the value out |
+| `matches` | as | FIELD=VALUE, the same field twice is OR, different fields are AND; FIELD!=VALUE leaves the entries with the value out; FIELD=* takes the entries that have the field, FIELD!=* the ones that have it not |
 | `text` | s | text of the message |
 | `regex`, `exclude`, `case` | b | the text is a regular expression of PCRE2; the entries that match are left out; the case matters |
 | `priority` | s | up to the level: `emerg`, `alert`, `crit`, `err`, `warning`, `notice`, `info`, `debug` or `0`..`7` |
