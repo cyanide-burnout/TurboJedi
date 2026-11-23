@@ -54,6 +54,8 @@ enum
   cmFilterRemove,              // The rule under the cursor out
   cmFilterClear,               // The whole filter out
   cmFilterTime,                // The dialog of the time range
+  cmFilterRules,               // The simple filter goes over to the window of the rules
+  cmFilterSimple,              // And back
   cmPageCursor,                // Broadcast of a page: its cursor has moved
   cmJournalPoll,
   cmJournalActions,            // Menu of the actions of plugins for the entry under the cursor
@@ -74,6 +76,7 @@ enum
   cmJournalConsole,            // Plugins, Console: the lines of the console of TurboJedi
   cmJournalTimePick   = 1100,  // Since, then Until
   cmJournalTimePreset = 1110,  // One per preset of the time picker
+  cmFilterList        = 1200,  // The lists of the simple filter, one per field of Source, then one for PID
   cmJournalMenu       = 1300   // One per item of the Plugins menu, PLUGIN_MENU_LIMIT of them
 };
 

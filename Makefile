@@ -134,6 +134,8 @@ OBJECTS := \
 	$(SOURCE)/Journal/JournalChain.o \
 	$(SOURCE)/Dialog/TextDialog.o \
 	$(SOURCE)/Dialog/FilterDialog.o \
+	$(SOURCE)/Dialog/SimpleDialog.o \
+	$(SOURCE)/Dialog/PickButton.o \
 	$(SOURCE)/Dialog/ColumnsDialog.o \
 	$(SOURCE)/Dialog/JournalsDialog.o \
 	$(SOURCE)/Dialog/DirectoryDialog.o \

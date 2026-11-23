@@ -140,19 +140,55 @@ void JournalView::chooseHighlight()
 void JournalView::chooseFilter(int start)
 {
   ushort result;
-  FilterDialog* dialog;
+  JournalFilter draft;
+  SimpleDialog* plain;
+  FilterDialog* rules;
 
-  // Everything of the filter but the journals, the rules, the levels and the times
-  dialog = new FilterDialog(filter, start);
-  result = TProgram::deskTop->execView(dialog);
+  // The simple filter when it shows all of it, the window of the rules otherwise; F3 goes to the levels of the rules
+  draft  = filter;
+  result = (FitsSimpleFilter(draft) && (start != FILTER_LEVELS)) ? cmFilterSimple : cmFilterRules;
+
+  // From one to the other with what has been chosen there, OK applies it, Cancel leaves the filter as it has been
+  while ((result == cmFilterSimple) || (result == cmFilterRules))
+  {
+    if (result == cmFilterSimple)
+    {
+      plain  = new SimpleDialog(draft);
+      result = TProgram::deskTop->execView(plain);
+
+      if (result != cmCancel)
+      {
+        plain->apply(draft);
+      }
+
+      TObject::destroy(plain);
+      continue;
+    }
+
+    rules  = new FilterDialog(draft, start);
+    result = TProgram::deskTop->execView(rules);
+
+    if (result != cmCancel)
+    {
+      rules->apply(draft);
+    }
+
+    TObject::destroy(rules);
+
+    if ((result == cmFilterSimple) &&
+        (!FitsSimpleFilter(draft)))
+    {
+      // The simple one would lose the rest
+      messageBox("The simple filter shows a value of each field and a text: take the rules of more out first", mfInformation | mfOKButton);
+      result = cmFilterRules;
+    }
+  }
 
   if (result == cmOK)
   {
-    dialog->apply(filter);
+    filter = draft;
     open();
   }
-
-  TObject::destroy(dialog);
 }
 
 void JournalView::chooseSource()

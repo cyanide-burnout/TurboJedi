@@ -23,6 +23,7 @@
 #include "PickDialog.h"
 #include "TextDialog.h"
 #include "FilterDialog.h"
+#include "SimpleDialog.h"
 #include "ColumnsDialog.h"
 #include "JournalsDialog.h"
 #include "JediClipboard.h"

@@ -12,6 +12,7 @@
 #define Uses_MsgBox
 #include "FilterDialog.h"
 #include "PickDialog.h"
+#include "PickButton.h"
 #include "TimeDialog.h"
 #include "TextDialog.h"
 #include "Commands.h"
@@ -119,10 +120,10 @@ FilterDialog::FilterDialog(const JournalFilter& filter, int start) :
 
   insert(name);
   insert(new TLabel(TRect(2, 2, 8, 3), "~F~ield", name));
-  insert(new TButton(TRect(23, 2, 27, 4), "\xE2\x96\xBC", cmFilterFields, bfNormal));
+  insert(new PickButton(TRect(23, 2, 26, 3), name, cmFilterFields));
   insert(negation);
   insert(this->value);
-  insert(new TButton(TRect(61, 2, 65, 4), "\xE2\x96\xBC", cmFilterValues, bfNormal));
+  insert(new PickButton(TRect(61, 2, 64, 3), this->value, cmFilterValues));
   insert(new TButton(TRect(66, 2, 74, 4), "~A~dd", cmFilterAddField, bfNormal));
 
   line  = new TInputLine(TRect(9, 4, 35, 5), TEXT_LENGTH);
@@ -164,10 +165,11 @@ FilterDialog::FilterDialog(const JournalFilter& filter, int start) :
   insert(new TLabel(TRect(31, 16, 37, 17), "U~n~til", until));
   insert(new TButton(TRect(61, 16, 74, 18), "T~i~me...", cmFilterTime, bfNormal));
 
-  insert(new TButton(TRect(8,  19, 20, 21), "~O~K",     cmOK,           bfDefault));
-  insert(new TButton(TRect(22, 19, 34, 21), "Re~m~ove", cmFilterRemove, bfNormal));
-  insert(new TButton(TRect(36, 19, 48, 21), "C~l~ear",  cmFilterClear,  bfNormal));
-  insert(new TButton(TRect(50, 19, 62, 21), "Cancel",   cmCancel,       bfNormal));
+  insert(new TButton(TRect(3,  19, 15, 21), "~O~K",        cmOK,           bfDefault));
+  insert(new TButton(TRect(17, 19, 29, 21), "Re~m~ove",    cmFilterRemove, bfNormal));
+  insert(new TButton(TRect(31, 19, 43, 21), "C~l~ear",     cmFilterClear,  bfNormal));
+  insert(new TButton(TRect(45, 19, 59, 21), "Sim~p~le...", cmFilterSimple, bfNormal));
+  insert(new TButton(TRect(61, 19, 73, 21), "Cancel",      cmCancel,       bfNormal));
 
   // The rules in the order the title writes them
   for (field = 0; field < JOURNAL_FIELD_COUNT; field ++)
@@ -220,6 +222,7 @@ void FilterDialog::handleEvent(TEvent& event)
     case cmFilterRemove:    remove();        break;
     case cmFilterClear:     clear();         break;
     case cmFilterTime:      pickTime();      break;
+    case cmFilterSimple:    endModal(cmFilterSimple); break;
     default:                                 return;
   }
 

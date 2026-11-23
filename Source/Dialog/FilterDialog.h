@@ -36,7 +36,8 @@ class RuleList : public TListViewer
 
 // The whole filter of a window but its journals: rules made as a firewall makes them, a field or a text with a check box
 // of negation before the value, Add puts it into the rules; the levels and the times. OK takes what is typed and not
-// added as well; a wrong time, a field the journal does not take or a broken expression keep the window open
+// added as well; a wrong time, a field the journal does not take or a broken expression keep the window open. Simple...
+// goes back to the simple filter with the rules as they are, what is typed and not added is left
 
 class FilterDialog : public TDialog
 {
