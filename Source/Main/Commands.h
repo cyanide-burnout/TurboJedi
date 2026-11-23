@@ -52,6 +52,7 @@ enum
   cmFilterAddField,            // The field and its value into the rules
   cmFilterAddText,             // The text into the rules
   cmFilterRemove,              // The rule under the cursor out
+  cmFilterEdit,                // The rule under the cursor back into its line to be changed and added again
   cmFilterClear,               // The whole filter out
   cmFilterTime,                // The dialog of the time range
   cmFilterRules,               // The simple filter goes over to the window of the rules

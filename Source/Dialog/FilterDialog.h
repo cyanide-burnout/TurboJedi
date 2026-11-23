@@ -19,7 +19,8 @@
 #define FILTER_FIELD   0  // Where the window starts: the line of a field, the levels
 #define FILTER_LEVELS  1
 
-// The rules of a filter in the order given, as the title writes them
+// The rules of a filter in the order given, as the title writes them; Delete takes one out, a double click, Enter or
+// Space puts it back into its line to be changed
 
 class RuleList : public TListViewer
 {
@@ -28,6 +29,8 @@ class RuleList : public TListViewer
     RuleList(const TRect& bounds, TScrollBar* bar, const std::vector<std::string>& items);
 
     void getText(char* dest, short item, short limit) override;
+    void handleEvent(TEvent& event) override;  // Delete takes the rule out
+    void selectItem(short item) override;      // A double click, Enter or Space puts it back into its line
 
   private:
 
@@ -76,6 +79,7 @@ class FilterDialog : public TDialog
     bool addField(bool quiet);
     bool addText(bool quiet);
     void remove();
+    void edit();
     void clear();
     void pickField();
     void pickValue();

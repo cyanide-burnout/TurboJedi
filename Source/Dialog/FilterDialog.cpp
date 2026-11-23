@@ -7,6 +7,7 @@
 #define Uses_TButton
 #define Uses_TSItem
 #define Uses_TEvent
+#define Uses_TKeys
 #define Uses_TProgram
 #define Uses_TDeskTop
 #define Uses_MsgBox
@@ -99,6 +100,38 @@ void RuleList::getText(char* dest, short item, short limit)
 
   strncpy(dest, items[item].c_str(), limit - 1);
   dest[limit - 1] = '\0';
+}
+
+void RuleList::handleEvent(TEvent& event)
+{
+  if ((event.what == evKeyDown) &&
+      (event.keyDown.keyCode == kbEnter))
+  {
+    // Before the dialog takes it for OK
+    selectItem(focused);
+    clearEvent(event);
+    return;
+  }
+
+  if ((event.what == evKeyDown) &&
+      (event.keyDown.keyCode == kbDel))
+  {
+    message(owner, evCommand, cmFilterRemove, this);
+    clearEvent(event);
+    return;
+  }
+
+  TListViewer::handleEvent(event);
+}
+
+void RuleList::selectItem(short item)
+{
+  if ((item >= 0) &&
+      (item < range))
+  {
+    focusItem(item);
+    message(owner, evCommand, cmFilterEdit, this);
+  }
 }
 
 // FilterDialog
@@ -220,6 +253,7 @@ void FilterDialog::handleEvent(TEvent& event)
     case cmFilterAddField:  addField(false); break;
     case cmFilterAddText:   addText(false);  break;
     case cmFilterRemove:    remove();        break;
+    case cmFilterEdit:      edit();          break;
     case cmFilterClear:     clear();         break;
     case cmFilterTime:      pickTime();      break;
     case cmFilterSimple:    endModal(cmFilterSimple); break;
@@ -479,6 +513,65 @@ void FilterDialog::remove()
   rules.erase(rules.begin() + focused);
   update();
   list->focusItem(std::min<short>(focused, std::max<short>(0, (short)rules.size() - 1)));
+}
+
+void FilterDialog::edit()
+{
+  short focused;
+  size_t equal;
+  ushort checked;
+  Rule rule;
+
+  focused = list->focused;
+
+  if ((focused < 0) ||
+      ((size_t)focused >= rules.size()))
+  {
+    return;
+  }
+
+  rule = rules[focused];
+
+  // What is typed in the line of the rule and not added yet goes in first instead of being lost
+  if (!((rule.field == -2) ? addText(true) : addField(true)))
+  {
+    return;
+  }
+
+  rules.erase(rules.begin() + focused);
+  update();
+  list->focusItem(std::min<short>(focused, std::max<short>(0, (short)rules.size() - 1)));
+
+  if (rule.field == -2)
+  {
+    checked =
+      ((rule.text.mode & JOURNAL_TEXT_EXCLUDE)    ? 1 : 0) |
+      ((rule.text.mode & JOURNAL_TEXT_EXPRESSION) ? 2 : 0) |
+      ((rule.text.mode & JOURNAL_TEXT_SENSITIVE)  ? 4 : 0);
+
+    SetLine(line, rule.text.text);
+    modes->setData(&checked);
+    line->select();
+    return;
+  }
+
+  checked = rule.exclude ? 1 : 0;
+
+  if (rule.field == -1)
+  {
+    // FIELD=VALUE or FIELD!=VALUE, a name never holds = or !
+    equal = rule.value.find('=');
+    SetLine(name, rule.value.substr(0, rule.exclude ? (equal - 1) : equal));
+    SetLine(this->value, rule.value.substr(equal + 1));
+  }
+  else
+  {
+    SetLine(name, keys[rule.field]);
+    SetLine(this->value, rule.value);
+  }
+
+  negation->setData(&checked);
+  this->value->select();
 }
 
 void FilterDialog::clear()
