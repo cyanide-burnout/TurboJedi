@@ -93,17 +93,14 @@ New window with the filter of the command line.
 .B Shift-F2
 Clone of the focused window: its lines, filter, find, selection and place, or the counts, step, scale, bars and cursor of a timeline; both go on with the journal on their own.
 .TP
-.B F3
-Levels.
-.TP
 .B F4
-The chain of the window, its matches and texts in the order given: Show adds a text to show the entries with it, Hide to leave them out, plain or regular expression, case sensitive or not; Remove takes a link out.
+Filter of the window: rules of a field or a text, \fBnot\fR before the value leaves it out, Add puts a rule into the list, an entry has to pass all of them; the lists of the fields and the values of the journal; the levels, Since and Until.
 .TP
-.B F7
-Source: unit, identifier, command, transport, boot, user, machine, PID, with lists of the values in the journal.
+.B F3
+The same window on the levels.
 .TP
-.B Shift-F7
-Journals of the window: of this machine, of every machine there is, like \fBjournalctl \-\-merge\fR, or of a directory.
+.B F7, Shift-F7
+Source: the journals of the window, of this machine, of every machine there is, like \fBjournalctl \-\-merge\fR, or of a directory.
 .TP
 .B Ctrl-T
 Time range, in local time or with \fBUTC\fR checked in UTC: checking it turns the times over to the same moments,

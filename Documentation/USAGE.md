@@ -85,10 +85,9 @@ Your shell puts in `$USER` and `$HOME` before `sudo` starts.
 | F1 | keys |
 | F2 | new window with the filter of the command line |
 | Shift-F2 | clone of the focused window: its lines, filter, find, selection and place, or the counts, step, scale, bars and cursor of a timeline; both go on with the journal on their own |
-| F3 | levels |
-| F4 | the chain of the window: its matches and texts in the order given. Show adds the text typed to show the entries with it, Hide to leave them out; Remove takes the link under the cursor out, Show or Enter with nothing typed applies it |
-| F7 | source |
-| Shift-F7 | journals: of this machine, of every machine or of a directory |
+| F4 | the filter of the window, all of it but the journals. Rules are made as a firewall makes them: a field or a text, `not` before the value leaves it out, Add puts the rule into the list, an entry has to pass all of them. The field is `unit`, `id`, `comm`, `via`, `boot`, `user`, `machine`, `pid` or any field of the journal, ▼ beside it lists the fields the journal has, ▼ beside the value its values, the running processes only for `pid`; the text is plain or a regular expression, case sensitive or not. Remove takes the rule under the cursor out, Clear the whole filter. The levels and Since and Until are there as well, Time... opens the dialog of Ctrl-T. OK takes what is typed and not added too, so a unit typed and OK works at once |
+| F3 | the same window on the levels |
+| F7, Shift-F7 | source: the journals of this machine, of every machine or of a directory |
 | Ctrl-T | time range, in local time or with UTC checked in UTC: checking it turns the times over to the same moments, `today` to the date and time of its midnight, and back to `today` with nothing typed meanwhile; it starts in the zone the range is written in, or as the window shows times when nothing in the range is of a zone |
 | Ctrl-K | columns |
 | Ctrl-W | wrap long messages |
@@ -122,7 +121,7 @@ Your shell puts in `$USER` and `$HOME` before `sudo` starts.
 
 ## Journals of other machines
 
-A journal directory mounted from another machine opens with `-D` or Shift-F7 like any other directory, with the filters,
+A journal directory mounted from another machine opens with `-D` or F7 like any other directory, with the filters,
 the history, the timeline, the details and Alt-G. `/var/log/journal` opens as it is, with the directories of machine IDs
 in it; a machine that keeps its journal in memory only (`Storage=volatile`) has it in `/run/log/journal`. A network file
 system or FUSE tells nothing about appended entries and new files, TurboJedi looks at the files every second instead and
@@ -160,7 +159,7 @@ the GID `systemd-journal` has on that machine, root reads them only with `no_roo
 `hard` unless told otherwise: while the server is away, and during its grace period of 90 seconds after a start, the windows
 wait for it the way every program on that mount does, and go on when it answers.
 
-A window per machine, each with its directory chosen by Shift-F7, puts several machines side by side: Alt-G takes every
+A window per machine, each with its directory chosen by F7, puts several machines side by side: Alt-G takes every
 window to the time of the selected line, and a layout keeps their directories for the next start.
 
 ## Layouts

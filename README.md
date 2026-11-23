@@ -112,7 +112,7 @@ reading the whole journal needs root or the `systemd-journal` group. F1 tells th
 | Key | |
 |---|---|
 | F2 | new window |
-| F3, F4, F7 | levels, the chain of texts and values, source of the window |
+| F4, F7 | the filter of the window: rules of fields and texts to keep or to leave out, levels, times; its source, the journals |
 | Ctrl-T | time range |
 | Ctrl-F | find |
 | Space | pause or follow |
