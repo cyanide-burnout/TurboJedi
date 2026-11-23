@@ -273,7 +273,7 @@ const char* JournalView::describe()
   char buffer[128];
   int length;
 
-  length = snprintf(buffer, sizeof(buffer), unseen ? "%s +%llu" : "%s", pending ? "LOADING" : (follow ? "FOLLOW" : "PAUSED"), (unsigned long long)unseen);
+  length = snprintf(buffer, sizeof(buffer), unseen ? "%s +%llu" : "%s", (pending || ((wanted > 0) && older)) ? "LOADING" : (follow ? "FOLLOW" : "PAUSED"), (unsigned long long)unseen);
 
   if (held)
   {

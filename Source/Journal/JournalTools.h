@@ -26,6 +26,7 @@
 
 #define JOURNAL_VALUE_LENGTH      128
 #define JOURNAL_VALUE_LIMIT       10000  // Values of a field a list takes
+#define JOURNAL_UNIQUE_LIMIT      1024   // Values of a field FIELD=* is given to the journal as, past them the chain looks
 
 #define JOURNAL_COLUMN_DATE        (1 << 0)
 #define JOURNAL_COLUMN_TIME        (1 << 1)
@@ -80,6 +81,10 @@ std::string DescribeJournalLoss(const JournalFilter& filter);
 
 // Journal with the matches of a filter, everything but its text and times
 int OpenJournalQuery(sd_journal** journal, const JournalFilter& filter);
+
+// As OpenJournalQuery, FIELD=* given to the journal as every value the field has, so that the history is found by its
+// indexes; a value that comes later is unknown to it, the entries to come are read by OpenJournalQuery
+int OpenJournalHistory(sd_journal** journal, const JournalFilter& filter);
 
 // Milliseconds up to the limit to wait for the journal, less when inotify cannot tell about every change
 int GetJournalWait(sd_journal* journal, int limit);

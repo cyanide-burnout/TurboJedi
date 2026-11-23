@@ -445,13 +445,22 @@ void JournalView::handleEvent(TEvent& event)
       }
 
       if ((event.message.command == cmJournalPoll) &&
+          (journal != nullptr) &&
+          (wanted > 0) &&
+          (older))
+      {
+        // The history of a filter done on this side, a step each poll
+        dig(GetQueryMilliseconds() + HISTORY_SLICE);
+      }
+
+      if ((event.message.command == cmJournalPoll) &&
           (journal != nullptr))
       {
         // The next batch is read at once, a journal inotify cannot tell everything about is asked again in time,
         // without a source of its own the wait cannot end on a change
         poll          = static_cast<JournalPoll*>(event.message.infoPtr);
         poll->timeout = (notifier != nullptr) ? poll->timeout : std::min(poll->timeout, JOURNAL_POLL_TIMEOUT);
-        poll->timeout = pending ? 0 : GetJournalWait(journal, poll->timeout);
+        poll->timeout = (pending || ((wanted > 0) && older)) ? 0 : GetJournalWait(journal, poll->timeout);
       }
 
       if ((event.message.command == cmJournalSyncTo) &&

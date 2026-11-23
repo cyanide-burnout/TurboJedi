@@ -15,6 +15,7 @@ static size_t GetLineSize(const JournalLine& line)
 void JournalView::open()
 {
   int result;
+  char* cursor;
   char message[128];
   JournalLine model;
   std::vector<JournalLine> parts;
@@ -37,6 +38,8 @@ void JournalView::open()
   held    = false;
   counted = 0;
   older   = true;
+  wanted  = 0;
+  past.clear();
 
   // Lines of another query
   tail = 0;
@@ -86,22 +89,35 @@ void JournalView::open()
     if (until != 0) sd_journal_seek_realtime_usec(journal, until + 1);
     else            sd_journal_seek_tail(journal);
 
-    if (!rewind((history > 0) ? history : 1))
+    if (sd_journal_previous_skip(journal, ((history > 0) && chain.empty()) ? history : 1) <= 0)
     {
       // Nothing of the filter yet, an identifier that has written nothing for one: libsystemd never finds anything
       // after a bare tail, from the head the first entry to come is next
       sd_journal_seek_head(journal);
     }
-    else if ((history > 0) &&
-             (parse(journal, model, buffer)))
+    else if (history > 0)
     {
-      // Show the entry the cursor is on before moving forward
-      split(model, buffer, parts);
-      push(parts);
+      if (parse(journal, model, buffer))
+      {
+        // Show the entry the cursor is on before moving forward
+        split(model, buffer, parts);
+        push(parts);
+      }
+
+      if ((!chain.empty()) &&
+          (sd_journal_get_cursor(journal, &cursor) >= 0))
+      {
+        // A filter done on this side: the window follows from the last entry, its history is looked for back from it,
+        // as much as there is time for now and the rest by steps of the polls
+        past   = cursor;
+        wanted = history - lines.size();
+        free(cursor);
+      }
     }
   }
 
   read();
+  dig(GetQueryMilliseconds() + HISTORY_SCAN);
   refresh();
 
   if (owner != nullptr)
@@ -109,36 +125,6 @@ void JournalView::open()
     // Window title shows the filter
     static_cast<TWindow*>(owner)->frame->drawView();
   }
-}
-
-bool JournalView::rewind(int count)
-{
-  int found;
-  bool moved;
-  int64_t deadline;
-
-  if ((chain.empty()) ||
-      (history <= 0))
-  {
-    // The journal has applied the whole filter, every entry counts
-    return sd_journal_previous_skip(journal, count) > 0;
-  }
-
-  // What is done on this side counts only the entries that pass it: a rare field or text may be far back,
-  // it is looked for up to the deadline, the cursor stays on the oldest entry looked at
-  deadline = GetQueryMilliseconds() + HISTORY_SCAN;
-
-  for (found = 0, moved = false; (found < count) && (GetQueryMilliseconds() < deadline) && (sd_journal_previous(journal) > 0); )
-  {
-    moved = true;
-
-    if (chain.pass(journal))
-    {
-      found ++;
-    }
-  }
-
-  return moved;
 }
 
 void JournalView::read()
@@ -215,12 +201,15 @@ void JournalView::read()
   trim();
 }
 
-size_t JournalView::back()
+size_t JournalView::back(int64_t deadline)
 {
   int count;
   bool ended;
+  bool fresh;
   size_t size;
-  int64_t deadline;
+  int64_t limit;
+  char* cursor;
+  std::string from;
   uint64_t realtime;
   uint64_t before;
   sd_journal* source;
@@ -228,24 +217,32 @@ size_t JournalView::back()
   std::vector<JournalLine> parts;
   std::vector<JournalLine> batch;
 
+  // On from the oldest entry looked at, the oldest line otherwise
+  from = (!past.empty()) ? past : ((!lines.empty()) ? edge(false).cursor : std::string());
+
   if ((!older) ||
-      (lines.empty()) ||
-      (edge(false).cursor.empty()) ||
-      (OpenJournalQuery(&source, filter) < 0))
+      (from.empty()) ||
+      (OpenJournalHistory(&source, filter) < 0))
   {
     return 0;
   }
 
-  // A journal of its own, the one of the window keeps following the tail,
-  // seeking lands on the entry of the oldest line, the next steps go older
-  ended = (sd_journal_seek_cursor(source, edge(false).cursor.c_str()) < 0) || (sd_journal_previous(source) <= 0);
+  // A journal of its own, the one of the window keeps following the tail, seeking lands on the entry looked at, the next
+  // steps go older; one the history does not match lands on the one before, not looked at yet
+  ended = (sd_journal_seek_cursor(source, from.c_str()) < 0) || (sd_journal_previous(source) <= 0);
+  fresh = (!ended) && (sd_journal_test_cursor(source, from.c_str()) <= 0);
 
-  // A filter done on this side counts the entries that pass it, a rare one is looked for up to the deadline
-  deadline = GetQueryMilliseconds() + HISTORY_SCAN;
+  // A filter done on this side counts the entries that pass it: without a deadline the step goes on until it has found
+  // one, a rare one may be far back
+  limit = (deadline != 0) ? deadline : (GetQueryMilliseconds() + HISTORY_SCAN);
 
-  for (count = 0, size = bytes; (!ended) && (count < HISTORY_STEP) && ((lines.size() + batch.size()) < capacity) && (size < BYTE_CAPACITY) && (GetQueryMilliseconds() < deadline); )
+  for (count = 0, size = bytes; (!ended) && (count < HISTORY_STEP) && ((lines.size() + batch.size()) < capacity) && (size < BYTE_CAPACITY) && ((GetQueryMilliseconds() < limit) || ((deadline == 0) && (count == 0))); )
   {
-    if (sd_journal_previous(source) <= 0)
+    if (fresh)
+    {
+      fresh = false;
+    }
+    else if (sd_journal_previous(source) <= 0)
     {
       // The very first entry of the journal
       ended = true;
@@ -278,6 +275,13 @@ size_t JournalView::back()
       if (reversed()) batch.insert(batch.end(), std::make_move_iterator(parts.begin()),  std::make_move_iterator(parts.end()));
       else            batch.insert(batch.end(), std::make_move_iterator(parts.rbegin()), std::make_move_iterator(parts.rend()));
     }
+  }
+
+  if ((!ended) &&
+      (sd_journal_get_cursor(source, &cursor) >= 0))
+  {
+    past = cursor;
+    free(cursor);
   }
 
   sd_journal_close(source);
@@ -458,18 +462,21 @@ void JournalView::push(std::vector<JournalLine>& parts)
 
 void JournalView::trim()
 {
+  bool dropped;
   uint64_t number;
   uint64_t before;
 
-  number = first;
+  dropped = false;
+  number  = first;
   before = follow ? 0 : total();
 
   while ((lines.size() > capacity) ||
          ((bytes > BYTE_CAPACITY) && (lines.size() > 1)))
   {
     // The oldest go first, from the bottom with the newest on top; rows are counted again
-    bytes -= GetLineSize(edge(false));
-    layout = 0;
+    bytes  -= GetLineSize(edge(false));
+    layout  = 0;
+    dropped = true;
 
     if (reversed())
     {
@@ -479,6 +486,13 @@ void JournalView::trim()
 
     lines.pop_front();
     first ++;
+  }
+
+  if (dropped)
+  {
+    // The history goes on from the oldest line kept
+    past.clear();
+    wanted = 0;
   }
 
   // Marks of the lines gone go with them
@@ -575,6 +589,27 @@ void JournalView::refresh()
   {
     // Follow state and counters of the focused window live in the status line hint
     TProgram::statusLine->drawView();
+  }
+}
+
+void JournalView::dig(int64_t deadline)
+{
+  size_t added;
+
+  while ((wanted > 0) &&
+         (older) &&
+         (GetQueryMilliseconds() < deadline))
+  {
+    if (((added = back(deadline)) == 0) &&
+        (GetQueryMilliseconds() < deadline))
+    {
+      // The journal, the range or the room of the window has ended
+      wanted = 0;
+      break;
+    }
+
+    // Lines, near enough to the entries
+    wanted -= std::min<int>(added, wanted);
   }
 }
 

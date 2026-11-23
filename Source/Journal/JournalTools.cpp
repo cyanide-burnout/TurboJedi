@@ -147,6 +147,110 @@ int OpenJournalQuery(sd_journal** journal, const JournalFilter& filter)
   return result;
 }
 
+// A value of the field is matched by the journal already
+static bool HasJournalMatch(const JournalFilter& filter, const std::string& name)
+{
+  int field;
+
+  for (field = 0; field < JOURNAL_FIELD_COUNT; field ++)
+  {
+    if ((!filter.values[field].empty()) &&
+        (name == JournalFieldNames[field]))
+    {
+      return true;
+    }
+  }
+
+  if ((filter.pid != 0) &&
+      (name == "_PID"))
+  {
+    return true;
+  }
+
+  for (const std::string& match : filter.matches)
+  {
+    if ((!IsJournalExclusion(match)) &&
+        (!IsJournalPresence(match)) &&
+        (match.compare(0, name.size() + 1, name + "=") == 0))
+    {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+int OpenJournalHistory(sd_journal** journal, const JournalFilter& filter)
+{
+  int result;
+  size_t length;
+  const void* data;
+  std::string name;
+  std::string value;
+  std::vector<std::string> values;
+
+  if ((result = OpenJournalQuery(journal, filter)) < 0)
+  {
+    return result;
+  }
+
+  for (const std::string& match : filter.matches)
+  {
+    if ((!IsJournalPresence(match)) ||
+        (IsJournalExclusion(match)))
+    {
+      // No index tells a field missing
+      continue;
+    }
+
+    name = match.substr(0, match.size() - 2);
+
+    if ((HasJournalMatch(filter, name)) ||
+        (sd_journal_query_unique(*journal, name.c_str()) < 0))
+    {
+      continue;
+    }
+
+    values.clear();
+
+    SD_JOURNAL_FOREACH_UNIQUE(*journal, data, length)
+    {
+      if (values.size() == JOURNAL_UNIQUE_LIMIT)
+      {
+        break;
+      }
+
+      // Given as FIELD=VALUE already, a value left out by FIELD!=VALUE stays out
+      value.assign(static_cast<const char*>(data), length);
+
+      if (std::find(filter.matches.begin(), filter.matches.end(), name + "!" + value.substr(name.size())) == filter.matches.end())
+      {
+        values.push_back(value);
+      }
+    }
+
+    if (values.size() == JOURNAL_UNIQUE_LIMIT)
+    {
+      // Too many to join, the chain looks at every entry
+      continue;
+    }
+
+    if (values.empty())
+    {
+      // Nothing has the field or a value not left out, a match nothing satisfies
+      values.push_back(name + "=");
+    }
+
+    for (const std::string& value : values)
+    {
+      // Values of one field are joined by OR, and with the other fields by AND
+      sd_journal_add_match(*journal, value.data(), value.size());
+    }
+  }
+
+  return result;
+}
+
 // Rank of a field among the lines of an entry: the address of the entry, of the program, of journald
 static int RankJournalField(const std::string& line)
 {

@@ -148,6 +148,8 @@ class JournalView : public TScroller
     bool closed;     // An entry after the range has been met, nothing is read anymore
     bool pending;    // Reading has stopped at the end of its batch, the next poll goes on
     bool older;      // History in front of the first line may still be there
+    std::string past; // Cursor of the oldest entry the history has looked at, it goes on from there
+    int wanted;       // Entries of the history a filter done on this side is still looking for, by steps of the polls
 
     std::vector<uint64_t> rows;  // Wrapped lines: rows in front of every line, the total last
     int layout;                  // Width the rows have been counted for, zero when they are stale
@@ -183,8 +185,8 @@ class JournalView : public TScroller
     void attach();
     void open();
     void read();
-    bool rewind(int count);  // Steps back to the oldest of the last entries that pass the filter, true if it has moved
-    size_t back();
+    size_t back(int64_t deadline = 0);  // Up to the deadline, without one until it has found an entry
+    void dig(int64_t deadline);         // The history wanted, up to the deadline
     bool parse(sd_journal* source, JournalLine& model, std::string& message);
     void split(const JournalLine& model, const std::string& message, std::vector<JournalLine>& parts);
     void push(std::vector<JournalLine>& parts);  // The lines of an entry after the newest one

@@ -73,7 +73,8 @@ bool JournalQuery::start(const JournalFilter& filter, const std::string& cursor,
     return false;
   }
 
-  if ((result = OpenJournalQuery(&journal, filter)) < 0)
+  // What is there now, FIELD=* by the indexes of the journal as the history of a window
+  if ((result = OpenJournalHistory(&journal, filter)) < 0)
   {
     error = strerror(-result);
     journal = nullptr;

@@ -44,7 +44,8 @@
 #define READ_STEP     5000          // Entries read at once, the rest comes with the next polls
 #define BYTE_CAPACITY (64 << 20)    // Text a window keeps whatever the count of its lines, one huge message stays
 #define HISTORY_STEP  1000          // Entries that pass brought in front when scrolling above the first line
-#define HISTORY_SCAN  1000          // Milliseconds a filter done on this side looks for its history at a time
+#define HISTORY_SCAN  1000          // Milliseconds a filter done on this side looks for its history when opened or scrolled
+#define HISTORY_SLICE 100           // And by steps of the polls for the rest
 
 #define HOST_WIDTH        24  // Limits of the columns as wide as their longest values
 #define UNIT_WIDTH        32
