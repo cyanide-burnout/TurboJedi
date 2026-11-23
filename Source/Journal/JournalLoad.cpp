@@ -246,6 +246,12 @@ size_t JournalView::back(int64_t deadline, int* entries)
   std::vector<JournalLine> parts;
   std::vector<JournalLine> batch;
 
+  if (entries != nullptr)
+  {
+    // Nothing yet, whatever way the step ends
+    *entries = 0;
+  }
+
   // On from the oldest entry looked at, the oldest line otherwise
   from = (!past.empty()) ? past : ((!lines.empty()) ? edge(false).cursor : std::string());
 
@@ -641,10 +647,14 @@ void JournalView::dig(int64_t deadline)
          (older) &&
          (GetQueryMilliseconds() < deadline))
   {
+    entries = 0;
+
     if ((back(deadline, &entries) == 0) &&
         (GetQueryMilliseconds() < deadline))
     {
-      // The journal, the range or the room of the window has ended
+      // A step with a deadline looks until it, a rare filter that finds nothing included; one that ends before it with
+      // nothing has met the start of the journal or of the range, the room of the window, or has nothing to go back
+      // from or no journal to read
       wanted = 0;
       break;
     }
