@@ -21,7 +21,7 @@
 
 JournalsDialog::JournalsDialog() :
   TWindowInit(&TDialog::initFrame),
-  TDialog(TRect(0, 0, 58, 16), "Journals")
+  TDialog(TRect(0, 0, 58, 16), "Source")
 {
   options |= ofCentered;
   buttons  = new TRadioButtons(TRect(3, 3, 55, 6),

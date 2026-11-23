@@ -120,7 +120,6 @@ OBJECTS := \
 	$(SOURCE)/Journal/JournalLayout.o \
 	$(SOURCE)/Main/JediSettings.o \
 	$(SOURCE)/Main/JediShadow.o \
-	$(SOURCE)/Dialog/SourceDialog.o \
 	$(SOURCE)/Dialog/PickDialog.o \
 	$(SOURCE)/Dialog/WindowsDialog.o \
 	$(SOURCE)/Dialog/TimeDialog.o \
@@ -134,8 +133,7 @@ OBJECTS := \
 	$(SOURCE)/Journal/JournalMatcher.o \
 	$(SOURCE)/Journal/JournalChain.o \
 	$(SOURCE)/Dialog/TextDialog.o \
-	$(SOURCE)/Dialog/ChainDialog.o \
-	$(SOURCE)/Dialog/LevelsDialog.o \
+	$(SOURCE)/Dialog/FilterDialog.o \
 	$(SOURCE)/Dialog/ColumnsDialog.o \
 	$(SOURCE)/Dialog/JournalsDialog.o \
 	$(SOURCE)/Dialog/DirectoryDialog.o \

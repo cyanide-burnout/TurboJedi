@@ -255,7 +255,7 @@ static void PrintUsage(const char* name)
   printf("the case matter: UNIT=foo.service /start/ '!/restart/' _PID!=123, an entry has to pass all of them\n");
   printf("TIME is 2026-10-23 19:00[:00], 2026-10-23, 19:00 (today), now, today, yesterday, tomorrow or relative as\n");
   printf("journalctl takes it: -1h, +30m, \"-1h 30min\", \"5min ago\" (us, ms, s, min, h, d, w, M, y and their longer names)\n");
-  printf("Options set the filter of the first window, F7 changes the source of a window, F3 its levels, F4 its text,\n");
+  printf("Options set the filter of the first window, F4 changes the filter of a window, F7 its journals,\n");
   printf("Ctrl-T its time range, F1 shows all the keys\n");
 }
 

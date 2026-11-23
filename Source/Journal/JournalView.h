@@ -231,10 +231,8 @@ class JournalView : public TScroller
     void travel(int direction);
     void remap(JournalPlace& place, const std::vector<size_t>& numbers, const std::vector<size_t>& bottoms);  // To the other order
     void synchronize();
-    void chooseLevels();
-    void chooseText();
+    void chooseFilter(int start);
     void chooseSource();
-    void chooseJournals();
     void chooseTime();
     void chooseColumns();
     void chooseFind();

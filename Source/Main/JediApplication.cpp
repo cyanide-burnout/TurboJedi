@@ -115,6 +115,9 @@ TStatusLine* JediApplication::initStatusLine(TRect bounds)
   // Actions the way Far and Windows open them, Alt-F10 of the menu as in the IDEs of Borland is the main one
   hidden = new TStatusItem(0, kbF11, cmJournalActions, new TStatusItem(0, kbShiftF10, cmJournalActions, hidden));
 
+  // The levels of the window of the filter, and the journals by the key they have had before 0.20
+  hidden = new TStatusItem(0, kbF3, cmJournalLevels, new TStatusItem(0, kbShiftF7, cmJournalSource, hidden));
+
   // The windows of watches and the timeline tell their own keys, a Mac has Backspace for Delete; the items are clicked
   // as well
   return new JediStatusLine(bounds,
@@ -148,13 +151,12 @@ TStatusLine* JediApplication::initStatusLine(TRect bounds)
     new TStatusDef(0, 0xffff,
       new TStatusItem("~F1~ Help",      kbF1,    cmJournalHelp,
       new TStatusItem("~F2~ New",       kbF2,    cmJournalNew,
-      new TStatusItem("~F3~ Levels",    kbF3,    cmJournalLevels,
-      new TStatusItem("~F4~ Text",      kbF4,    cmJournalText,
+      new TStatusItem("~F4~ Filter",    kbF4,    cmJournalFilter,
       new TStatusItem("~F7~ Source",    kbF7,    cmJournalSource,
       new TStatusItem("~Ctrl-F~ Find",  kbCtrlF, cmJournalFind,
       new TStatusItem("~Space~ Pause",  kbNoKey, cmJournalPause,
       new TStatusItem("~Alt-X~ Exit",   kbAltX,  cmQuit,
-      hidden)))))))))))));
+      hidden))))))))))));
 }
 
 TMenuBar* JediApplication::initMenuBar(TRect bounds)
@@ -175,10 +177,9 @@ TMenuBar* JediApplication::initMenuBar(TRect bounds)
       newLine() +
       *new TMenuItem("E~x~it",           cmQuit,          kbAltX,    hcNoContext, "Alt-X") +
     *new TSubMenu("~J~ournal", kbAltJ) +
+      *new TMenuItem("Fil~t~er...",     cmJournalFilter,       kbF4,      hcNoContext, "F4") +
       *new TMenuItem("~L~evels...",     cmJournalLevels,       kbF3,      hcNoContext, "F3") +
-      *new TMenuItem("~T~ext...",       cmJournalText,         kbF4,      hcNoContext, "F4") +
       *new TMenuItem("~S~ource...",     cmJournalSource,       kbF7,      hcNoContext, "F7") +
-      *new TMenuItem("~J~ournals...",   cmJournalJournals,     kbShiftF7, hcNoContext, "Shift-F7") +
       *new TMenuItem("T~i~me...",       cmJournalTime,         kbCtrlT,   hcNoContext, "Ctrl-T") +
       *new TMenuItem("Col~u~mns...",    cmJournalColumns,      kbCtrlK,   hcNoContext, "Ctrl-K") +
       *new TMenuItem("~W~rap lines",    cmJournalWrap,         kbCtrlW,   hcNoContext, "Ctrl-W") +
@@ -957,11 +958,13 @@ void JediApplication::showHelp()
     "  Window menu     Shadows of every window and dialog: off, light, medium or dark",
     "  Ctrl-O, Ctrl-S  Open, save the layout of all windows",
     "",
-    "Filter of the window, the journal applies it when asked",
-    "  F3              Levels",
-    "  F4              Text: plain or regular expression, to show or to leave out",
-    "  F7              Source: unit, identifier, command, transport, boot, user, machine, PID",
-    "  Shift-F7        Journals: of this machine, of every machine or of a directory",
+    "Filter of the window",
+    "  F4              Filter: rules of a field or a text with not before the value, Add puts",
+    "                  one into the rules, an entry has to pass all of them; the levels and",
+    "                  the times. The lists beside a field tell the fields and the values",
+    "                  the journal has, a field of the journal or unit, id, comm, via, boot,",
+    "                  user, machine, pid. F3 opens it on the levels",
+    "  F7              Source: the journals of this machine, of every machine or of a directory",
     "  Ctrl-T          Time range, in local time or with UTC checked in UTC: checking it",
     "                  turns the times over to the same moments, a day to its midnight;",
     "                  it starts in the zone of the range, or as the window shows times",
@@ -987,8 +990,9 @@ void JediApplication::showHelp()
     "                  goes on with it as the keys do. Ctrl+click marks a line or takes",
     "                  its mark off, Shift+click and dragging select",
     "  Esc             Drop the selection and the marks, the cursor stays",
-    "  Enter           All fields of the entry under the cursor, also double click,",
-    "                  Enter on a field there opens a window with the filter of this one and the field",
+    "  Enter           All fields of the entry under the cursor, also double click;",
+    "                  Show, Enter on a field there, opens a window with the field added",
+    "                  to the filter, Hide one without its value",
     "  Alt-F10, A      Actions of the plugins for the entry under the cursor, also F11, Shift-F10",
     "                  and a right click on a line; see PLUGINS.md",
     "  Ctrl-F          Find and highlight, Ctrl-N and Ctrl-P go to the next and previous one,",

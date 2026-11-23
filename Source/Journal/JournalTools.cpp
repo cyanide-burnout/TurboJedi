@@ -1229,6 +1229,68 @@ void ListJournalValues(const JournalFilter& filter, int field, std::map<std::str
   sd_journal_close(journal);
 }
 
+void ListJournalFields(const JournalFilter& filter, std::set<std::string>& names)
+{
+  const char* field;
+  sd_journal* journal;
+
+  if (OpenJournal(&journal, filter) < 0)
+  {
+    return;
+  }
+
+  SD_JOURNAL_FOREACH_FIELD(journal, field)
+  {
+    if (strncmp(field, "__", 2) != 0)
+    {
+      // __CURSOR and the like are no fields to match
+      names.insert(field);
+    }
+  }
+
+  sd_journal_close(journal);
+}
+
+void ListJournalFieldValues(const JournalFilter& filter, const std::string& name, std::map<std::string, std::string>& values)
+{
+  size_t length;
+  size_t prefix;
+  const void* data;
+  const char* text;
+  sd_journal* journal;
+
+  if ((!CheckJournalMatch(name + "=", true)) ||
+      (OpenJournal(&journal, filter) < 0))
+  {
+    return;
+  }
+
+  prefix = name.size() + 1;
+
+  if (sd_journal_query_unique(journal, name.c_str()) >= 0)
+  {
+    SD_JOURNAL_FOREACH_UNIQUE(journal, data, length)
+    {
+      text = static_cast<const char*>(data) + prefix;
+
+      if ((length > prefix) &&
+          (length - prefix <= JOURNAL_VALUE_LENGTH) &&
+          (std::all_of(text, text + length - prefix, [] (char character) { return static_cast<unsigned char>(character) >= 0x20; })))
+      {
+        values.emplace(std::string(text, length - prefix), std::string(text, length - prefix));
+      }
+
+      if (values.size() >= JOURNAL_VALUE_LIMIT)
+      {
+        // MESSAGE and the like have more than a list can show
+        break;
+      }
+    }
+  }
+
+  sd_journal_close(journal);
+}
+
 std::string GetJournalFilterName(const JournalFilter& filter)
 {
   static const char letters[] = "EACRWNID";

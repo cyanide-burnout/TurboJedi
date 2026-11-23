@@ -365,10 +365,9 @@ void JournalView::handleEvent(TEvent& event)
     case evCommand:
       switch (event.message.command)
       {
-        case cmJournalLevels:        chooseLevels();   break;
-        case cmJournalText:          chooseText();     break;
+        case cmJournalLevels:        chooseFilter(FILTER_LEVELS); break;
+        case cmJournalFilter:        chooseFilter(FILTER_FIELD);  break;
         case cmJournalSource:        chooseSource();   break;
-        case cmJournalJournals:      chooseJournals(); break;
         case cmJournalTime:          chooseTime();     break;
         case cmJournalColumns:       chooseColumns();  break;
         case cmJournalHighlight:     chooseHighlight(); break;

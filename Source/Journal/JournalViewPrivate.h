@@ -18,13 +18,11 @@
 #define Uses_TFileDialog
 #define Uses_MsgBox
 #include "JournalView.h"
-#include "SourceDialog.h"
 #include "TimeDialog.h"
 #include "PageDialog.h"
 #include "PickDialog.h"
 #include "TextDialog.h"
-#include "ChainDialog.h"
-#include "LevelsDialog.h"
+#include "FilterDialog.h"
 #include "ColumnsDialog.h"
 #include "JournalsDialog.h"
 #include "JediClipboard.h"

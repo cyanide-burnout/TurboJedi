@@ -2,22 +2,9 @@
 // https://github.com/cyanide-burnout/TurboJedi
 // Artem Prilutskiy, 2026
 
-// JournalView asked: the dialogs of levels, columns, text, find, a moment, highlights, the source, journals and time
+// JournalView asked: the dialogs of the filter, columns, find, a moment, highlights, the source of the journals and time
 
 #include "JournalViewPrivate.h"
-
-void JournalView::chooseLevels()
-{
-  ushort value;
-
-  value = filter.levels;
-
-  if (TProgram::application->executeDialog(new LevelsDialog(), &value) == cmOK)
-  {
-    filter.levels = value;
-    open();
-  }
-}
 
 void JournalView::chooseColumns()
 {
@@ -64,24 +51,6 @@ void JournalView::arrange()
   }
 
   locate(bounds);
-}
-
-void JournalView::chooseText()
-{
-  ushort result;
-  ChainDialog* dialog;
-
-  // The chain of the window, a text added to it or a link taken out
-  dialog = new ChainDialog(filter);
-  result = TProgram::deskTop->execView(dialog);
-
-  if (result == cmOK)
-  {
-    dialog->apply(filter);
-    open();
-  }
-
-  TObject::destroy(dialog);
 }
 
 void JournalView::chooseFind()
@@ -168,44 +137,25 @@ void JournalView::chooseHighlight()
   TObject::destroy(dialog);
 }
 
-void JournalView::chooseSource()
+void JournalView::chooseFilter(int start)
 {
-  int field;
-  SourceData data;
+  ushort result;
+  FilterDialog* dialog;
 
-  memset(&data, 0, sizeof(data));
+  // Everything of the filter but the journals, the rules, the levels and the times
+  dialog = new FilterDialog(filter, start);
+  result = TProgram::deskTop->execView(dialog);
 
-  for (field = 0; field < JOURNAL_FIELD_COUNT; field ++)
+  if (result == cmOK)
   {
-    // Empty stands for any
-    strncpy(data.values[field], filter.values[field].c_str(), JOURNAL_VALUE_LENGTH - 1);
-  }
-
-  if (filter.pid != 0)
-  {
-    snprintf(data.pid, sizeof(data.pid), "%d", filter.pid);
-  }
-
-  if (TProgram::application->executeDialog(new SourceDialog(filter), &data) == cmOK)
-  {
-    for (field = 0; field < JOURNAL_FIELD_COUNT; field ++)
-    {
-      filter.values[field] = data.values[field];
-    }
-
-    if ((!filter.values[JOURNAL_FIELD_UNIT].empty()) &&
-        (filter.values[JOURNAL_FIELD_UNIT].find('.') == std::string::npos))
-    {
-      // Like systemctl and journalctl do
-      filter.values[JOURNAL_FIELD_UNIT] += ".service";
-    }
-
-    filter.pid = atoi(data.pid);
+    dialog->apply(filter);
     open();
   }
+
+  TObject::destroy(dialog);
 }
 
-void JournalView::chooseJournals()
+void JournalView::chooseSource()
 {
   JournalsData data;
 

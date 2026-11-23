@@ -25,6 +25,7 @@
 #define JOURNAL_FIELD_COUNT       7
 
 #define JOURNAL_VALUE_LENGTH      128
+#define JOURNAL_VALUE_LIMIT       10000  // Values of a field a list takes
 
 #define JOURNAL_COLUMN_DATE        (1 << 0)
 #define JOURNAL_COLUMN_TIME        (1 << 1)
@@ -131,6 +132,11 @@ bool SeekJournalPlace(sd_journal* journal, sd_journal* source);
 
 // Labels with values to choose a source field from, JOURNAL_FIELD_COUNT stands for PID with the labels of running processes
 void ListJournalValues(const JournalFilter& filter, int field, std::map<std::string, std::string>& values, std::set<std::string>& running);
+
+// Names of the fields the journals of a filter have, and the values of one of them as journalctl -F tells them, label
+// and value alike: a value of control characters or past the limit is left out, a match could not be typed of it
+void ListJournalFields(const JournalFilter& filter, std::set<std::string>& names);
+void ListJournalFieldValues(const JournalFilter& filter, const std::string& name, std::map<std::string, std::string>& values);
 
 // _UID value of a user name or number, empty when there is no such user
 std::string GetJournalUserIdentifier(const std::string& user);
