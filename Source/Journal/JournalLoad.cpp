@@ -207,7 +207,7 @@ size_t JournalView::back(int64_t deadline)
   bool ended;
   bool fresh;
   size_t size;
-  int64_t limit;
+  int64_t stop;
   char* cursor;
   std::string from;
   uint64_t realtime;
@@ -234,9 +234,9 @@ size_t JournalView::back(int64_t deadline)
 
   // A filter done on this side counts the entries that pass it: without a deadline the step goes on until it has found
   // one, a rare one may be far back
-  limit = (deadline != 0) ? deadline : (GetQueryMilliseconds() + HISTORY_SCAN);
+  stop = (deadline != 0) ? deadline : (GetQueryMilliseconds() + HISTORY_SCAN);
 
-  for (count = 0, size = bytes; (!ended) && (count < HISTORY_STEP) && ((lines.size() + batch.size()) < capacity) && (size < BYTE_CAPACITY) && ((GetQueryMilliseconds() < limit) || ((deadline == 0) && (count == 0))); )
+  for (count = 0, size = bytes; (!ended) && (count < HISTORY_STEP) && ((lines.size() + batch.size()) < capacity) && (size < BYTE_CAPACITY) && ((GetQueryMilliseconds() < stop) || ((deadline == 0) && (count == 0))); )
   {
     if (fresh)
     {
