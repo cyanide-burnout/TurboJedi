@@ -5,11 +5,18 @@ its filter goes to the journal as a query, so a window of one unit or of errors 
 entries, while other windows follow the whole system next to it.
 
 It is scriptable in Lua 5.4: plugins make the Actions menu of an entry and watch the journal as it comes, see
-[plugins](Documentation/PLUGINS.md). It is open to AI agents as well: `turbojedi-mcp.py`, a server of the Model Context Protocol,
-gives Claude Code, Codex or another agent the windows you have open, over SSH; the agent finds and points at entries
-on your screen, you act, see [MCP.md](Documentation/MCP.md). And it asks a language model itself: Arrakis explains the
-entries you mark or the errors of a window, answers questions about them, by a model on your machine or a service of
-your choice, see [ARRAKIS.md](Documentation/ARRAKIS.md).
+[plugins](Documentation/PLUGINS.md).
+
+Language models work with it both ways:
+
+- **TurboJedi asks a model itself.** Arrakis, a client of LLMs built in, explains the entries you mark, the errors of a
+  window or a pile of bookmarks: what has happened, the likely cause, what to check, and answers your questions about
+  it in a conversation. Any service of the API of OpenAI or of Anthropic does: llama.cpp, Ollama, vLLM or the model of
+  your Mac with nothing leaving your network, or OpenAI and Anthropic with a key. It keeps what a large model has answered
+  on your journals, to teach a small one of your own on. See [ARRAKIS.md](Documentation/ARRAKIS.md)
+- **An agent asks TurboJedi.** `turbojedi-mcp.py`, a server of the Model Context Protocol, gives Claude Code, Codex or
+  another agent the windows you have open, over SSH; the agent finds and points at entries on your screen, you act. See
+  [MCP.md](Documentation/MCP.md)
 
 Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd, PCRE2, Lua 5.4, libcurl, SQLite,
 [libzip](https://libzip.org), [lua-cjson](https://github.com/openresty/lua-cjson) and
@@ -50,6 +57,11 @@ Built on [magiblot/tvision](https://github.com/magiblot/tvision), libsystemd, PC
   to write one, [LUA.md](Documentation/LUA.md)
 - Watches of plugins: entries of a filter as they come, a status and lines of each in a list, F12; Watch 1/3 * in the
   status line tells about new ones, an important one brings the list up with a bell
+- Arrakis, a client of LLMs: Explain this entry, Explain N marked entries or the errors of a window, Ask Arrakis about
+  bookmarks; the answer in a window with a line for the next question, kept in a watch of F12 with the entries it names.
+  A model of llama.cpp, Ollama or vLLM on your machine, or a service of OpenAI or Anthropic, several of them in one file
+  to compare; an address off the machine is asked about before the first request. See
+  [ARRAKIS.md](Documentation/ARRAKIS.md)
 - AI agents: every instance offers its workspace on the system bus, and `turbojedi-mcp.py` gives it to an agent such
   as Claude Code or Codex over SSH. The agent points, the user acts; plugins may offer it methods of their own, a
   search or a watch the user follows. See [MCP.md](Documentation/MCP.md), the interface itself in
@@ -133,7 +145,7 @@ reading the whole journal needs root or the `systemd-journal` group. F1 tells th
 | [BUILD.md](Documentation/BUILD.md) | building from the sources and the packages of the distributions |
 | [PLUGINS.md](Documentation/PLUGINS.md) | the plugins of the package and the examples, where plugins are |
 | [BOOKMARKS.md](Documentation/BOOKMARKS.md) | bookmarks of entries, their topics and the base they are kept in |
-| [ARRAKIS.md](Documentation/ARRAKIS.md) | entries explained by a language model |
+| [ARRAKIS.md](Documentation/ARRAKIS.md) | Arrakis, the client of LLMs: entries explained by a language model of your choice |
 | [MCP.md](Documentation/MCP.md) | AI agents over the Model Context Protocol |
 | [LUA.md](Documentation/LUA.md) | the interface of Lua for plugins of your own |
 | [DBUS.md](Documentation/DBUS.md) | the interface on the system bus |
