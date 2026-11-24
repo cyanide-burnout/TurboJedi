@@ -12,8 +12,8 @@ Language models work with it both ways:
 - **TurboJedi asks a model itself.** Arrakis, a client of LLMs built in, explains the entries you mark, the errors of a
   window or a pile of bookmarks: what has happened, the likely cause, what to check, and answers your questions about
   it in a conversation. Any service of the API of OpenAI or of Anthropic does: llama.cpp, Ollama, vLLM or the model of
-  your Mac with nothing leaving your network, or OpenAI and Anthropic with a key. It keeps what a large model has answered
-  on your journals, to teach a small one of your own on. See [ARRAKIS.md](Documentation/ARRAKIS.md)
+  your Mac with nothing leaving your network, or OpenAI and Anthropic with a key. It can record what a large model answers on
+  your journals, as training data for a small model of your own. See [ARRAKIS.md](Documentation/ARRAKIS.md)
 - **An agent asks TurboJedi.** `turbojedi-mcp.py`, a server of the Model Context Protocol, gives Claude Code, Codex or
   another agent the windows you have open, over SSH; the agent finds and points at entries on your screen, you act. See
   [MCP.md](Documentation/MCP.md)
