@@ -137,6 +137,10 @@ def call(bus, name, method, *arguments):
             raise Failure('the instance has exited')
         if kind == 'NoReply':
             raise Failure('TurboJedi has not answered in %d seconds' % TIMEOUT)
+        if kind == 'Denied':
+            # An instance of another user, the files of allow of it may let one in for some methods only
+            raise Failure('Denied: the instance of PID %s is of UID %d, its files of allow do not let this user, UID %d, '
+                          'call %s()' % (name.rsplit('.P', 1)[-1], served(name), os.getuid(), method))
         if kind == 'UnknownMethod':
             # An instance started before TurboJedi was updated: the interface only grows within its version
             raise Failure(older('has no %s() yet' % method))

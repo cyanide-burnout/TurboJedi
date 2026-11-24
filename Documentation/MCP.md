@@ -193,6 +193,7 @@ The calls the agent makes are the D-Bus interface of [DBUS.md](DBUS.md), which a
 | no instance, the policy is not installed | the package is not installed, or `make install` without `systemctl reload dbus`; the path is in the message |
 | no instance, TurboJedi is not running | start TurboJedi on the server; an instance started before the policy has no name and needs a restart |
 | instances of other users do not answer | they belong to another user: come in as that user, or start TurboJedi with `sudo` as yourself |
+| Denied: the instance is of another UID | the only instance there is belongs to another user and its files of allow do not let this one in, see DBUS.md |
 | Busy: a dialog is open | a dialog of TurboJedi was open for the whole 30 seconds: close it, and the agent tries again |
 | TurboJedi has not answered | the instance is stuck or the call took longer than 40 seconds |
 | an instance is outdated | it was started before TurboJedi was updated and lacks what is new: restart TurboJedi |
