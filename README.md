@@ -1,6 +1,6 @@
 # TurboJedi
 
-Turbo Journald Interface (J[e]DI) — a Turbo Vision viewer of the systemd journal. Every window is a journal client of its own:
+Turbo Journald Interface (J[e]DI) — a Turbo Vision viewer of the systemd journal with AI-powered log analysis. Every window is a journal client of its own:
 its filter goes to the journal as a query, so a window of one unit or of errors only reads just those
 entries, while other windows follow the whole system next to it.
 
@@ -10,7 +10,7 @@ It is scriptable in Lua 5.4: plugins make the Actions menu of an entry and watch
 Language models work with it both ways:
 
 - **TurboJedi asks a model itself.** Arrakis, a client of LLMs built in, explains the entries you mark, the errors of a
-  window or a pile of bookmarks: what has happened, the likely cause, what to check, and answers your questions about
+  window or a pile of bookmarks: what has happened, the likely root cause, what to check, and answers your questions about
   it in a conversation. Any service of the API of OpenAI or of Anthropic does: llama.cpp, Ollama, vLLM or the model of
   your Mac with nothing leaving your network, or OpenAI and Anthropic with a key. It can record what a large model answers on
   your journals, as training data for a small model of your own. See [ARRAKIS.md](Documentation/ARRAKIS.md)
