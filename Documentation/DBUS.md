@@ -18,18 +18,20 @@ MCP is such a caller: it gives an agent only the methods that read or change the
 ## Names on the bus
 
 Each instance takes the name `me.burnaway.TurboJedi.U<uid>.P<pid>` on the system bus, for example
-`me.burnaway.TurboJedi.U1000.P4242`. The system bus is the one where the instances of root and of the users are seen
-alike. The name is for finding an instance and nothing else. Trust does not rest on it, nobody checks the UID in it.
+`me.burnaway.TurboJedi.U1000.P4242`. The UID is the user the instance answers: its own, or for an instance of root
+started by `sudo` the user of `SUDO_UID`, so that a program finds the instances of its user by the name alone. The
+system bus is the one where the instances of root and of the users are seen alike. The name is for finding an instance
+and nothing else. Trust does not rest on it, TurboJedi does not check the UID in it.
 
 ```
 busctl --system list | grep me.burnaway.TurboJedi
 ```
 
 A program lists the names with `ListNames()` of `org.freedesktop.DBus` and keeps the ones of the prefix. The policy lets
-anyone take a name of the prefix, so a careful program keeps a name only when `GetConnectionUnixUser(name)` and
-`GetConnectionUnixProcessID(name)` there give the UID and the PID the name says, as `turbojedi-mcp.py` does. This keeps
-a process from passing for an instance of another user or another process; it does not prove that the owner is
-TurboJedi.
+anyone take a name of the prefix, so a careful program keeps a name only when `GetConnectionUnixProcessID(name)` there
+gives the PID the name says and `GetConnectionUnixUser(name)` the UID or 0, as `turbojedi-mcp.py` does. This keeps a
+process from passing for an instance of another user or another process; it does not prove that the owner is
+TurboJedi. Root may name any user, as it may anything.
 
 ### Policy
 

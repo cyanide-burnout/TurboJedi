@@ -93,7 +93,8 @@ def plain(value):
 
 def names(bus):
     '''Names of the instances by their PID. The policy lets anyone take a name of the prefix: a name counts only when
-    the bus tells that its owner has the UID and the PID the name says'''
+    the bus tells that its owner has the PID the name says and the UID, or is root, whose instance started by sudo names
+    the user of sudo'''
     found = {}
     daemon = dbus.Interface(bus.get_object('org.freedesktop.DBus', '/org/freedesktop/DBus'), 'org.freedesktop.DBus')
 
@@ -110,13 +111,18 @@ def names(bus):
             # Gone meanwhile
             continue
 
-        if (uid, pid) != (int(match.group(1)), int(match.group(2))):
+        if (uid not in (0, int(match.group(1)))) or (pid != int(match.group(2))):
             sys.stderr.write('turbojedi-mcp.py: %s belongs to UID %d, PID %d, not to the ones it names\n' % (name, uid, pid))
             continue
 
         found[pid] = str(name)
 
     return found
+
+
+def served(name):
+    '''The user an instance answers by its name'''
+    return int(re.match(r'^me\.burnaway\.TurboJedi\.U(\d+)\.', name).group(1))
 
 
 def call(bus, name, method, *arguments):
@@ -219,6 +225,11 @@ def choose(bus, arguments):
         raise Failure(missing())
 
     if len(found) > 1:
+        # The one of this user, when only one of them is: the others answer root or a user the files of allow name
+        own = [name for name in found.values() if (os.getuid() != 0) and (served(name) == os.getuid())]
+        if len(own) == 1:
+            return own[0]
+
         raise Failure('there are %d instances, PIDs %s: give pid, list_instances tells which is which' %
                       (len(found), ', '.join(str(key) for key in sorted(found))))
 

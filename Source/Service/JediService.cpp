@@ -414,7 +414,8 @@ bool OpenService(const std::string& allow, std::vector<std::string>& problems)
     return false;
   }
 
-  snprintf(name, sizeof(name), BUS_PREFIX ".U%u.P%u", (unsigned)getuid(), (unsigned)getpid());
+  // The name tells the user the instance answers, the one of sudo for an instance of root it started
+  snprintf(name, sizeof(name), BUS_PREFIX ".U%u.P%u", (unsigned)(delegated ? delegate : getuid()), (unsigned)getpid());
 
   if (((result = sd_bus_add_object_vtable(bus, nullptr, BUS_PATH, BUS_INTERFACE, Table, nullptr)) < 0) ||
       ((result = sd_bus_request_name(bus, name, 0)) < 0))

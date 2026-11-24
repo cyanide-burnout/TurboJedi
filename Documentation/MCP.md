@@ -108,7 +108,9 @@ The agent works as the user it comes in as over SSH, and sees:
   anyway, so the agent gets no new rights. If the rules of sudo change, a running instance does not know it;
 - an agent that comes in as root sees every instance.
 
-The instances of other users do not answer: the agent is told how many there are, not what they show.
+The instances of other users do not answer: the agent is told how many there are, not what they show. A tool given
+no `pid` takes the only instance there is, or the only one of the user the agent comes in as, an instance of root
+started by `sudo` among them; with more it asks for `pid`.
 
 ## What the agent can do
 
