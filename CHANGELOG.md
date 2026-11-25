@@ -3,6 +3,33 @@
 Every release has a theme of its own, the patch releases after it finish the same one. Packages of every release are on
 the [releases page](https://github.com/cyanide-burnout/TurboJedi/releases).
 
+## 0.20 — 2026-11-25
+
+Filters past what journald can do: a chain of fields and texts to show or to leave out, as a firewall writes its rules.
+Thanks to NoN, whose review on Habr asked for all of it and whose notation the chain took.
+
+- One window of the filter, F4, F3 on the levels: the simple filter of a value of each field of Source, PID, a text and
+  the levels, or Advanced..., the rules of a field or a text with `not` before the value, the lists of the fields and
+  values of the journal, the levels and the times; it opens the simple one when that shows the whole filter. F7 is
+  Source, the journals. A rule of the list comes back into its line by a double click or Space to be changed, Delete
+  takes it out
+- `FIELD!=VALUE` leaves out the entries of a value, every value of a field that comes several times looked at;
+  `FIELD=*` takes the entries that have the field, `FIELD!=*` the ones that have it not, so `EXIT_CODE!=killed
+  EXIT_CODE=*` is the field there and not equal. Texts to show or to leave out, `/start/ !/restart/`, plain or an
+  expression of PCRE2. journald matches only FIELD=VALUE: the rest is checked by TurboJedi, and `FIELD=*` goes to the
+  journal as the values its index has for the field, so a rare field is found far back without reading the journal
+  through; the older entries come by steps between the polls, LOADING in the status line
+- The chain is written as the title of a window writes it, on the command line as well:
+  `turbojedi -u foo /start/ '!/restart/' _PID!=123`; layouts, Lua, D-Bus and `turbojedi-mcp.py` take it, a layout of
+  0.19 is read
+- After a change of the filter, the journals or the range a window stays on the entry it has been on, the nearest one
+  in time when the entry is left out; Ctrl-Z goes back to the filter before and to the entry there, Ctrl-Y forward again
+- The window of an entry: the time and the cursor on top, the fields of the program, then those of journald; Show
+  narrows the window to a field, Hide leaves its value out, as Apply as filter of Wireshark does; both are off on a
+  field the journal takes no match of. A filter on a binary field no longer looks for the text `[N bytes]`
+- The name of an instance of root started by `sudo` on the bus tells the user of sudo, `U1000.P4242`, the user it
+  answers; `turbojedi-mcp.py` takes the only instance of its user without `pid`, and a refusal tells whose instance it is
+
 ## 0.19 — 2026-11-22
 
 Plugins of many files, a folder or a ZIP archive with resources of their own, and the inside of TurboJedi put in order.
