@@ -73,7 +73,8 @@ endif
 # Lua 5.4 runs the plugins of the Actions menu, distributions name its pkg-config module in their own ways
 LUA := $(firstword $(foreach module, lua5.4 lua-5.4 lua54 lua, $(shell $(PKG_CONFIG) --exists '$(module) >= 5.4' '$(module) < 5.5' && echo $(module))))
 
-ifeq ($(filter clean,$(MAKECMDGOALS)), )
+# clean and prepare build nothing and need none of them
+ifeq ($(filter clean prepare,$(MAKECMDGOALS)), )
 ifeq ($(LUA), )
 $(error Lua 5.4 is needed: liblua5.4-dev, lua-devel, lua54-devel or lua54 of the distribution)
 endif
