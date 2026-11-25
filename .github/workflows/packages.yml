@@ -15,8 +15,25 @@ on:
   workflow_dispatch:
 
 jobs:
+  lsqlite3:
+    # Fossil of lua.sqlite.org answers 503 when every job asks for it at once: fetched here once and checked by make,
+    # the jobs take this copy
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Fetch
+        run: make prepare
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: lsqlite3
+          path: Import/lsqlite3/
+
   package:
     name: ${{ matrix.distro.name }} ${{ matrix.arch }}
+    needs: lsqlite3
     runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     container: ${{ matrix.distro.image }}
 
@@ -54,6 +71,11 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: lsqlite3
+          path: Import/lsqlite3
 
       - name: Build
         run: sh .github/package.sh ${{ matrix.distro.name }}

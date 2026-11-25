@@ -30,7 +30,7 @@ LSQLITE3_SUM     := a3de0d56dcdd7df85e334174cd46e70451f996bc843e735ab1d8a8e8804f
 ifeq ($(wildcard $(LSQLITE3)/lsqlite3.c),)
 ifneq ($(filter-out clean,$(or $(MAKECMDGOALS),all)),)
 ifneq ($(shell mkdir -p $(LSQLITE3) && \
-               curl -fsSL --retry 3 -o $(LSQLITE3)/lsqlite3.c.part $(LSQLITE3_ADDRESS) >&2 && \
+               curl -fsSL --retry 6 --retry-delay 10 -o $(LSQLITE3)/lsqlite3.c.part $(LSQLITE3_ADDRESS) >&2 && \
                echo '$(LSQLITE3_SUM)  $(LSQLITE3)/lsqlite3.c.part' | sha256sum -c --quiet - >&2 && \
                sed -n '1,/^\*\{10,\}\/$$/p' $(LSQLITE3)/lsqlite3.c.part > $(LSQLITE3)/LICENSE && \
                mv $(LSQLITE3)/lsqlite3.c.part $(LSQLITE3)/lsqlite3.c && echo done),done)
